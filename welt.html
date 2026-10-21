@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Modelleisenbahn - Chemnitz & Sachsen Edition</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.7/dist/aframe-environment-component.min.js"></script>
+  <script src="baukasten.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden; background: #000;">
+
+  <a-scene 
+    renderer="antialias: true; colorManagement: true; powerPreference: high-performance; physicallyCorrectLights: true" 
+    shadow="type: pcfsoft" 
+    ki-steuerung>
+
+    <!-- 1. CINEASTISCHE UMWELT & BELEUCHTUNG (Erzgebirge-Stimmung) -->
+    <a-entity id="umwelt" environment="preset: forest; dressingAmount: 180; hills: true; shadow: true; lightPosition: -2 1.8 1; skyColor: #64b5f6; horizonColor: #ffcc80; groundColor: #2e5927; groundColor2: #1e3f1a; fog: 0.55"></a-entity>
+
+    <!-- Zusätzliches weiches Fülllicht für PBR-Glanz auf Lokomotiven und Schienen -->
+    <a-entity light="type: ambient; color: #b0bec5; intensity: 0.6"></a-entity>
+    <a-entity light="type: directional; color: #fff8e1; intensity: 1.8; castShadow: true; shadowCameraTop: 35; shadowCameraBottom: -35; shadowCameraLeft: -35; shadowCameraRight: 35" position="-15 25 20"></a-entity>
+
+    <!-- 2. KAMERA-RIG ([1] Übersicht, [2] Ludmilla Führerstand, [3] ICE-Blick, [4] Bahnsteig) -->
+    <a-entity id="kamera-rig" position="0 12 30" rotation="-22 0 0">
+      <a-camera id="haupt-kamera" wasd-controls="acceleration: 45; fly: true" look-controls></a-camera>
+    </a-entity>
+
+    <!-- 3. SCHIENEN-STRECKEN MIT 3D-SCHWELLEN & STAHLSCHIENEN -->
+    <a-entity ki-gleis="id: innen; radiusX: 21; radiusZ: 15"></a-entity>
+    <a-entity ki-gleis="id: aussen; radiusX: 26; radiusZ: 19"></a-entity>
+
+    <!-- 4. ZUG 1 (INNENRING): DR BR 132 "LUDMILLA" MIT ECHTEN 3D-KÖPFE- & KESSEL-WAGEN -->
+    <a-entity ki-zug="name: 🔴 DR BR 132 Ludmilla; gleis: innen; tempo: 9.0; startPos: 8">
+      <a-entity ki-waggon="typ: ludmilla"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-tank-large.glb; scale: 1.4 1.4 1.4"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-container-blue.glb; scale: 1.4 1.4 1.4"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-coal.glb; scale: 1.4 1.4 1.4"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-lumber.glb; scale: 1.4 1.4 1.4"></a-entity>
+    </a-entity>
+
+    <!-- 5. ZUG 2 (AUSSENRING): SCHNELLZUG MIT HOCHWERTIGEN 3D-GLB-MODELLEN -->
+    <a-entity ki-zug="name: 🚄 Express; gleis: aussen; tempo: 15.0; startPos: 60">
+      <a-entity ki-waggon="typ: ice-kopf; modell: models/trains/Models/GLB format/train-electric-bullet-a.glb; scale: 1.5 1.5 1.5"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-electric-bullet-b.glb; scale: 1.5 1.5 1.5"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-electric-bullet-b.glb; scale: 1.5 1.5 1.5"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-electric-bullet-c.glb; scale: 1.5 1.5 1.5"></a-entity>
+    </a-entity>
+
+    <!-- 6. BAHNHOF "CHEMNITZ-HILBERSDORF" & FLÖHA-SIGNAL -->
+    <a-entity ki-bahnhof="name: Chemnitz-Hilbersdorf" position="0 0 11.2" rotation="0 0 0"></a-entity>
+    <a-entity ki-signal="stellung: gruen" position="8.5 0 13.8" rotation="0 90 0"></a-entity>
+    <a-entity ki-signal="stellung: gruen" position="-9.5 0 21.8" rotation="0 -90 0"></a-entity>
+
+    <!-- 7. ECHTE 3D-GEBÄUDE (SUBURBAN / SACHSEN-VIBE) -->
+    <a-entity gltf-model="models/suburban/Models/GLB format/building-type-a.glb" scale="1.8 1.8 1.8" position="-8 0 2" rotation="0 40 0" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/suburban/Models/GLB format/building-type-c.glb" scale="1.8 1.8 1.8" position="7 0 -3" rotation="0 -25 0" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/suburban/Models/GLB format/building-type-e.glb" scale="1.8 1.8 1.8" position="-2 0 -6" rotation="0 10 0" shadow="cast: true"></a-entity>
+
+    <!-- 8. ECHTE 3D-FICHTEN & TANNEN (ERZGEBIRGS-NATUR) -->
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallA.glb" scale="2.2 2.2 2.2" position="-14 0 5" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallB.glb" scale="2.5 2.5 2.5" position="-12 0 8" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallC.glb" scale="2.0 2.0 2.0" position="12 0 4" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineDefaultA.glb" scale="2.4 2.4 2.4" position="14 0 -7" shadow="cast: true"></a-entity>
+
+    <!-- 9. DETAIL-AUTOS AM BAHNHOF -->
+    <a-entity gltf-model="models/cars/Models/GLB format/ambulance.glb" scale="1.1 1.1 1.1" position="-5.5 0.3 8.2" rotation="0 70 0" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/cars/Models/GLB format/delivery-flat.glb" scale="1.1 1.1 1.1" position="5.5 0.3 8.2" rotation="0 -75 0" shadow="cast: true"></a-entity>
+
+  </a-scene>
+
+</body>
+</html>

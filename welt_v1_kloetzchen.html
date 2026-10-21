@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>3D-Modelleisenbahn - v1 Original Klötzchen</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.7/dist/aframe-environment-component.min.js"></script>
+  <script src="baukasten_v1_kloetzchen.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+
+  <a-scene 
+    renderer="antialias: true; colorManagement: true; powerPreference: high-performance; physicallyCorrectLights: true" 
+    shadow="type: pcfsoft" 
+    ki-steuerung>
+
+    <!-- 1. UMWELT & LICHT -->
+    <a-entity id="umwelt" environment="preset: forest; dressingAmount: 200; hills: true; shadow: true; lightPosition: 1 2.5 1; fog: 0.65"></a-entity>
+
+    <!-- 2. KAMERA-RIG (Tasten [1] Übersicht, [2] Dampflok, [3] ICE, [4] Bahnhof + WASD & Maus) -->
+    <a-entity id="kamera-rig" position="0 14 34" rotation="-22 0 0">
+      <a-camera id="haupt-kamera" wasd-controls="acceleration: 45; fly: true" look-controls></a-camera>
+    </a-entity>
+
+    <!-- 3. SCHIENEN-RINGE (Mit automatischem 3D-Holzschwellen- & Schotter-Generator) -->
+    <a-entity ki-gleis="id: innen; radiusX: 21; radiusZ: 15"></a-entity>
+    <a-entity ki-gleis="id: aussen; radiusX: 25; radiusZ: 19"></a-entity>
+
+    <!-- 4. ZUG 1 (INNENRING): Klassische Dampflok mit Rauch, Spitzenlicht & grünen Waggons -->
+    <a-entity ki-zug="name: 🚂 Dampfzug; gleis: innen; tempo: 7.5; startPos: 10">
+      <a-entity ki-waggon="typ: dampflok"></a-entity>
+      <a-entity ki-waggon="typ: personenwagen; farbe: #2e6b34"></a-entity>
+      <a-entity ki-waggon="typ: personenwagen; farbe: #2e6b34"></a-entity>
+      <a-entity ki-waggon="typ: gueterwagen; farbe: #6d4c41"></a-entity>
+    </a-entity>
+
+    <!-- 5. ZUG 2 (AUSSENRING): Schnellzug ICE mit verkehrsrotem Streifen -->
+    <a-entity ki-zug="name: 🚄 ICE Sprinter; gleis: aussen; tempo: 14.0; startPos: 65">
+      <a-entity ki-waggon="typ: ice-kopf"></a-entity>
+      <a-entity ki-waggon="typ: ice-wagen"></a-entity>
+      <a-entity ki-waggon="typ: ice-wagen"></a-entity>
+      <a-entity ki-waggon="typ: ice-heck"></a-entity>
+    </a-entity>
+
+    <!-- 6. GEBÄUDE & SIGNALE AUF DER PLATTE -->
+    <a-entity ki-bahnhof="name: Lichtenau Hbf" position="0 0 11.2" rotation="0 0 0"></a-entity>
+    <a-entity ki-signal="stellung: gruen" position="8.5 0 13.8" rotation="0 90 0"></a-entity>
+    <a-entity ki-signal="stellung: gruen" position="-9.5 0 21.8" rotation="0 -90 0"></a-entity>
+
+    <!-- Kleines Dorf im Innenring -->
+    <a-entity ki-haus="farbe: #fff9c4; dachFarbe: #b71c1c; etagen: 2" position="-7 0 2" rotation="0 25 0"></a-entity>
+    <a-entity ki-haus="farbe: #e1f5fe; dachFarbe: #37474f; etagen: 1" position="6 0 -3" rotation="0 -15 0"></a-entity>
+    <a-entity ki-haus="farbe: #f8bbd0; dachFarbe: #bf360c; etagen: 1" position="-2 0 -5" rotation="0 5 0"></a-entity>
+
+  </a-scene>
+
+</body>
+</html>
