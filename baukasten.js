@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  * BAUKASTEN.JS - Die 3D-Modelleisenbahn-Engine ("EEP-Vibe")
  * Enthält alle A-Frame Components: Gleise, Schwellen, Züge, Waggons, 
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
