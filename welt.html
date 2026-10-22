@@ -104,25 +104,8 @@
       <a-entity class="flugzeug-cam-anchor" position="0 0.5 -7.2" rotation="0 180 0"></a-entity>
     </a-entity>
 
-    <!-- 6. GRAND CANYON FELSEN (Aus warmen roten/ocker PBR-Canyon-Gesteinsblöcken - IN JEDEM WETTER & LICHT SICHTBAR!) -->
-    <!-- Hauptcanyon-Wand links (X: -30 bis -44) -->
-    <a-entity position="-32 0 -2" rotation="0 15 0">
-      <a-box color="#b25d38" material="roughness: 0.9; metalness: 0.05" width="8" height="16" depth="14" position="0 8 0" shadow="cast: true; receive: true"></a-box>
-      <a-box color="#8d3d22" material="roughness: 0.95" width="7.5" height="4" depth="13.5" position="0 4 0"></a-box>
-      <a-box color="#c97a56" material="roughness: 0.85" width="8.2" height="3" depth="14.2" position="0 11 0"></a-box>
-      <a-cone color="#b25d38" radius-bottom="4.2" radius-top="1.5" height="5" position="0 18.5 0" segments-radial="6"></a-cone>
-    </a-entity>
-
-    <a-entity position="-36 0 10" rotation="0 -25 0">
-      <a-box color="#c97a56" material="roughness: 0.9" width="9" height="12" depth="10" position="0 6 0" shadow="cast: true"></a-box>
-      <a-box color="#8d3d22" width="8.5" height="3" depth="9.5" position="0 3 0"></a-box>
-      <a-cone color="#b25d38" radius-bottom="4" radius-top="2" height="4" position="0 14 0" segments-radial="5"></a-cone>
-    </a-entity>
-
-    <a-entity position="-34 0 -16" rotation="0 40 0">
-      <a-box color="#8d3d22" material="roughness: 0.95" width="8" height="10" depth="12" position="0 5 0" shadow="cast: true"></a-box>
-      <a-box color="#b25d38" width="7.5" height="3" depth="11.5" position="0 8.5 0"></a-box>
-    </a-entity>
+    <!-- 6. GRAND CANYON (Prozedurale geschichtete Tafelberge/Mesas, Felsnadeln & Colorado-Schlucht) -->
+    <a-entity ki-canyon="breite: 46; tiefe: 56; hoehe: 22; seed: 7; fluss: true" position="-54 0 -2"></a-entity>
 
     <!-- 7. BAHNHOF "CHEMNITZ-HILBERSDORF" & SIGNALE -->
     <a-entity ki-bahnhof="name: Chemnitz-Hilbersdorf" position="0 0 11.2" rotation="0 0 0"></a-entity>

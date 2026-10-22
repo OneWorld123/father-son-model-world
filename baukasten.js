@@ -996,6 +996,169 @@ AFRAME.registerComponent('ki-haus', {
 // ============================================================================
 // 7. STEUERUNG, FLUGZEUG, SCHIFF, KAMERAS & KINDER-STEUERPULT ('ki-steuerung')
 // ============================================================================
+// ============================================================================
+// GRAND CANYON GENERATOR ('ki-canyon')
+// Prozedurale Tafelberge (Mesas), Terrassen & Felsnadeln mit durchgehenden
+// Gesteinsschichten + gewundene Schlucht mit Fluss. Alles pro Farbe zu einem
+// Mesh zusammengefasst (wenige Draw-Calls = schnell).
+// Benutzung: <a-entity ki-canyon="breite: 44; tiefe: 50; hoehe: 18; seed: 7" position="..."></a-entity>
+// ============================================================================
+AFRAME.registerComponent('ki-canyon', {
+  schema: {
+    breite: { type: 'number', default: 44 },  // Ausdehnung in X
+    tiefe: { type: 'number', default: 50 },   // Ausdehnung in Z
+    hoehe: { type: 'number', default: 18 },   // max. Höhe der Canyonwände
+    seed: { type: 'number', default: 7 },
+    fluss: { type: 'boolean', default: true }
+  },
+
+  init: function () {
+    const d = this.data;
+    const group = new THREE.Group();
+
+    // Deterministischer Zufall (gleicher Seed = gleicher Canyon)
+    let s = d.seed >>> 0;
+    const rnd = () => {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    // Gesteinsschichten von unten nach oben (Grand-Canyon-Farben)
+    const palette = ['#6e3220', '#8f4127', '#a9532f', '#c0693d', '#9a4a2c', '#cf8752', '#dfa86f', '#b8603a', '#e9c79a', '#c47a4a'];
+    const bandH = 1.3;
+    const buckets = palette.map(() => []); // gesammelte Geometrien je Farbe
+
+    // Verlauf der Schlucht (Fluss) in lokalen Koordinaten
+    const gorgeX = (z) => Math.sin(z * 0.09) * 5 + Math.sin(z * 0.23) * 1.5;
+    const gorgeHalf = 3.2;
+
+    // Eine Formation = gestapelte Terrassen, jede Terrasse in Farbbänder zerlegt
+    const baueFormation = (cx, cz, radius, height) => {
+      const nPts = 20;
+      const phase = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28];
+      const footprint = (scale) => {
+        const shape = new THREE.Shape();
+        for (let i = 0; i < nPts; i++) {
+          const a = (i / nPts) * Math.PI * 2;
+          const r = radius * scale * (0.78 + 0.14 * Math.sin(a * 2 + phase[0]) + 0.1 * Math.sin(a * 3 + phase[1]) + 0.06 * Math.sin(a * 5 + phase[2]));
+          const px = cx + Math.cos(a) * r;
+          const pz = cz + Math.sin(a) * r;
+          if (i === 0) shape.moveTo(px, -pz); else shape.lineTo(px, -pz);
+        }
+        shape.closePath();
+        return shape;
+      };
+
+      // Terrassen: breiter Sockel, schmalere Stufen nach oben
+      const tiers = height > 9 ? [[1.0, 0.55], [0.74, 0.3], [0.5, 0.15]] : [[1.0, 0.7], [0.68, 0.3]];
+      let y = 0;
+      tiers.forEach(([scale, anteil]) => {
+        const tierTop = y + height * anteil;
+        const shape = footprint(scale);
+        while (y < tierTop - 0.01) {
+          const bandIdx = Math.floor(y / bandH + 0.001);
+          const yEnd = Math.min((bandIdx + 1) * bandH, tierTop);
+          const geo = new THREE.ExtrudeGeometry(shape, { depth: yEnd - y, bevelEnabled: false, curveSegments: 1 });
+          geo.rotateX(-Math.PI / 2);       // Extrusion zeigt jetzt nach oben (+Y)
+          geo.translate(0, y, 0);
+          buckets[bandIdx % palette.length].push(geo.index ? geo.toNonIndexed() : geo);
+          y = yEnd;
+        }
+      });
+    };
+
+    // Raster über die Fläche: nahe der Schlucht hohe Wände, außen niedrigere Tafelberge
+    const cell = 5.5;
+    for (let gx = -d.breite / 2 + cell / 2; gx < d.breite / 2; gx += cell) {
+      for (let gz = -d.tiefe / 2 + cell / 2; gz < d.tiefe / 2; gz += cell) {
+        const x = gx + (rnd() - 0.5) * 2.2;
+        const z = gz + (rnd() - 0.5) * 2.2;
+        const dist = Math.abs(x - gorgeX(z));
+        if (dist < gorgeHalf + 2.2) continue;   // Schlucht frei lassen
+        if (rnd() < 0.12) continue;            // Lücken -> einzelne Buttes
+        const h = Math.max(4, Math.min(d.hoehe, d.hoehe - dist * 0.32 + rnd() * 3));
+        baueFormation(x, z, 3.3 + rnd() * 1.4, h);
+      }
+    }
+
+    // Ein paar schlanke Felsnadeln (Hoodoos) in der Nähe der Schlucht
+    for (let i = 0; i < 9; i++) {
+      const z = (rnd() - 0.5) * d.tiefe * 0.9;
+      const side = rnd() < 0.5 ? -1 : 1;
+      const x = gorgeX(z) + side * (gorgeHalf + 1.2 + rnd() * 1.5);
+      baueFormation(x, z, 0.7 + rnd() * 0.5, 5 + rnd() * 6);
+    }
+
+    // Felsen etwas "verwittern": Vertices positionsabhängig verschieben (Kanten bleiben dicht)
+    const noise = (x, y, z) => Math.sin(x * 1.7 + z * 0.9 + y * 0.3) * 0.5 + Math.sin(z * 2.3 - y * 0.7 + x * 0.4) * 0.3 + Math.sin(y * 3.1 + x * 1.1) * 0.2;
+
+    buckets.forEach((geos, idx) => {
+      if (!geos.length) return;
+      let total = 0;
+      geos.forEach(g => { total += g.attributes.position.count; });
+      const pos = new Float32Array(total * 3);
+      let off = 0;
+      geos.forEach(g => {
+        pos.set(g.attributes.position.array, off);
+        off += g.attributes.position.count * 3;
+        g.dispose();
+      });
+      for (let i = 0; i < pos.length; i += 3) {
+        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+        pos[i] += noise(x, y, z) * 0.45;
+        pos[i + 2] += noise(z + 13.1, y, x) * 0.45;
+      }
+      const merged = new THREE.BufferGeometry();
+      merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      merged.computeVertexNormals();
+      const mat = new THREE.MeshStandardMaterial({ color: palette[idx], roughness: 0.95, metalness: 0.0, flatShading: true });
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    });
+
+    // Wüstenboden (rötlicher Sand) über dem grünen Gras
+    const boden = new THREE.Mesh(
+      new THREE.PlaneGeometry(d.breite + 8, d.tiefe + 4),
+      new THREE.MeshStandardMaterial({ color: '#b9774b', roughness: 1.0 })
+    );
+    boden.rotation.x = -Math.PI / 2;
+    boden.position.y = 0.03;
+    boden.receiveShadow = true;
+    group.add(boden);
+
+    // Colorado River: gewundenes Band durch die Schlucht
+    if (d.fluss) {
+      const shape = new THREE.Shape();
+      const steps = 40;
+      for (let i = 0; i <= steps; i++) {
+        const z = -d.tiefe / 2 - 2 + (i / steps) * (d.tiefe + 4);
+        const x = gorgeX(z) - 1.8;
+        if (i === 0) shape.moveTo(x, -z); else shape.lineTo(x, -z);
+      }
+      for (let i = steps; i >= 0; i--) {
+        const z = -d.tiefe / 2 - 2 + (i / steps) * (d.tiefe + 4);
+        shape.lineTo(gorgeX(z) + 1.8, -z);
+      }
+      const flussGeo = new THREE.ShapeGeometry(shape);
+      flussGeo.rotateX(-Math.PI / 2);
+      const fluss = new THREE.Mesh(flussGeo, new THREE.MeshStandardMaterial({ color: '#2e7d6b', roughness: 0.15, metalness: 0.6 }));
+      fluss.position.y = 0.07;
+      group.add(fluss);
+    }
+
+    this.el.setObject3D('mesh', group);
+  },
+
+  remove: function () {
+    this.el.removeObject3D('mesh');
+  }
+});
+
 AFRAME.registerComponent('ki-flugzeug', {
   schema: {
     schub: { type: 'number', default: 1.0 } // 0 = Stopp, bis 3.0 = Turbo
@@ -1005,15 +1168,15 @@ AFRAME.registerComponent('ki-flugzeug', {
     this.schub = this.data.schub;
     this.progress = 0; // 0.0 bis 1.0 auf der Flugschleife
 
-    // 8 Kontrollpunkte für die 3D-Flugbahn: Start -> Steigflug -> Nordsee -> Landeanflug
+    // 8 Kontrollpunkte für die 3D-Flugbahn: Start -> Steigflug -> Nordsee -> Grand Canyon -> Landeanflug
     const points = [
       new THREE.Vector3(35, 0.8, 18),   // 0: Startposition Landebahn Süd
       new THREE.Vector3(35, 0.8, -12),  // 1: Beschleunigen auf der Piste
       new THREE.Vector3(32, 18, -35),   // 2: Steigflug über die Kaimauer
       new THREE.Vector3(0, 36, -75),    // 3: Weit draußen über der Nordsee
-      new THREE.Vector3(-65, 30, -55),  // 4: Große Kurve links über dem Meer
-      new THREE.Vector3(-32, 20, -10),  // 5: Anflug über den Grand Canyon
-      new THREE.Vector3(15, 6, 12),     // 6: Sinkflug & Ausrichten auf die Piste
+      new THREE.Vector3(-65, 32, -55),  // 4: Große Kurve links über dem Meer
+      new THREE.Vector3(-54, 28, -2),   // 5: Tiefflug direkt über die Grand-Canyon-Schlucht!
+      new THREE.Vector3(15, 7, 14),     // 6: Sinkflug & Ausrichten auf die Piste
       new THREE.Vector3(35, 0.8, 18)    // 7: Aufsetzen & Rollen
     ];
     this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.4);
