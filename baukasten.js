@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
  * BAUKASTEN.JS - Die 3D-Modelleisenbahn-Engine ("EEP-Vibe")
  * Enthält alle A-Frame Components: Gleise, Schwellen, Züge, Waggons, 
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
@@ -1328,12 +1328,11 @@ AFRAME.registerComponent('ki-steuerung', {
       const name = zugComp.data.name || ("Zug " + (i + 1));
       const startSpeed = zugComp.aktuellesTempo;
 
-      wrap.innerHTML = 
-        <label> + name + </label>
-        <input type="range" min="-20" max="25" step="0.5" value=" + startSpeed + ">
-        <span class="eep-speed-val"> + startSpeed.toFixed(1) + </span>
-        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Notbremse / Stopp">Stopp</button>
-      ;
+      wrap.innerHTML =
+        '<label>' + name + '</label>' +
+        '<input type="range" min="-20" max="25" step="0.5" value="' + startSpeed + '">' +
+        '<span class="eep-speed-val">' + startSpeed.toFixed(1) + '</span>' +
+        '<button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Notbremse / Stopp">Stopp</button>';
 
       const slider = wrap.querySelector('input');
       const valSpan = wrap.querySelector('.eep-speed-val');
@@ -1361,12 +1360,11 @@ AFRAME.registerComponent('ki-steuerung', {
       wrap.className = 'eep-train-ctrl';
       wrap.style.background = 'rgba(2, 136, 209, 0.25)';
       wrap.style.border = '1px solid rgba(2, 136, 209, 0.5)';
-      wrap.innerHTML = 
-        <label>✈️ Schubhebel</label>
-        <input type="range" min="0" max="3" step="0.1" value=" + fc.schub + ">
-        <span class="eep-speed-val"> + (fc.schub * 100).toFixed(0) + %</span>
-        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Triebwerke aus">Stopp</button>
-      ;
+      wrap.innerHTML =
+        '<label>✈️ Schubhebel</label>' +
+        '<input type="range" min="0" max="3" step="0.1" value="' + fc.schub + '">' +
+        '<span class="eep-speed-val">' + (fc.schub * 100).toFixed(0) + '%</span>' +
+        '<button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Triebwerke aus">Stopp</button>';
       const slider = wrap.querySelector('input');
       const valSpan = wrap.querySelector('.eep-speed-val');
       const stopBtn = wrap.querySelector('button');
@@ -1390,12 +1388,11 @@ AFRAME.registerComponent('ki-steuerung', {
       wrap.className = 'eep-train-ctrl';
       wrap.style.background = 'rgba(0, 150, 136, 0.25)';
       wrap.style.border = '1px solid rgba(0, 150, 136, 0.5)';
-      wrap.innerHTML = 
-        <label>🚢 Schiffsmotor</label>
-        <input type="range" min="0" max="2.5" step="0.1" value=" + sh.tempo + ">
-        <span class="eep-speed-val"> + (sh.tempo * 100).toFixed(0) + %</span>
-        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Schiffsmotor stopp">Stopp</button>
-      ;
+      wrap.innerHTML =
+        '<label>🚢 Schiffsmotor</label>' +
+        '<input type="range" min="0" max="2.5" step="0.1" value="' + sh.tempo + '">' +
+        '<span class="eep-speed-val">' + (sh.tempo * 100).toFixed(0) + '%</span>' +
+        '<button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Schiffsmotor stopp">Stopp</button>';
       const slider = wrap.querySelector('input');
       const valSpan = wrap.querySelector('.eep-speed-val');
       const stopBtn = wrap.querySelector('button');
