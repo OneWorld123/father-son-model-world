@@ -15,7 +15,8 @@
     ki-steuerung>
 
     <!-- 1. STIMMUNGSVOLLE ABENDSONNE ÜBER CANYON & MEER -->
-    <a-entity id="umwelt" environment="preset: forest; dressingAmount: 160; hills: true; shadow: true; lightPosition: -1.2 0.35 -0.8; skyColor: #ff8a65; horizonColor: #ffe0b2; groundColor: #2e5927; groundColor2: #1e3f1a; fog: 0.45"></a-entity>
+    <!-- Hills auf false, damit der Boden eben ist und das Wasser nicht von grünen Erhebungen durchbrochen wird -->
+    <a-entity id="umwelt" environment="preset: forest; dressingAmount: 140; hills: false; shadow: true; lightPosition: -1.2 0.35 -0.8; skyColor: #ff8a65; horizonColor: #ffe0b2; groundColor: #2e5927; groundColor2: #1e3f1a; fog: 0.4"></a-entity>
 
     <a-entity light="type: ambient; color: #ffe0b2; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #ffb74d; intensity: 2.2; castShadow: true; shadowCameraTop: 45; shadowCameraBottom: -45; shadowCameraLeft: -45; shadowCameraRight: 45" position="-25 22 -20"></a-entity>
@@ -25,33 +26,36 @@
       <a-camera id="haupt-kamera" wasd-controls="acceleration: 25; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
 
-    <!-- 3. DIE OSTSEE / MEER MIT HAFEN & ANLEGER (Hinten bei Z: -36) -->
-    <!-- Weite Meeresfläche -->
-    <a-plane position="0 0.08 -38" rotation="-90 0 0" width="240" height="30" 
-             material="color: #0d47a1; roughness: 0.1; metalness: 0.85; opacity: 0.95"></a-plane>
+    <!-- 3. DAS GROSSE FLUSSTAL & DIE OSTSEE (Breites Wasserbecken bei Z: -36 bis -60) -->
+    <!-- Tiefblaues, spiegelndes Wasserbett - 300 Meter breit und 50 Meter tief! -->
+    <a-plane position="0 0.18 -42" rotation="-90 0 0" width="320" height="55" 
+             material="color: #0d47a1; roughness: 0.08; metalness: 0.9; opacity: 0.98"></a-plane>
 
-    <!-- HAFEN-PIER & ANLEGESTELLE (Aus Holz & Stein, wo man zu Fuß draufgehen kann!) -->
-    <a-box color="#37474f" width="4.5" height="0.4" depth="14" position="-6 0.2 -31" shadow="cast: true; receive: true"></a-box>
-    <a-cylinder color="#263238" radius="0.1" height="1.2" position="-4.2 0.8 -37"></a-cylinder>
-    <a-cylinder color="#263238" radius="0.1" height="1.2" position="-7.8 0.8 -37"></a-cylinder>
+    <!-- Uferböschung & Kaimauer entlang des Flusstals -->
+    <a-box color="#5d4037" width="280" height="0.45" depth="1.8" position="0 0.22 -19.5" shadow="cast: true; receive: true"></a-box>
+
+    <!-- HAFEN-PIER & ANLEGESTELLE (Reicht weit ins Wasser hinein, wo man zu Fuß draufgehen kann!) -->
+    <a-box color="#455a64" width="5.5" height="0.5" depth="18" position="-8 0.25 -28" shadow="cast: true; receive: true"></a-box>
+    <a-cylinder color="#263238" radius="0.12" height="1.4" position="-5.8 0.9 -36"></a-cylinder>
+    <a-cylinder color="#263238" radius="0.12" height="1.4" position="-10.2 0.9 -36"></a-cylinder>
     <!-- Hafen-Laterne -->
-    <a-cylinder color="#ffb300" radius="0.15" height="0.3" position="-4.2 1.5 -37" material="emissive: #ffb300; emissiveIntensity: 2"></a-cylinder>
+    <a-cylinder color="#ffb300" radius="0.18" height="0.35" position="-5.8 1.6 -36" material="emissive: #ffb300; emissiveIntensity: 2.5"></a-cylinder>
 
-    <!-- DIE FÄHRE (Pendelt vom Hafen übers Meer - mit Taste [6] steigt man direkt ein!) -->
-    <a-entity position="-70 0.25 -38" 
-              animation="property: position; from: -80 0.25 -38; to: 80 0.25 -38; dur: 48000; dir: alternate; loop: true; easing: linear">
+    <!-- DIE FÄHRE (Fährt mitten auf dem tiefblauen Wasser!) -->
+    <a-entity position="-70 0.45 -42" 
+              animation="property: position; from: -85 0.45 -42; to: 85 0.45 -42; dur: 48000; dir: alternate; loop: true; easing: linear">
       <!-- Rumpf -->
-      <a-box color="#1e293b" width="3.6" height="1.3" depth="13" rotation="0 90 0" shadow="cast: true"></a-box>
+      <a-box color="#1e293b" width="3.8" height="1.4" depth="14" rotation="0 90 0" shadow="cast: true"></a-box>
       <!-- Weißer Passagieraufbau & Sonnendeck -->
-      <a-box color="#f8fafc" width="2.5" height="1.5" depth="7.5" position="0 1.3 0" rotation="0 90 0" shadow="cast: true"></a-box>
-      <a-box color="#0284c7" width="2.55" height="0.35" depth="6.5" position="0 1.45 0" rotation="0 90 0"></a-box>
+      <a-box color="#f8fafc" width="2.6" height="1.6" depth="8" position="0 1.4 0" rotation="0 90 0" shadow="cast: true"></a-box>
+      <a-box color="#0284c7" width="2.65" height="0.35" depth="7" position="0 1.55 0" rotation="0 90 0"></a-box>
       <!-- Schornstein -->
-      <a-cylinder color="#c62828" radius="0.35" height="1.3" position="0 2.3 0"></a-cylinder>
+      <a-cylinder color="#c62828" radius="0.38" height="1.4" position="0 2.45 0"></a-cylinder>
       <!-- Positionslichter -->
-      <a-sphere color="#00e676" radius="0.16" material="emissive: #00e676; emissiveIntensity: 2" position="6.2 0.9 1.6"></a-sphere>
-      <a-sphere color="#ff1744" radius="0.16" material="emissive: #ff1744; emissiveIntensity: 2" position="6.2 0.9 -1.6"></a-sphere>
+      <a-sphere color="#00e676" radius="0.18" material="emissive: #00e676; emissiveIntensity: 2.5" position="6.8 1.0 1.8"></a-sphere>
+      <a-sphere color="#ff1744" radius="0.18" material="emissive: #ff1744; emissiveIntensity: 2.5" position="6.8 1.0 -1.8"></a-sphere>
       <!-- KAMERA-ANKER FÜR DAS SCHIFF (Taste [6] - Kapitänsbrücke / Sonnendeck) -->
-      <a-entity class="schiff-cam-anchor" position="3.5 2.1 0" rotation="0 90 0"></a-entity>
+      <a-entity class="schiff-cam-anchor" position="3.8 2.3 0" rotation="0 90 0"></a-entity>
     </a-entity>
 
     <!-- 4. FLUGHAFEN MIT STARTBAHN (Rechts auf der Wiese bei X: 32) -->
