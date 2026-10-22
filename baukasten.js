@@ -1026,9 +1026,9 @@ AFRAME.registerComponent('ki-steuerung', {
     });
 
     if (modus === 1) {
-      // Zurück auf die freie Übersichts-Position
-      this.kameraRig.object3D.position.set(0, 14, 34);
-      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-22), 0, 0);
+      // Fußgänger-Modus: 1.65 m Augenhöhe auf dem Bahnsteig
+      this.kameraRig.object3D.position.set(0, 1.65, 9.5);
+      this.kameraRig.object3D.rotation.set(0, 0, 0);
     }
   },
 
@@ -1200,10 +1200,10 @@ AFRAME.registerComponent('ki-steuerung', {
       <div class="eep-section">
         <div class="eep-title">🎥 Kamera-Ansicht</div>
         <div class="eep-btn-row">
-          <button class="eep-btn eep-cam-btn active" data-cam="1">🚁 Übersicht [1]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Dampflok [2]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 ICE-Cockpit [3]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="4">🚉 Bahnhof [4]</button>
+          <button class="eep-btn eep-cam-btn active" data-cam="1">🚶 Zu Fuß [1]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Lok-Führerstand [2]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 Express-Blick [3]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="4">🚉 Bahnsteig [4]</button>
         </div>
       </div>
 
