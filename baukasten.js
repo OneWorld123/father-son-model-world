@@ -459,11 +459,11 @@ AFRAME.registerComponent('ki-waggon', {
     spotEl.setAttribute('rotation', '-6 180 0');
     this.el.appendChild(spotEl);
 
-    // Führerstands-Kamera
+    // Führerstands-Kamera-Anker: sitzt direkt im vorderen Führerstand mit Blick nach vorne (+Z)
     const camAnchor = document.createElement('a-entity');
     camAnchor.classList.add('ludmilla-cam-anchor');
-    camAnchor.setAttribute('position', '0 2.25 1.8');
-    camAnchor.setAttribute('rotation', '-4 180 0');
+    camAnchor.setAttribute('position', '0 2.25 2.1');
+    camAnchor.setAttribute('rotation', '-2 180 0');
     this.el.appendChild(camAnchor);
   },
 
@@ -1027,8 +1027,16 @@ AFRAME.registerComponent('ki-steuerung', {
 
     if (modus === 1) {
       // Fußgänger-Modus: 1.65 m Augenhöhe auf dem Bahnsteig
+      if (this.hauptKamera) {
+        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 25; fly: false');
+      }
       this.kameraRig.object3D.position.set(0, 1.65, 9.5);
       this.kameraRig.object3D.rotation.set(0, 0, 0);
+    } else {
+      // Zug-/Bahnhofs-Kamera: WASD deaktivieren, damit man nicht aus dem Führerstand wegläuft!
+      if (this.hauptKamera) {
+        this.hauptKamera.setAttribute('wasd-controls', 'enabled: false');
+      }
     }
   },
 
