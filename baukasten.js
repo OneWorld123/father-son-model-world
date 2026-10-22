@@ -994,8 +994,76 @@ AFRAME.registerComponent('ki-haus', {
 });
 
 // ============================================================================
-// 7. STEUERUNG, KAMERAS, WETTER & KINDER-STEUERPULT ('ki-steuerung')
+// 7. STEUERUNG, FLUGZEUG, SCHIFF, KAMERAS & KINDER-STEUERPULT ('ki-steuerung')
 // ============================================================================
+AFRAME.registerComponent('ki-flugzeug', {
+  schema: {
+    schub: { type: 'number', default: 1.0 } // 0 = Stopp, bis 3.0 = Turbo
+  },
+  init: function () {
+    window.EEP.flugzeugComp = this;
+    this.schub = this.data.schub;
+    this.progress = 0; // 0.0 bis 1.0 auf der Flugschleife
+
+    // 8 Kontrollpunkte für die 3D-Flugbahn: Start -> Steigflug -> Nordsee -> Landeanflug
+    const points = [
+      new THREE.Vector3(35, 0.8, 18),   // 0: Startposition Landebahn Süd
+      new THREE.Vector3(35, 0.8, -12),  // 1: Beschleunigen auf der Piste
+      new THREE.Vector3(32, 18, -35),   // 2: Steigflug über die Kaimauer
+      new THREE.Vector3(0, 36, -75),    // 3: Weit draußen über der Nordsee
+      new THREE.Vector3(-65, 30, -55),  // 4: Große Kurve links über dem Meer
+      new THREE.Vector3(-32, 20, -10),  // 5: Anflug über den Grand Canyon
+      new THREE.Vector3(15, 6, 12),     // 6: Sinkflug & Ausrichten auf die Piste
+      new THREE.Vector3(35, 0.8, 18)    // 7: Aufsetzen & Rollen
+    ];
+    this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.4);
+    this.totalLen = this.curve.getLength();
+  },
+  tick: function (time, dt) {
+    if (!dt || this.schub <= 0) return;
+    const deltaSec = Math.min(dt / 1000, 0.1);
+    // Geschwindigkeit: Basistempo 12 m/s * Schub
+    const distDelta = (14.0 * this.schub) * deltaSec;
+    this.progress = (this.progress + (distDelta / this.totalLen)) % 1.0;
+
+    const currentPos = this.curve.getPointAt(this.progress);
+    const lookAheadProgress = (this.progress + 0.015) % 1.0;
+    const nextPos = this.curve.getPointAt(lookAheadProgress);
+
+    this.el.object3D.position.copy(currentPos);
+    this.el.object3D.lookAt(nextPos);
+    // 180 Grad drehen, da das Modell mit Cockpit nach -Z ausgerichtet ist
+    this.el.object3D.rotateY(Math.PI);
+  }
+});
+
+AFRAME.registerComponent('ki-faehre', {
+  schema: {
+    tempo: { type: 'number', default: 1.0 } // Schub 0 bis 2.5
+  },
+  init: function () {
+    window.EEP.faehreComp = this;
+    this.tempo = this.data.tempo;
+    this.xPos = -70;
+    this.richtung = 1; // 1 = nach rechts, -1 = nach links
+  },
+  tick: function (time, dt) {
+    if (!dt || this.tempo <= 0) return;
+    const deltaSec = Math.min(dt / 1000, 0.1);
+    this.xPos += this.richtung * (5.5 * this.tempo) * deltaSec;
+
+    if (this.xPos > 95) {
+      this.xPos = 95;
+      this.richtung = -1;
+      this.el.object3D.rotation.y = Math.PI; // Schiff wendet!
+    } else if (this.xPos < -95) {
+      this.xPos = -95;
+      this.richtung = 1;
+      this.el.object3D.rotation.y = 0;
+    }
+    this.el.object3D.position.x = this.xPos;
+  }
+});
 AFRAME.registerComponent('ki-steuerung', {
   init: function () {
     this.kameraRig = document.querySelector('#kamera-rig');
@@ -1222,7 +1290,7 @@ AFRAME.registerComponent('ki-steuerung', {
       </div>
 
       <div class="eep-section">
-        <div class="eep-title">🎛️ Fahrregler (Zug-Tempo)</div>
+        <div class="eep-title">🎛️ Fahrregler & Schubhebel</div>
         <div id="eep-zug-liste" class="eep-btn-row"></div>
       </div>
 
@@ -1252,19 +1320,20 @@ AFRAME.registerComponent('ki-steuerung', {
     if (!container) return;
     container.innerHTML = '';
 
+    // 1. ZUG-REGLER
     window.EEP.zuege.forEach((zugComp, i) => {
       const wrap = document.createElement('div');
       wrap.className = 'eep-train-ctrl';
 
-      const name = zugComp.data.name || `Zug ${i + 1}`;
+      const name = zugComp.data.name || ("Zug " + (i + 1));
       const startSpeed = zugComp.aktuellesTempo;
 
-      wrap.innerHTML = `
-        <label>${name}</label>
-        <input type="range" min="-20" max="25" step="0.5" value="${startSpeed}">
-        <span class="eep-speed-val">${startSpeed.toFixed(1)}</span>
-        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Notbremse / Stopp">⏹</button>
-      `;
+      wrap.innerHTML = 
+        <label> + name + </label>
+        <input type="range" min="-20" max="25" step="0.5" value=" + startSpeed + ">
+        <span class="eep-speed-val"> + startSpeed.toFixed(1) + </span>
+        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Notbremse / Stopp">Stopp</button>
+      ;
 
       const slider = wrap.querySelector('input');
       const valSpan = wrap.querySelector('.eep-speed-val');
@@ -1284,5 +1353,63 @@ AFRAME.registerComponent('ki-steuerung', {
 
       container.appendChild(wrap);
     });
+
+    // 2. FLUGZEUG-SCHUBHEBEL
+    if (window.EEP.flugzeugComp) {
+      const fc = window.EEP.flugzeugComp;
+      const wrap = document.createElement('div');
+      wrap.className = 'eep-train-ctrl';
+      wrap.style.background = 'rgba(2, 136, 209, 0.25)';
+      wrap.style.border = '1px solid rgba(2, 136, 209, 0.5)';
+      wrap.innerHTML = 
+        <label>✈️ Schubhebel</label>
+        <input type="range" min="0" max="3" step="0.1" value=" + fc.schub + ">
+        <span class="eep-speed-val"> + (fc.schub * 100).toFixed(0) + %</span>
+        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Triebwerke aus">Stopp</button>
+      ;
+      const slider = wrap.querySelector('input');
+      const valSpan = wrap.querySelector('.eep-speed-val');
+      const stopBtn = wrap.querySelector('button');
+
+      slider.addEventListener('input', () => {
+        fc.schub = parseFloat(slider.value);
+        valSpan.textContent = (fc.schub * 100).toFixed(0) + '%';
+      });
+      stopBtn.addEventListener('click', () => {
+        fc.schub = 0;
+        slider.value = 0;
+        valSpan.textContent = '0%';
+      });
+      container.appendChild(wrap);
+    }
+
+    // 3. FÄHRE-SCHIFFSMOTOR
+    if (window.EEP.faehreComp) {
+      const sh = window.EEP.faehreComp;
+      const wrap = document.createElement('div');
+      wrap.className = 'eep-train-ctrl';
+      wrap.style.background = 'rgba(0, 150, 136, 0.25)';
+      wrap.style.border = '1px solid rgba(0, 150, 136, 0.5)';
+      wrap.innerHTML = 
+        <label>🚢 Schiffsmotor</label>
+        <input type="range" min="0" max="2.5" step="0.1" value=" + sh.tempo + ">
+        <span class="eep-speed-val"> + (sh.tempo * 100).toFixed(0) + %</span>
+        <button class="eep-btn" style="padding:3px 7px; font-size:11px;" title="Schiffsmotor stopp">Stopp</button>
+      ;
+      const slider = wrap.querySelector('input');
+      const valSpan = wrap.querySelector('.eep-speed-val');
+      const stopBtn = wrap.querySelector('button');
+
+      slider.addEventListener('input', () => {
+        sh.tempo = parseFloat(slider.value);
+        valSpan.textContent = (sh.tempo * 100).toFixed(0) + '%';
+      });
+      stopBtn.addEventListener('click', () => {
+        sh.tempo = 0;
+        slider.value = 0;
+        valSpan.textContent = '0%';
+      });
+      container.appendChild(wrap);
+    }
   }
 });

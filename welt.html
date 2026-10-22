@@ -61,9 +61,8 @@
     <!-- Leuchtturm-Laterne am Hafen -->
     <a-cylinder color="#ffb300" radius="0.22" height="0.4" position="-5.5 1.65 -40" material="emissive: #ffb300; emissiveIntensity: 2.5"></a-cylinder>
 
-    <!-- DIE FÄHRE (Schwimmt weit draußen auf dem tiefen Meer bei Z: -50) -->
-    <a-entity position="-70 0.45 -50" 
-              animation="property: position; from: -95 0.45 -50; to: 95 0.45 -50; dur: 48000; dir: alternate; loop: true; easing: linear">
+    <!-- DIE FÄHRE (Mit echtem ki-faehre Controller & Schiffsmotor-Regler!) -->
+    <a-entity ki-faehre="tempo: 1.0" position="-70 0.45 -50">
       <a-box color="#1e293b" width="3.8" height="1.4" depth="14" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#f8fafc" width="2.6" height="1.6" depth="8" position="0 1.4 0" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#0284c7" width="2.65" height="0.35" depth="7" position="0 1.55 0" rotation="0 90 0"></a-box>
@@ -81,31 +80,9 @@
     <a-cylinder color="#0284c7" radius="2.0" height="1.6" position="45 7.5 -8" material="roughness: 0.2; metalness: 0.8"></a-cylinder>
     <a-cone color="#c62828" radius-bottom="0.5" height="1.4" position="45 9.0 -8"></a-cone>
 
-    <!-- FLUGZEUG MIT ECHTEM START- & LANDEKREISLAUF (Fliegt in einer Schleife immer vorwärts!) -->
-    <!-- Startet von der Landebahn (35 0.8 18), hebt ab in den Himmel (0 32 -10), fliegt weit über die Nordsee (-80 38 -75), dreht eine Kurve und landet wieder! -->
-    <a-entity position="35 0.8 18"
-              animation__route="property: position; dur: 32000; loop: true; easing: easeInOutSine;
-                                keyframes: [
-                                  {frame: 0,   value: '35 0.8 18'},
-                                  {frame: 0.15, value: '35 0.8 -12'},
-                                  {frame: 0.30, value: '30 22 -35'},
-                                  {frame: 0.50, value: '0 36 -75'},
-                                  {frame: 0.70, value: '-65 30 -55'},
-                                  {frame: 0.85, value: '-30 18 -10'},
-                                  {frame: 0.95, value: '25 3 15'},
-                                  {frame: 1.0,  value: '35 0.8 18'}
-                                ]"
-              animation__rot="property: rotation; dur: 32000; loop: true; easing: easeInOutSine;
-                              keyframes: [
-                                {frame: 0,   value: '0 180 0'},
-                                {frame: 0.15, value: '-12 180 0'},
-                                {frame: 0.30, value: '-18 160 8'},
-                                {frame: 0.50, value: '0 110 15'},
-                                {frame: 0.70, value: '0 45 10'},
-                                {frame: 0.85, value: '10 0 -8'},
-                                {frame: 0.95, value: '6 120 0'},
-                                {frame: 1.0,  value: '0 180 0'}
-                              ]">
+    <!-- FLUGZEUG MIT ECHTEM ki-flugzeug CONTROLLER (Schubhebel von 0% bis 300% steuerbar!) -->
+    <!-- Startet von der Landebahn, hebt ab, fliegt die Kurve über die Nordsee und landet wieder -->
+    <a-entity ki-flugzeug="schub: 1.0">
       <!-- Rumpf -->
       <a-cylinder color="#ffffff" radius="1.1" height="15" rotation="90 0 0" shadow="cast: true"></a-cylinder>
       <!-- Spitze & Cockpit -->
