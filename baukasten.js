@@ -397,69 +397,244 @@ AFRAME.registerComponent('ki-waggon', {
   },
 
   // --- DIE LEGENDE: DR BR 132 "LUDMILLA" (Bw Chemnitz-Hilbersdorf) ---
+  // Kein simpler Kasten, sondern echtes 3D-Profil mit abgeschrägter Front, 
+  // Sicken-Seitenwand, Bullaugen, Dachlüftern, Dieseltank, Puffern & Co'Co'-Drehgestellen!
   baueLudmilla: function (root) {
-    const drRotMat = new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.35, metalness: 0.2 });
-    const grauDachMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6, metalness: 0.4 });
-    const rahmenMat = new THREE.MeshStandardMaterial({ color: 0x212121, roughness: 0.7, metalness: 0.5 });
-    const zierMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-    const glasMat = new THREE.MeshStandardMaterial({ color: 0x111927, roughness: 0.1, metalness: 0.9 });
-    const lichtMat = new THREE.MeshStandardMaterial({ color: 0xfff9c4, emissive: 0xffeb3b, emissiveIntensity: 2.5 });
+    const bordeauxMat = new THREE.MeshStandardMaterial({ color: 0x8e1b1b, roughness: 0.32, metalness: 0.25 });
+    const sickenMat = new THREE.MeshStandardMaterial({ color: 0x781414, roughness: 0.4, metalness: 0.28 });
+    const elfenbeinMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e1, roughness: 0.3, metalness: 0.1 });
+    const dachMat = new THREE.MeshStandardMaterial({ color: 0x4a525a, roughness: 0.55, metalness: 0.45 });
+    const rahmenMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: 0.65, metalness: 0.6 });
+    const stahlMat = new THREE.MeshStandardMaterial({ color: 0xb0b8c0, roughness: 0.25, metalness: 0.85 });
+    const gitterMat = new THREE.MeshStandardMaterial({ color: 0x2b3035, roughness: 0.75, metalness: 0.5 });
+    const glasMat = new THREE.MeshStandardMaterial({ color: 0x0d1b2a, roughness: 0.08, metalness: 0.92 });
+    const innenGlasMat = new THREE.MeshStandardMaterial({ color: 0xffe082, emissive: 0xffb300, emissiveIntensity: 0.45, roughness: 0.15 });
+    const lichtWeissMat = new THREE.MeshStandardMaterial({ color: 0xfffde7, emissive: 0xffea00, emissiveIntensity: 3.0 });
+    const lichtRotMat = new THREE.MeshStandardMaterial({ color: 0xff1744, emissive: 0xff1744, emissiveIntensity: 2.2 });
 
-    // Schwerer Rahmen & Pufferbohle
-    const rahmen = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.45, 5.6), rahmenMat);
-    rahmen.position.set(0, 0.5, 0);
-    rahmen.castShadow = true;
-    root.add(rahmen);
+    // 1. Geformter Hauptkasten mit abgeschrägter Front/Heck (ExtrudeGeometry entlang X)
+    const bodyShape = new THREE.Shape();
+    bodyShape.moveTo(-2.65, 0.62);
+    bodyShape.lineTo(2.65, 0.62);
+    bodyShape.lineTo(2.74, 1.22); // Untere Stirnschräge (Knick)
+    bodyShape.lineTo(2.50, 1.92); // Schräge Frontscheiben-Ebene
+    bodyShape.lineTo(2.34, 2.08); // Dachkante vorne
+    bodyShape.lineTo(-2.34, 2.08); // Dachkante hinten
+    bodyShape.lineTo(-2.50, 1.92);
+    bodyShape.lineTo(-2.74, 1.22);
+    bodyShape.closePath();
 
-    // Kastenaufbau (Reichsbahn-Rot)
-    const kasten = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.45, 5.3), drRotMat);
-    kasten.position.set(0, 1.35, 0);
-    kasten.castShadow = true;
-    root.add(kasten);
+    const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+      depth: 1.44,
+      bevelEnabled: true,
+      bevelThickness: 0.05,
+      bevelSize: 0.04,
+      bevelSegments: 3
+    });
+    // Von X-Y-Extrusion (Z=0..1.44) drehen, sodass Länge auf Z liegt und Breite (-0.72..+0.72) auf X
+    bodyGeo.translate(0, 0, -0.72);
+    bodyGeo.rotateY(Math.PI / 2);
+    const bodyMesh = new THREE.Mesh(bodyGeo, bordeauxMat);
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
+    root.add(bodyMesh);
 
-    // Typischer breiter weißer DR-Zierstreifen
-    const zierstreifen = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.22, 5.32), zierMat);
-    zierstreifen.position.set(0, 1.05, 0);
-    root.add(zierstreifen);
+    // 2. Gerundetes graues Dach mit Überhang über den Stirnseiten
+    const dachShape = new THREE.Shape();
+    dachShape.moveTo(-2.46, 2.04);
+    dachShape.lineTo(2.46, 2.04);
+    dachShape.lineTo(2.32, 2.24);
+    dachShape.lineTo(-2.32, 2.24);
+    dachShape.closePath();
+    const dachGeo = new THREE.ExtrudeGeometry(dachShape, {
+      depth: 1.38,
+      bevelEnabled: true,
+      bevelThickness: 0.06,
+      bevelSize: 0.05,
+      bevelSegments: 4
+    });
+    dachGeo.translate(0, 0, -0.69);
+    dachGeo.rotateY(Math.PI / 2);
+    const dachMesh = new THREE.Mesh(dachGeo, dachMat);
+    dachMesh.castShadow = true;
+    root.add(dachMesh);
 
-    // Schräges graues Dach mit Lüftergittern
-    const dach = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.76, 5.25, 16, 1, false, -Math.PI / 2, Math.PI), grauDachMat);
-    dach.rotation.x = Math.PI / 2;
-    dach.scale.set(1.0, 0.5, 1.0);
-    dach.position.set(0, 2.05, 0);
-    dach.castShadow = true;
-    root.add(dach);
+    // 3. Dachdetails: 2 große runde Kühlerlüfter, Widerstandsbremse-Aufbau & Abgashutze
+    [-1.05, 1.05].forEach(zPos => {
+      const luefterRing = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.08, 20), gitterMat);
+      luefterRing.position.set(0, 2.28, zPos);
+      root.add(luefterRing);
 
-    // Führerstände an beiden Enden mit schrägen Fenstern
-    [-2.65, 2.65].forEach((zPos, idx) => {
-      const fenster = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.42, 0.15), glasMat);
-      fenster.position.set(0, 1.6, zPos);
-      root.add(fenster);
-
-      // Dreilicht-Spitzensignal
-      const isFront = zPos > 0;
-      [-0.45, 0.45].forEach(xPos => {
-        const led = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), isFront ? lichtMat : new THREE.MeshStandardMaterial({ color: 0xff1744, emissive: 0xff1744, emissiveIntensity: 2 }));
-        led.position.set(xPos, 0.82, zPos + (isFront ? 0.08 : -0.08));
-        root.add(led);
-      });
-      // Oberes Spitzenlicht
-      const topLed = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), isFront ? lichtMat : new THREE.MeshStandardMaterial({ color: 0x222222 }));
-      topLed.position.set(0, 1.95, zPos + (isFront ? 0.06 : -0.06));
-      root.add(topLed);
+      const luefterNabe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.1, 12), rahmenMat);
+      luefterNabe.position.set(0, 2.29, zPos);
+      root.add(luefterNabe);
     });
 
-    // 6-achsige schwere Drehgestelle (Co'Co')
-    this.baueStandardAchsen(root, [-2.2, -1.5, -0.8, 0.8, 1.5, 2.2]);
+    // Abgasschacht (Mitte) mit feiner Rußkante
+    const auspuff = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 0.65), rahmenMat);
+    auspuff.position.set(0, 2.30, 0);
+    root.add(auspuff);
 
-    // Scheinwerfer-Lichtkegel
+    // 4. Charakteristischer elfenbeinfarbener DR-Zierstreifen + Lätzchen an der Front
+    const seitenStreifen = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.14, 4.95), elfenbeinMat);
+    seitenStreifen.position.set(0, 1.18, 0);
+    root.add(seitenStreifen);
+
+    [-2.74, 2.74].forEach(zPos => {
+      const laetzchen = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.22, 0.06), elfenbeinMat);
+      laetzchen.position.set(0, 1.16, zPos);
+      root.add(laetzchen);
+
+      // DR-Nummernschild "132 146-2" an der Front
+      const schild = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.11, 0.08), rahmenMat);
+      schild.position.set(0, 1.16, zPos + (zPos > 0 ? 0.02 : -0.02));
+      root.add(schild);
+    });
+
+    // 5. Seitenwand-Struktur: Horizontale Sicken, Lüftungsgitter & 4 Maschinenraum-Bullaugen
+    [0.85, 0.98, 1.38, 1.50].forEach(yPos => {
+      const sicke = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.03, 3.5), sickenMat);
+      sicke.position.set(0, yPos, 0);
+      root.add(sicke);
+    });
+
+    // 4 Maschinenraum-Fenster + obere Lüftergitterbänder
+    [-1.25, -0.42, 0.42, 1.25].forEach(zPos => {
+      const mFensterRahmen = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.30, 0.44), rahmenMat);
+      mFensterRahmen.position.set(0, 1.70, zPos);
+      root.add(mFensterRahmen);
+
+      const mFensterGlas = new THREE.Mesh(new THREE.BoxGeometry(1.57, 0.22, 0.36), innenGlasMat);
+      mFensterGlas.position.set(0, 1.70, zPos);
+      root.add(mFensterGlas);
+    });
+
+    // Große schräge Dachschrägen-Lüftergitter
+    [-1.4, 1.4].forEach(zPos => {
+      const gitter = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.18, 0.85), gitterMat);
+      gitter.position.set(0, 1.98, zPos);
+      root.add(gitter);
+    });
+
+    // Führerstandstüren (je 2 pro Seite mit Trittstufen & silbernen Griffstangen)
+    [-2.05, 2.05].forEach(zPos => {
+      const tuer = new THREE.Mesh(new THREE.BoxGeometry(1.55, 1.12, 0.38), sickenMat);
+      tuer.position.set(0, 1.28, zPos);
+      root.add(tuer);
+
+      const tuerFenster = new THREE.Mesh(new THREE.BoxGeometry(1.57, 0.32, 0.24), glasMat);
+      tuerFenster.position.set(0, 1.62, zPos);
+      root.add(tuerFenster);
+
+      // Silberne Griffstangen links/rechts der Tür
+      [-0.78, 0.78].forEach(xPos => {
+        const griff = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.95, 6), stahlMat);
+        griff.position.set(xPos, 1.25, zPos + (zPos > 0 ? -0.22 : 0.22));
+        root.add(griff);
+      });
+    });
+
+    // 6. Führerstände vorne & hinten: Zweiteilige schräge Frontscheiben, Sonnenblenden & Scheibenwischer
+    [1, -1].forEach(dir => {
+      const isFront = dir > 0;
+      const zFront = dir * 2.58;
+
+      // Linke & rechte Frontscheibe (geneigt passend zur Stirnschräge)
+      [-0.34, 0.34].forEach(xPos => {
+        const scheibe = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.44, 0.08), glasMat);
+        scheibe.position.set(xPos, 1.62, zFront);
+        scheibe.rotation.x = dir * 0.32;
+        root.add(scheibe);
+
+        // Scheibenwischer
+        const wischer = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.32, 0.10), stahlMat);
+        wischer.position.set(xPos + 0.08, 1.62, zFront + dir * 0.02);
+        wischer.rotation.x = dir * 0.32;
+        wischer.rotation.z = 0.25;
+        root.add(wischer);
+      });
+
+      // Seitenfenster des Führerstands
+      const cabSideGlass = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.40, 0.46), glasMat);
+      cabSideGlass.position.set(0, 1.64, dir * 2.38);
+      root.add(cabSideGlass);
+
+      // Dreilicht-Spitzensignal (unten 2 Doppellampen im Chromring, oben 1 Stirnlampe)
+      [-0.48, 0.48].forEach(xPos => {
+        const fassung = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 12), stahlMat);
+        fassung.rotation.x = Math.PI / 2;
+        fassung.position.set(xPos, 0.92, dir * 2.72);
+        root.add(fassung);
+
+        const lampe = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), isFront ? lichtWeissMat : lichtRotMat);
+        lampe.position.set(xPos, 0.92, dir * 2.75);
+        root.add(lampe);
+      });
+
+      const topFassung = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.10, 12), stahlMat);
+      topFassung.rotation.x = Math.PI / 2;
+      topFassung.position.set(0, 2.00, dir * 2.45);
+      root.add(topFassung);
+
+      const topLampe = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), isFront ? lichtWeissMat : rahmenMat);
+      topLampe.position.set(0, 2.00, dir * 2.49);
+      root.add(topLampe);
+
+      // 7. Schwere Pufferbohle, 2 runde Hochleistungspuffer, Schraubenkupplung & Bahnräumer (Schneepflug)
+      const bohle = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.28, 0.18), rahmenMat);
+      bohle.position.set(0, 0.52, dir * 2.76);
+      root.add(bohle);
+
+      [-0.52, 0.52].forEach(xPos => {
+        const pufferHuelse = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.26, 12), rahmenMat);
+        pufferHuelse.rotation.x = Math.PI / 2;
+        pufferHuelse.position.set(xPos, 0.52, dir * 2.90);
+        root.add(pufferHuelse);
+
+        const pufferTeller = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16), stahlMat);
+        pufferTeller.rotation.x = Math.PI / 2;
+        pufferTeller.position.set(xPos, 0.52, dir * 3.03);
+        root.add(pufferTeller);
+      });
+
+      // Angedeuteter roter Bahnräumer / Schienenräumer unter der Pufferbohle
+      const pflug = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.22, 0.12), bordeauxMat);
+      pflug.position.set(0, 0.30, dir * 2.68);
+      pflug.rotation.x = dir * -0.25;
+      root.add(pflug);
+    });
+
+    // 8. Fahrwerk: 2 wuchtige 3-achsige Drehgestellrahmen (Co'Co') + großer Dieseltank & Batteriekasten in der Mitte
+    const tank = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.42, 1.45), rahmenMat);
+    tank.position.set(0, 0.36, 0);
+    tank.castShadow = true;
+    root.add(tank);
+
+    [-1.65, 1.65].forEach(zBogie => {
+      // Drehgestell-Außenwangen mit Federpaketen
+      const bogieFrame = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.28, 1.82), rahmenMat);
+      bogieFrame.position.set(0, 0.34, zBogie);
+      bogieFrame.castShadow = true;
+      root.add(bogieFrame);
+
+      // 3 Bremszylinder / Achslager-Deckel pro Drehgestellseite
+      [-0.65, 0, 0.65].forEach(zOff => {
+        const lager = new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.14, 0.18), gitterMat);
+        lager.position.set(0, 0.28, zBogie + zOff);
+        root.add(lager);
+      });
+    });
+
+    // 6 Achsen mit Stahl-Laufflächen
+    this.baueStandardAchsen(root, [-2.3, -1.65, -1.0, 1.0, 1.65, 2.3]);
+
+    // 9. Scheinwerfer-Lichtkegel & Führerstands-Kamera
     const spotEl = document.createElement('a-entity');
     spotEl.setAttribute('light', 'type: spot; color: #ffe082; intensity: 3.2; distance: 28; angle: 36; penumbra: 0.5');
-    spotEl.setAttribute('position', '0 1.2 2.8');
+    spotEl.setAttribute('position', '0 1.2 2.9');
     spotEl.setAttribute('rotation', '-6 180 0');
     this.el.appendChild(spotEl);
 
-    // Führerstands-Kamera-Anker: sitzt direkt im vorderen Führerstand mit Blick nach vorne (+Z)
     const camAnchor = document.createElement('a-entity');
     camAnchor.classList.add('ludmilla-cam-anchor');
     camAnchor.setAttribute('position', '0 2.25 2.1');
