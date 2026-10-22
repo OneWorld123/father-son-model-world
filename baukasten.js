@@ -1002,12 +1002,14 @@ AFRAME.registerComponent('ki-steuerung', {
     this.hauptKamera = document.querySelector('#haupt-kamera');
     this.umwelt = document.querySelector('#umwelt');
 
-    // Tastatur-Steuerung ([1], [2], [3], [4], [L], [H])
+    // Tastatur-Steuerung ([1] Fußgänger, [2] Ludmilla, [3] Express, [4] Bahnhof, [5] Flugzeug-Cockpit, [6] Kapitänsbrücke Schiff)
     window.addEventListener('keydown', (e) => {
       if (e.key === '1') this.setzeKamera(1);
       if (e.key === '2') this.setzeKamera(2);
       if (e.key === '3') this.setzeKamera(3);
       if (e.key === '4') this.setzeKamera(4);
+      if (e.key === '5') this.setzeKamera(5);
+      if (e.key === '6') this.setzeKamera(6);
       if (e.key.toLowerCase() === 'l') this.wechselWetter();
       if (e.key.toLowerCase() === 'h' || e.key === ' ') {
         window.EEP.dampfPfeife();
@@ -1094,6 +1096,8 @@ AFRAME.registerComponent('ki-steuerung', {
     if (modus === 2) targetSelector = '.ludmilla-cam-anchor, .dampflok-cam-anchor';
     if (modus === 3) targetSelector = '.ice-cam-anchor';
     if (modus === 4) targetSelector = '.bahnhof-cam-anchor';
+    if (modus === 5) targetSelector = '.flugzeug-cam-anchor';
+    if (modus === 6) targetSelector = '.schiff-cam-anchor';
 
     const anchor = targetSelector ? document.querySelector(targetSelector) : null;
     if (anchor && this.kameraRig) {
@@ -1206,12 +1210,14 @@ AFRAME.registerComponent('ki-steuerung', {
     ui.id = 'eep-cockpit';
     ui.innerHTML = `
       <div class="eep-section">
-        <div class="eep-title">🎥 Kamera-Ansicht</div>
+        <div class="eep-title">🎥 Mitfahren & Perspektiven</div>
         <div class="eep-btn-row">
           <button class="eep-btn eep-cam-btn active" data-cam="1">🚶 Zu Fuß [1]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Lok-Führerstand [2]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 Express-Blick [3]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="4">🚉 Bahnsteig [4]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Ludmilla [2]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 Express [3]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="4">🚉 Bahnhof [4]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug-Cockpit [5]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Schiff / Fähre [6]</button>
         </div>
       </div>
 
