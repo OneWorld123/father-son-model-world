@@ -1,0 +1,106 @@
+schema_version: 1
+area: car-cockpit
+title: 3D-Autocockpit, Ackermann-Fahrphysik und Fahrzeug-Kameras
+
+specs:
+  - id: s-car-cockpit-001
+    title: Interaktive 3D-Autocockpit-Ansicht mit Lenkrad, Gangwahlhebel und Instrumenten
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+      - Das Spieler-Auto (ki-auto) steht fahrbereit in der Szene.
+    when: Der Nutzer wechselt per Taste 8 oder Button auf die Kamera Auto-Cockpit [8].
+    then:
+      - Die Kamera sitzt auf dem Fahrersitz links mit freiem Blick durch die Windschutzscheibe auf Motorhaube und Straße.
+      - Das 3D-Sportlenkrad mit roter 12-Uhr-Markierung, das Kombiinstrument (RPM, km/h, Gang), das 3D-GPS-Navi und der 3D-Gangwahlhebel (P, R, N, D, S) sind vollständig und ohne Near-Plane-Clipping sichtbar.
+      - Das Haupt-Steuerpult dockt kompakt am oberen Bildschirmrand an, damit Lenkrad und Mittelkonsole unten nicht verdeckt werden.
+    why: Das Auto soll sich optisch und ergonomisch wie ein echtes Fahrzeug-Cockpit ohne Grafik-Glitches anfühlen.
+
+  - id: s-car-cockpit-002
+    title: Realistische Pfeiltasten-Steuerung nach Ackermann-Kinematik ohne Drehen im Stand
+    given:
+      - Der Kamera-Modus Auto-Cockpit [8] ist aktiv.
+      - Der Gangwahlhebel steht in Fahrstufe D.
+    when: Der Nutzer bedient die Pfeiltasten (Pfeil-Hoch, Pfeil-Runter, Pfeil-Links, Pfeil-Rechts) oder schaltet den Gangwahlhebel.
+    then:
+      - Bei Geschwindigkeit 0 km/h dreht Pfeil-Links/Rechts nur das 3D-Lenkrad und die Vorderräder, verändert aber nicht den Gierwinkel (Heading) des Fahrzeugs.
+      - Bei Pfeil-Hoch beschleunigt das Fahrzeug vorwärts durch die Automatikstufen D1 bis D5; die Tachonadel und Digitalanzeige steigen entsprechend.
+      - Bei Pfeil-Runter verzögert das Fahrzeug mit aktiven Bremslichtern und schaltet nach kurzem Halten im Stillstand automatisch in den Rückwärtsgang R, wobei der 3D-Gangwahlhebel sichtbar in Position R gleitet.
+      - Die Pfeiltasten lösen kein Verschieben der Sitzkamera durch A-Frame wasd-controls aus.
+    why: Ein Auto darf sich im Stand nicht wie ein Panzer auf der Stelle drehen und die Kamera darf nicht aus dem Cockpit driften.
+
+  - id: s-car-cockpit-003
+    title: Freie Sicht in allen Fahrzeug-Führerständen trotz kleiner Near-Clipping-Distanz
+    given:
+      - Die Hauptkamera nutzt near=0.05 für eine schnittfreie Darstellung des nahen 3D-Autolenkrads.
+    when: Der Nutzer wechselt in die Führerstands-Kameras Ludmilla [2], US-Train [3], Flugzeug [5] oder Mein Schiff [6].
+    then:
+      - Die Kamera blickt frei vor der jeweiligen Frontscheibe in Fahrtrichtung auf die Strecke bzw. Landschaft.
+      - Keine Innenseiten des eigenen 3D-Fahrzeugmodells (z. B. weißes Dach von train-electric-bullet-a.glb) verdecken das Sichtfeld.
+    why: Die für das Autocockpit reduzierte Near-Plane darf andere Fahrzeug-Kameras nicht durch eigene Hüllgeometrie blockieren.
+
+decisions:
+  - id: d-car-cockpit-001
+    title: Kamera-Nahgrenze near=0.05 mit Zero-Lag-Synchronisation und deaktivierten wasd-controls
+    status: accepted
+    specs: [s-car-cockpit-001, s-car-cockpit-002, s-car-cockpit-003]
+    decision: Die Hauptkamera erhält near=0.05, deaktiviert in allen Fahrzeug-Cockpits wasd-controls vollständig und synchronisiert das Kamera-Rig im Auto-Modus direkt am Ende von ki-auto.tick() nach updateMatrixWorld(true).
+    why: Standard-Near (0.5m) schneidet das 3D-Lenkrad (0.35m Abstand) ab; aktive wasd-controls würden bei Pfeiltasten die Kamera aus dem Auto bewegen; eine getrennte Tick-Reihenfolge würde bei hohem Tempo zu 1-Frame-Lenkradzittern führen.
+    how:
+      - In welt.html auf a-camera near="0.05" far="1200" setzen.
+      - In setzeKamera() für Cockpit-Modi wasd-controls="enabled: false" setzen und Kamera-Offset sowie look-controls-Rotation auf 0 zurücksetzen.
+      - Kamera-Anker von Zügen (.ice-cam-anchor, .ludmilla-cam-anchor), Flugzeug und Schiff vor die Frontscheibe außerhalb der Hüllgeometrie legen.
+
+  - id: d-car-cockpit-002
+    title: Dirty-Checking für Cockpit-CanvasTexturen und Single-VBO für Hochpolygon-Landschaften
+    status: accepted
+    specs: [s-car-cockpit-001]
+    decision: Das Kombiinstrument-Canvas wird nur im aktiven Auto-Cockpit [8] und nur bei tatsächlicher Wertänderung (max. 15 Hz) per CanvasTexture auf die GPU übertragen; der Grand Canyon behält maximale Polygonanzahl (nPts=24, echte 3D-Schichtbänder) in einem einzigen zusammengeführten GPU-Vertex-Buffer (vertexColors).
+    why: Ein ungedrosseltes glTexImage2D in jedem Frame blockiert die WebGL-Pipeline beim Fahren durch komplexe Szenen wie den Grand Canyon.
+    how:
+      - In ki-auto.tick() vor zeichneKombiinstrument() einen Schlüssel aus gerundeter km/h, Gang, Stufe, Blinker und 80er-RPM-Stufe prüfen.
+      - In ki-canyon alle Schichtgeometrien mit Vertex-Farben in eine einzige THREE.BufferGeometry mit computeBoundingSphere() und matrixAutoUpdate=false zusammenführen.
+      - Vor A-Frame-Initialisierung HTMLCanvasElement.prototype.getContext für WebGL/WebGL2 mit powerPreference="high-performance" erweitern.
+
+tests:
+  - id: t-car-cockpit-001
+    title: Automatisierter Fahrphysik-, Gangwahl- und Cockpit-Sichtbarkeitstest
+    specs: [s-car-cockpit-001, s-car-cockpit-002]
+    suites: [smoke, regression]
+    areas: [car-cockpit]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server stellt welt.html und baukasten.js unter http://localhost:8080/welt.html bereit.
+      - Microsoft Edge unterstützt Headless-WebGL (--enable-webgl --ignore-gpu-blocklist).
+    steps:
+      - action: http://localhost:8080/welt.html?autotest=1 im Headless-Browser öffnen und Selbsttest ausführen.
+        expected:
+          - Die Browser-Konsole meldet keine Uncaught-Ausnahmen (ReferenceError, TypeError, SyntaxError).
+          - AUTO_TEST_RESULT meldet kameraModus=8, keinDrehenImStand=true, lenkradDreht=true, schalthebelBewegtSich=true und tachoKmh > 0.
+          - Der erzeugte Screenshot zeigt Lenkrad, Kombiinstrument, Gangwahlhebel, GPS-Navi, Motorhaube und freie Sicht auf die Straße.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis des Headless-Laufs entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: autotest=1
+
+  - id: t-car-cockpit-002
+    title: Freie Führerstandssicht im US-Train [3] auf New York ohne Modell-Clipping
+    specs: [s-car-cockpit-003]
+    suites: [regression]
+    areas: [car-cockpit]
+    risk: medium
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft auf Port 8080.
+      - US-Express nutzt das 3D-Modell train-electric-bullet-a.glb mit scale="1.5 1.5 1.5".
+    steps:
+      - action: http://localhost:8080/welt.html?cam=3 aufrufen und nach 9 Sekunden virtueller Laufzeit einen Screenshot erstellen.
+        expected:
+          - Das Kamerabild zeigt die US-Gleise, New York Central und die Wolkenkratzer-Skyline.
+          - Das Sichtfeld ist nicht durch weiße Innenflächen des Triebkopfs blockiert.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis des Headless-Laufs entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: cam=3
