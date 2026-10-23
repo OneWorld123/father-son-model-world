@@ -1334,6 +1334,253 @@ AFRAME.registerComponent('ki-canyon', {
   }
 });
 
+// ============================================================================
+// 8. NEUE WELT-BAUSTEINE FÜR DEUTSCHLAND ⇄ OZEAN ⇄ AMERIKA
+// ('ki-strasse', 'ki-alpen', 'ki-wolkenkratzer', 'ki-flughafen', 'ki-schiff')
+// ============================================================================
+AFRAME.registerComponent('ki-strasse', {
+  schema: {
+    punkte: { type: 'string', default: '' },
+    breite: { type: 'number', default: 3.4 }
+  },
+  init: function () {
+    const d = this.data;
+    const pts = [];
+    d.punkte.split(',').forEach(pStr => {
+      const c = pStr.trim().split(/\s+/).map(Number);
+      if (c.length >= 3) pts.push(new THREE.Vector3(c[0], c[1], c[2]));
+    });
+    if (pts.length < 2) return;
+
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+    const totalLen = curve.getLength();
+    const samples = Math.max(80, Math.floor(totalLen * 1.5));
+
+    const group = new THREE.Group();
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x2b3036, roughness: 0.9, metalness: 0.05 });
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.5 });
+
+    // Straßen-Segmente entlang der Kurve
+    const segLen = totalLen / samples;
+    const roadGeo = new THREE.BoxGeometry(d.breite, 0.08, segLen * 1.15);
+    const roadInst = new THREE.InstancedMesh(roadGeo, roadMat, samples);
+    roadInst.receiveShadow = true;
+
+    const numDashes = Math.floor(samples / 2);
+    const dashGeo = new THREE.BoxGeometry(0.18, 0.095, segLen * 0.9);
+    const dashInst = new THREE.InstancedMesh(dashGeo, lineMat, numDashes);
+
+    const dummy = new THREE.Object3D();
+    let dashIdx = 0;
+    for (let i = 0; i < samples; i++) {
+      const u = i / (samples - 1);
+      const pos = curve.getPointAt(u);
+      const tangent = curve.getTangentAt(u).normalize();
+      dummy.position.copy(pos);
+      dummy.lookAt(pos.clone().add(tangent));
+      dummy.updateMatrix();
+      roadInst.setMatrixAt(i, dummy.matrix);
+
+      if (i % 2 === 0 && dashIdx < numDashes) {
+        dashInst.setMatrixAt(dashIdx++, dummy.matrix);
+      }
+    }
+    group.add(roadInst);
+    group.add(dashInst);
+    this.el.setObject3D('mesh', group);
+  }
+});
+
+AFRAME.registerComponent('ki-alpen', {
+  schema: {
+    breite: { type: 'number', default: 58 },
+    tiefe: { type: 'number', default: 24 },
+    hoehe: { type: 'number', default: 28 }
+  },
+  init: function () {
+    const d = this.data;
+    const group = new THREE.Group();
+    const felsMat = new THREE.MeshStandardMaterial({ color: 0x5c6670, roughness: 0.9, flatShading: true });
+    const schneeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5, flatShading: true });
+
+    const peaks = [
+      { x: -20, z: -2, r: 12, h: d.hoehe * 0.85 },
+      { x: -8,  z: -4, r: 15, h: d.hoehe * 1.05 },
+      { x: 6,   z: -3, r: 14, h: d.hoehe * 0.95 },
+      { x: 18,  z: -1, r: 11, h: d.hoehe * 0.78 },
+      { x: -14, z: 4,  r: 9,  h: d.hoehe * 0.62 },
+      { x: 0,   z: 5,  r: 10, h: d.hoehe * 0.68 },
+      { x: 12,  z: 4,  r: 9,  h: d.hoehe * 0.60 }
+    ];
+
+    peaks.forEach((p, idx) => {
+      // Fels-Hauptkegel
+      const coneGeo = new THREE.ConeGeometry(p.r, p.h, 7);
+      const cone = new THREE.Mesh(coneGeo, felsMat);
+      cone.position.set(p.x, p.h * 0.5, p.z);
+      cone.rotation.y = idx * 0.9;
+      cone.castShadow = true;
+      cone.receiveShadow = true;
+      group.add(cone);
+
+      // Schneekappe auf den oberen 38 %
+      const snowH = p.h * 0.38;
+      const snowR = p.r * 0.39;
+      const snowGeo = new THREE.ConeGeometry(snowR, snowH, 7);
+      const snow = new THREE.Mesh(snowGeo, schneeMat);
+      snow.position.set(p.x, p.h - snowH * 0.48, p.z);
+      snow.rotation.y = idx * 0.9;
+      group.add(snow);
+    });
+
+    this.el.setObject3D('mesh', group);
+  }
+});
+
+AFRAME.registerComponent('ki-wolkenkratzer', {
+  schema: {
+    breite: { type: 'number', default: 5.5 },
+    tiefe: { type: 'number', default: 5.5 },
+    hoehe: { type: 'number', default: 24 },
+    farbe: { type: 'color', default: '#334155' },
+    spitze: { type: 'boolean', default: false }
+  },
+  init: function () {
+    const d = this.data;
+    const el = this.el;
+
+    const turm = document.createElement('a-box');
+    turm.setAttribute('width', d.breite);
+    turm.setAttribute('height', d.hoehe);
+    turm.setAttribute('depth', d.tiefe);
+    turm.setAttribute('position', `0 ${d.hoehe / 2} 0`);
+    turm.setAttribute('material', `color: ${d.farbe}; roughness: 0.25; metalness: 0.7`);
+    turm.setAttribute('shadow', 'cast: true; receive: true');
+    el.appendChild(turm);
+
+    // Leuchtende Fensterbänder
+    const etagen = Math.floor(d.hoehe / 2.2);
+    for (let i = 1; i < etagen; i++) {
+      const fensterBand = document.createElement('a-box');
+      fensterBand.setAttribute('width', d.breite + 0.08);
+      fensterBand.setAttribute('height', '0.75');
+      fensterBand.setAttribute('depth', d.tiefe + 0.08);
+      fensterBand.setAttribute('position', `0 ${i * 2.2} 0`);
+      fensterBand.setAttribute('material', 'color: #e0f2fe; emissive: #7dd3fc; emissiveIntensity: 0.65; roughness: 0.1; metalness: 0.9');
+      el.appendChild(fensterBand);
+    }
+
+    if (d.spitze) {
+      const krone = document.createElement('a-box');
+      krone.setAttribute('width', d.breite * 0.65);
+      krone.setAttribute('height', '3.5');
+      krone.setAttribute('depth', d.tiefe * 0.65);
+      krone.setAttribute('position', `0 ${d.hoehe + 1.75} 0`);
+      krone.setAttribute('material', `color: ${d.farbe}; metalness: 0.8`);
+      el.appendChild(krone);
+
+      const antenne = document.createElement('a-cylinder');
+      antenne.setAttribute('radius', '0.12');
+      antenne.setAttribute('height', '6.0');
+      antenne.setAttribute('position', `0 ${d.hoehe + 6.0} 0`);
+      antenne.setAttribute('material', 'color: #cbd5e1; metalness: 0.9');
+      el.appendChild(antenne);
+    }
+  }
+});
+
+AFRAME.registerComponent('ki-flughafen', {
+  schema: {
+    name: { type: 'string', default: 'Airport' },
+    laenge: { type: 'number', default: 50 },
+    terminalSeite: { type: 'string', default: 'links' } // links (DE) oder rechts (US)
+  },
+  init: function () {
+    const d = this.data;
+    const el = this.el;
+    const side = d.terminalSeite === 'links' ? -1 : 1;
+
+    // 1. Start- & Landebahn (Asphalt + Mittelstreifen + Schwellenmarkierung)
+    const piste = document.createElement('a-box');
+    piste.setAttribute('width', '11');
+    piste.setAttribute('height', '0.08');
+    piste.setAttribute('depth', d.laenge);
+    piste.setAttribute('position', '0 0.06 0');
+    piste.setAttribute('material', 'color: #1e293b; roughness: 0.85');
+    piste.setAttribute('shadow', 'receive: true');
+    el.appendChild(piste);
+
+    const streifen = document.createElement('a-box');
+    streifen.setAttribute('width', '0.45');
+    streifen.setAttribute('height', '0.10');
+    streifen.setAttribute('depth', d.laenge - 6);
+    streifen.setAttribute('position', '0 0.07 0');
+    streifen.setAttribute('material', 'color: #f8fafc');
+    el.appendChild(streifen);
+
+    // 2. Rollfeld (Vorfeld zwischen Startbahn und Terminal)
+    const rollfeld = document.createElement('a-box');
+    rollfeld.setAttribute('width', '10');
+    rollfeld.setAttribute('height', '0.07');
+    rollfeld.setAttribute('depth', d.laenge * 0.65);
+    rollfeld.setAttribute('position', `${side * 10} 0.055 2`);
+    rollfeld.setAttribute('material', 'color: #475569; roughness: 0.9');
+    el.appendChild(rollfeld);
+
+    // 3. Terminal-Gebäude mit Glasfassade & Namensschild
+    const terminal = document.createElement('a-box');
+    terminal.setAttribute('width', '7.5');
+    terminal.setAttribute('height', '4.6');
+    terminal.setAttribute('depth', d.laenge * 0.55);
+    terminal.setAttribute('position', `${side * 16.5} 2.3 -1`);
+    terminal.setAttribute('material', 'color: #cbd5e1; roughness: 0.4; metalness: 0.3');
+    terminal.setAttribute('shadow', 'cast: true; receive: true');
+    el.appendChild(terminal);
+
+    const glas = document.createElement('a-box');
+    glas.setAttribute('width', '7.65');
+    glas.setAttribute('height', '2.4');
+    glas.setAttribute('depth', d.laenge * 0.50);
+    glas.setAttribute('position', `${side * 16.5} 2.4 -1`);
+    glas.setAttribute('material', 'color: #0284c7; emissive: #38bdf8; emissiveIntensity: 0.45; roughness: 0.1; metalness: 0.85');
+    el.appendChild(glas);
+
+    const schild = document.createElement('a-text');
+    schild.setAttribute('value', d.name);
+    schild.setAttribute('align', 'center');
+    schild.setAttribute('color', '#ffffff');
+    schild.setAttribute('width', '22');
+    schild.setAttribute('position', `${side * 12.6} 5.4 -1`);
+    schild.setAttribute('rotation', `0 ${side > 0 ? -90 : 90} 0`);
+    el.appendChild(schild);
+
+    // 4. Tower (Kontrollturm: in DE nördlich/oben, in US südlich/unten wie gezeichnet)
+    const towerZ = side < 0 ? (-d.laenge * 0.44) : (d.laenge * 0.44);
+    const towerSchaft = document.createElement('a-cylinder');
+    towerSchaft.setAttribute('radius', '1.4');
+    towerSchaft.setAttribute('height', '11');
+    towerSchaft.setAttribute('position', `${side * 14} 5.5 ${towerZ}`);
+    towerSchaft.setAttribute('material', 'color: #e2e8f0; roughness: 0.5');
+    towerSchaft.setAttribute('shadow', 'cast: true');
+    el.appendChild(towerSchaft);
+
+    const kanzel = document.createElement('a-cylinder');
+    kanzel.setAttribute('radius', '2.3');
+    kanzel.setAttribute('height', '2.0');
+    kanzel.setAttribute('position', `${side * 14} 11.2 ${towerZ}`);
+    kanzel.setAttribute('material', 'color: #0284c7; emissive: #38bdf8; emissiveIntensity: 0.6; roughness: 0.1; metalness: 0.9');
+    el.appendChild(kanzel);
+
+    const dach = document.createElement('a-cone');
+    dach.setAttribute('radius-bottom', '2.5');
+    dach.setAttribute('radius-top', '0.2');
+    dach.setAttribute('height', '1.4');
+    dach.setAttribute('position', `${side * 14} 12.9 ${towerZ}`);
+    dach.setAttribute('material', 'color: #dc2626');
+    el.appendChild(dach);
+  }
+});
+
 AFRAME.registerComponent('ki-flugzeug', {
   schema: {
     schub: { type: 'number', default: 1.0 } // 0 = Stopp, bis 3.0 = Turbo
@@ -1341,65 +1588,85 @@ AFRAME.registerComponent('ki-flugzeug', {
   init: function () {
     window.EEP.flugzeugComp = this;
     this.schub = this.data.schub;
-    this.progress = 0; // 0.0 bis 1.0 auf der Flugschleife
+    this.progress = 0;
 
-    // 8 Kontrollpunkte für die 3D-Flugbahn: Start -> Steigflug -> Nordsee -> Grand Canyon -> Landeanflug
+    // Transatlantik-Rundflug: Start Flughafen DE (-162, Z=0) -> Alpen -> Über den Ozean & Inseln ->
+    // Touch-and-Go auf dem US-Flughafen (+156, Z=+15) -> Kurve über den Grand Canyon (+118, Z=+58) ->
+    // Über die Ostsee zurück zur Landung auf dem Flughafen DE!
     const points = [
-      new THREE.Vector3(35, 0.8, 18),   // 0: Startposition Landebahn Süd
-      new THREE.Vector3(35, 0.8, -12),  // 1: Beschleunigen auf der Piste
-      new THREE.Vector3(32, 18, -35),   // 2: Steigflug über die Kaimauer
-      new THREE.Vector3(0, 36, -75),    // 3: Weit draußen über der Nordsee
-      new THREE.Vector3(-65, 32, -55),  // 4: Große Kurve links über dem Meer
-      new THREE.Vector3(-54, 28, -2),   // 5: Tiefflug direkt über die Grand-Canyon-Schlucht!
-      new THREE.Vector3(15, 7, 14),     // 6: Sinkflug & Ausrichten auf die Piste
-      new THREE.Vector3(35, 0.8, 18)    // 7: Aufsetzen & Rollen
+      new THREE.Vector3(-162, 0.9, 18),   // 0: Start Flughafen DE (Südende Piste)
+      new THREE.Vector3(-162, 0.9, -12),  // 1: Beschleunigen auf Piste DE
+      new THREE.Vector3(-145, 16, -42),   // 2: Abheben vor den Alpen
+      new THREE.Vector3(-45,  34, -35),   // 3: Steigflug über den nördlichen Ozean
+      new THREE.Vector3(65,   32, -15),   // 4: Anflug über die 4 Inseln auf Amerika
+      new THREE.Vector3(156,  10, -12),   // 5: Endanflug Piste USA (Nord)
+      new THREE.Vector3(156,  1.2, 16),   // 6: Touch-and-Go auf der US-Startbahn!
+      new THREE.Vector3(156,  12,  42),   // 7: Durchstarten Richtung Süden
+      new THREE.Vector3(118,  28,  58),   // 8: Panorama-Kurve direkt über den Grand Canyon!
+      new THREE.Vector3(10,   35,  48),   // 9: Rückflug über den südlichen Ozean
+      new THREE.Vector3(-115, 22,  55),   // 10: Überflug Ostsee & Mein Schiff
+      new THREE.Vector3(-162, 7,   36)    // 11: Landeanflug Flughafen DE
     ];
-    this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.4);
+    this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.45);
     this.totalLen = this.curve.getLength();
   },
   tick: function (time, dt) {
     if (!dt || this.schub <= 0) return;
     const deltaSec = Math.min(dt / 1000, 0.1);
-    // Geschwindigkeit: Basistempo 12 m/s * Schub
-    const distDelta = (14.0 * this.schub) * deltaSec;
+    const distDelta = (24.0 * this.schub) * deltaSec;
     this.progress = (this.progress + (distDelta / this.totalLen)) % 1.0;
 
     const currentPos = this.curve.getPointAt(this.progress);
-    const lookAheadProgress = (this.progress + 0.015) % 1.0;
+    const lookAheadProgress = (this.progress + 0.012) % 1.0;
     const nextPos = this.curve.getPointAt(lookAheadProgress);
 
     this.el.object3D.position.copy(currentPos);
     this.el.object3D.lookAt(nextPos);
-    // 180 Grad drehen, da das Modell mit Cockpit nach -Z ausgerichtet ist
     this.el.object3D.rotateY(Math.PI);
   }
 });
 
 AFRAME.registerComponent('ki-faehre', {
   schema: {
-    tempo: { type: 'number', default: 1.0 } // Schub 0 bis 2.5
+    tempo: { type: 'number', default: 1.0 },
+    von: { type: 'vec3', default: { x: -45, y: 0.35, z: -25 } },
+    nach: { type: 'vec3', default: { x: 45, y: 0.35, z: -25 } },
+    hauptschiff: { type: 'boolean', default: false }
   },
   init: function () {
-    window.EEP.faehreComp = this;
+    if (this.data.hauptschiff || !window.EEP.faehreComp) {
+      window.EEP.faehreComp = this;
+    }
+    if (!window.EEP.alleSchiffe) window.EEP.alleSchiffe = [];
+    window.EEP.alleSchiffe.push(this);
+
     this.tempo = this.data.tempo;
-    this.xPos = -70;
-    this.richtung = 1; // 1 = nach rechts, -1 = nach links
+    this.progress = Math.random() * 0.3;
+    this.richtung = 1;
+    this.pStart = new THREE.Vector3(this.data.von.x, this.data.von.y, this.data.von.z);
+    this.pEnd = new THREE.Vector3(this.data.nach.x, this.data.nach.y, this.data.nach.z);
+    this.distanz = Math.max(1, this.pStart.distanceTo(this.pEnd));
   },
   tick: function (time, dt) {
-    if (!dt || this.tempo <= 0) return;
+    const globalFactor = window.EEP.faehreComp ? window.EEP.faehreComp.tempo : this.tempo;
+    if (!dt || globalFactor <= 0) return;
     const deltaSec = Math.min(dt / 1000, 0.1);
-    this.xPos += this.richtung * (5.5 * this.tempo) * deltaSec;
+    const speed = 6.5 * globalFactor;
+    this.progress += this.richtung * (speed * deltaSec) / this.distanz;
 
-    if (this.xPos > 95) {
-      this.xPos = 95;
+    if (this.progress >= 1.0) {
+      this.progress = 1.0;
       this.richtung = -1;
-      this.el.object3D.rotation.y = Math.PI; // Schiff wendet!
-    } else if (this.xPos < -95) {
-      this.xPos = -95;
+    } else if (this.progress <= 0.0) {
+      this.progress = 0.0;
       this.richtung = 1;
-      this.el.object3D.rotation.y = 0;
     }
-    this.el.object3D.position.x = this.xPos;
+
+    const pos = new THREE.Vector3().lerpVectors(this.pStart, this.pEnd, this.progress);
+    this.el.object3D.position.copy(pos);
+    const ziel = this.richtung > 0 ? this.pEnd : this.pStart;
+    this.el.object3D.lookAt(ziel);
+    this.el.object3D.rotateY(-Math.PI / 2);
   }
 });
 AFRAME.registerComponent('ki-steuerung', {
@@ -1408,7 +1675,7 @@ AFRAME.registerComponent('ki-steuerung', {
     this.hauptKamera = document.querySelector('#haupt-kamera');
     this.umwelt = document.querySelector('#umwelt');
 
-    // Tastatur-Steuerung ([1] Fußgänger, [2] Ludmilla, [3] Express, [4] Bahnhof, [5] Flugzeug-Cockpit, [6] Kapitänsbrücke Schiff)
+    // Tastatur-Steuerung ([1] DE, [2] Ludmilla, [3] US-Zug, [4] USA/NY, [5] Flugzeug, [6] Schiff, [7] Vogelperspektive)
     window.addEventListener('keydown', (e) => {
       if (e.key === '1') this.setzeKamera(1);
       if (e.key === '2') this.setzeKamera(2);
@@ -1416,6 +1683,7 @@ AFRAME.registerComponent('ki-steuerung', {
       if (e.key === '4') this.setzeKamera(4);
       if (e.key === '5') this.setzeKamera(5);
       if (e.key === '6') this.setzeKamera(6);
+      if (e.key === '7') this.setzeKamera(7);
       if (e.key.toLowerCase() === 'l') this.wechselWetter();
       if (e.key.toLowerCase() === 'h' || e.key === ' ') {
         window.EEP.dampfPfeife();
@@ -1434,14 +1702,28 @@ AFRAME.registerComponent('ki-steuerung', {
     });
 
     if (modus === 1) {
-      // Fußgänger-Modus: 1.65 m Augenhöhe auf dem Bahnsteig
+      // Fußgänger Deutschland (bei Mein Haus / Alpenblick)
       if (this.hauptKamera) {
-        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 25; fly: false');
+        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
       }
-      this.kameraRig.object3D.position.set(0, 1.65, 9.5);
+      this.kameraRig.object3D.position.set(-100, 1.65, -45);
       this.kameraRig.object3D.rotation.set(0, 0, 0);
+    } else if (modus === 4) {
+      // Fußgänger Amerika (bei Mein Haus / New York)
+      if (this.hauptKamera) {
+        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
+      }
+      this.kameraRig.object3D.position.set(132, 1.65, -35);
+      this.kameraRig.object3D.rotation.set(0, 0, 0);
+    } else if (modus === 7) {
+      // Freie Vogelperspektive über dem Ozean (Übersicht über alle 3 Blätter!)
+      if (this.hauptKamera) {
+        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 85; fly: true');
+      }
+      this.kameraRig.object3D.position.set(0, 75, 95);
+      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-35), 0, 0);
     } else {
-      // Zug-/Bahnhofs-Kamera: WASD deaktivieren, damit man nicht aus dem Führerstand wegläuft!
+      // Zug-/Flugzeug-/Schiffs-Kamera: WASD deaktivieren, damit man fest im Cockpit sitzt
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: false');
       }
@@ -1496,12 +1778,11 @@ AFRAME.registerComponent('ki-steuerung', {
 
   tick: function () {
     const modus = window.EEP.aktiveKamera;
-    if (modus === 1) return; // Freie Kamera
+    if (modus === 1 || modus === 4 || modus === 7) return; // Freie / Fußgänger-Kameras
 
     let targetSelector = null;
     if (modus === 2) targetSelector = '.ludmilla-cam-anchor, .dampflok-cam-anchor';
     if (modus === 3) targetSelector = '.ice-cam-anchor';
-    if (modus === 4) targetSelector = '.bahnhof-cam-anchor';
     if (modus === 5) targetSelector = '.flugzeug-cam-anchor';
     if (modus === 6) targetSelector = '.schiff-cam-anchor';
 
@@ -1616,14 +1897,15 @@ AFRAME.registerComponent('ki-steuerung', {
     ui.id = 'eep-cockpit';
     ui.innerHTML = `
       <div class="eep-section">
-        <div class="eep-title">🎥 Mitfahren & Perspektiven</div>
+        <div class="eep-title">🎥 Weltreise & Cockpits</div>
         <div class="eep-btn-row">
-          <button class="eep-btn eep-cam-btn active" data-cam="1">🚶 Zu Fuß [1]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Ludmilla [2]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 Express [3]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="4">🚉 Bahnhof [4]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug-Cockpit [5]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Schiff / Fähre [6]</button>
+          <button class="eep-btn eep-cam-btn active" data-cam="1">🇩🇪 Deutschland [1]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Ludmilla DE [2]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="3">🚄 US-Train [3]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="4">🇺🇸 Amerika / NY [4]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug [5]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Mein Schiff [6]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="7">🦅 Übersicht [7]</button>
         </div>
       </div>
 
