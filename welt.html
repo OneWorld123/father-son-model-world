@@ -152,8 +152,8 @@
       <a-cylinder color="#dc2626" radius="0.45" height="1.6" position="0 2.8 0"></a-cylinder>
       <a-text value="MEIN SCHIFF" color="#38bdf8" width="16" align="center" position="0 2.9 1.7"></a-text>
       <a-text value="MEIN SCHIFF" color="#38bdf8" width="16" align="center" position="0 2.9 -1.7" rotation="0 180 0"></a-text>
-      <!-- Kamera-Anker für Taste [6] -->
-      <a-entity class="schiff-cam-anchor" position="4.5 2.6 0" rotation="0 90 0"></a-entity>
+      <!-- Kamera-Anker für Taste [6] (Blick von der Kommandobrücke nach vorn über den Bug) -->
+      <a-entity class="schiff-cam-anchor" position="5.2 2.8 0" rotation="-6 -90 0"></a-entity>
     </a-entity>
 
 
@@ -236,8 +236,8 @@
       <a-sphere color="#ff1744" radius="0.28" material="emissive: #ff1744; emissiveIntensity: 3" position="-10.0 0 -0.8"></a-sphere>
       <a-sphere color="#ff1744" radius="0.32" position="0 -1.25 0" material="emissive: #ff1744; emissiveIntensity: 4"
                 animation="property: opacity; from: 1; to: 0.1; dur: 500; loop: true; dir: alternate"></a-sphere>
-      <!-- Cockpit-Kamera für Taste [5] -->
-      <a-entity class="flugzeug-cam-anchor" position="0 0.65 -7.6" rotation="0 180 0"></a-entity>
+      <!-- Cockpit-Kamera für Taste [5] (Blick über die Flugzeugnase in Flugrichtung -Z) -->
+      <a-entity class="flugzeug-cam-anchor" position="0 1.45 -6.5" rotation="-8 0 0"></a-entity>
     </a-entity>
 
   </a-scene>

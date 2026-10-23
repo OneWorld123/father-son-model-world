@@ -1,4 +1,5 @@
-# Startet Edge im Headless-WebGL-Modus für das Auto-Cockpit (?autotest=1), prüft die Fahrphysik-Assertions und speichert screenshot_auto_cockpit.png
+param([string]$Query = "cam=3")
+# Startet Edge im Headless-WebGL-Modus, prüft die Kamera/Fahrphysik und speichert screenshot_auto_cockpit.png
 $edge = @("C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe","C:\Program Files\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 $shot = "C:\Users\Markus\.gemini\antigravity\brain\1c19476e-1808-4bdf-b72c-9116af9b0e6c\screenshot_auto_cockpit.png"
 $err  = "C:\Users\Markus\.gemini\antigravity\brain\1c19476e-1808-4bdf-b72c-9116af9b0e6c\scratch\console_auto.log"
@@ -19,7 +20,7 @@ $args = @(
   "--virtual-time-budget=9000",
   "--user-data-dir=$prof",
   "--screenshot=$shot",
-  "http://localhost:8080/welt.html?autotest=1"
+  "http://localhost:8080/welt.html?$Query"
 )
 
 $p = Start-Process -FilePath $edge -ArgumentList $args -RedirectStandardError $err -PassThru -WindowStyle Hidden

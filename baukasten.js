@@ -404,18 +404,12 @@ AFRAME.registerComponent('ki-waggon', {
       gltfEl.setAttribute('shadow', 'cast: true; receive: true');
       this.el.appendChild(gltfEl);
 
-      // Licht & Kamera-Anker für Züge
+      // Kamera-Anker für Züge (Vor der Frontscheibe bei z=+2.45, damit near=0.05 nicht ins 3D-Modell schaut!)
       if (d.typ.includes('lok') || d.typ.includes('kopf') || d.typ.includes('diesel')) {
-        const spotEl = document.createElement('a-entity');
-        spotEl.setAttribute('light', 'type: spot; color: #fff8e1; intensity: 3; distance: 25; angle: 40; penumbra: 0.5');
-        spotEl.setAttribute('position', '0 1.2 2.2');
-        spotEl.setAttribute('rotation', '-6 180 0');
-        this.el.appendChild(spotEl);
-
         const camAnchor = document.createElement('a-entity');
         camAnchor.classList.add(d.typ.includes('dampf') ? 'dampflok-cam-anchor' : 'ice-cam-anchor');
-        camAnchor.setAttribute('position', '0 2.2 -0.5');
-        camAnchor.setAttribute('rotation', '-4 180 0');
+        camAnchor.setAttribute('position', '0 2.05 2.45');
+        camAnchor.setAttribute('rotation', '-7 180 0');
         this.el.appendChild(camAnchor);
       }
       return;
@@ -675,12 +669,11 @@ AFRAME.registerComponent('ki-waggon', {
     // 6 Achsen mit Stahl-Laufflächen
     this.baueStandardAchsen(root, [-2.3, -1.65, -1.0, 1.0, 1.65, 2.3]);
 
-    // 9. Scheinwerfer-Lichtkegel & Führerstands-Kamera
-    const spotEl = document.createElement('a-entity');
+    // 9. Führerstands-Kamera (Direkt an der Frontscheibe bei z=+2.82 mit Blick voraus auf die Strecke)
     const camAnchor = document.createElement('a-entity');
     camAnchor.classList.add('ludmilla-cam-anchor');
-    camAnchor.setAttribute('position', '0 2.25 2.1');
-    camAnchor.setAttribute('rotation', '-2 180 0');
+    camAnchor.setAttribute('position', '0 2.28 2.82');
+    camAnchor.setAttribute('rotation', '-7 180 0');
     this.el.appendChild(camAnchor);
   },
 
@@ -924,11 +917,11 @@ AFRAME.registerComponent('ki-waggon', {
     });
 
     if (!istHeck) {
-      // Kamera-Anker für Taste [3] (ICE-Mitfahrt)
+      // Kamera-Anker für Taste [3] (ICE-Mitfahrt an der Frontscheibe)
       const camAnchor = document.createElement('a-entity');
       camAnchor.classList.add('ice-cam-anchor');
-      camAnchor.setAttribute('position', '0 2.15 0.8');
-      camAnchor.setAttribute('rotation', '-4 180 0');
+      camAnchor.setAttribute('position', '0 1.95 2.35');
+      camAnchor.setAttribute('rotation', '-7 180 0');
       this.el.appendChild(camAnchor);
     }
 
@@ -2698,6 +2691,10 @@ AFRAME.registerComponent('ki-steuerung', {
       this.aktualisiereZugRegler();
       if (window.location.search.includes('autotest=1')) {
         this.starteAutoSelbsttest();
+      }
+      const camMatch = window.location.search.match(/cam=(\d)/);
+      if (camMatch) {
+        this.setzeKamera(Number(camMatch[1]));
       }
     }, 300);
   },
