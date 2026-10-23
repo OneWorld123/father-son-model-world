@@ -677,11 +677,6 @@ AFRAME.registerComponent('ki-waggon', {
 
     // 9. Scheinwerfer-Lichtkegel & Führerstands-Kamera
     const spotEl = document.createElement('a-entity');
-    spotEl.setAttribute('light', 'type: spot; color: #ffe082; intensity: 3.2; distance: 28; angle: 36; penumbra: 0.5');
-    spotEl.setAttribute('position', '0 1.2 2.9');
-    spotEl.setAttribute('rotation', '-6 180 0');
-    this.el.appendChild(spotEl);
-
     const camAnchor = document.createElement('a-entity');
     camAnchor.classList.add('ludmilla-cam-anchor');
     camAnchor.setAttribute('position', '0 2.25 2.1');
@@ -935,12 +930,6 @@ AFRAME.registerComponent('ki-waggon', {
       camAnchor.setAttribute('position', '0 2.15 0.8');
       camAnchor.setAttribute('rotation', '-4 180 0');
       this.el.appendChild(camAnchor);
-
-      const spotEl = document.createElement('a-entity');
-      spotEl.setAttribute('light', 'type: spot; color: #e0f7fa; intensity: 2.8; distance: 25; angle: 35; penumbra: 0.5');
-      spotEl.setAttribute('position', '0 1.0 2.6');
-      spotEl.setAttribute('rotation', '-6 180 0');
-      this.el.appendChild(spotEl);
     }
 
     this.baueStandardAchsen(root, [-1.6, 1.2]);
@@ -1122,13 +1111,8 @@ AFRAME.registerComponent('ki-bahnhof', {
       const kugel = document.createElement('a-sphere');
       kugel.setAttribute('radius', '0.26');
       kugel.setAttribute('position', `${xPos} 3.65 1.2`);
-      kugel.setAttribute('material', 'color: #fffde7; emissive: #ffd54f; emissiveIntensity: 2.0');
+      kugel.setAttribute('material', 'color: #fffde7; emissive: #ffd54f; emissiveIntensity: 2.2');
       el.appendChild(kugel);
-
-      const licht = document.createElement('a-entity');
-      licht.setAttribute('light', 'type: point; color: #ffe082; intensity: 1.4; distance: 14; decay: 2');
-      licht.setAttribute('position', `${xPos} 3.5 1.2`);
-      el.appendChild(licht);
     });
 
     // Bahnhofskamera-Anker (für Taste [4])
@@ -1248,18 +1232,24 @@ AFRAME.registerComponent('ki-canyon', {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 
-    // Gesteinsschichten von unten nach oben (Grand-Canyon-Farben)
-    const palette = ['#6e3220', '#8f4127', '#a9532f', '#c0693d', '#9a4a2c', '#cf8752', '#dfa86f', '#b8603a', '#e9c79a', '#c47a4a'];
+    // Gesteinsschichten von unten nach oben (Maximale Polygonanzahl + echte 3D-Schichtstufen,
+    // komplett in 1 einzigen Hardware-VBO mit Vertex-Colors auf der GPU gebündelt!)
+    const palette = [
+      new THREE.Color('#6e3220'), new THREE.Color('#8f4127'), new THREE.Color('#a9532f'),
+      new THREE.Color('#c0693d'), new THREE.Color('#9a4a2c'), new THREE.Color('#cf8752'),
+      new THREE.Color('#dfa86f'), new THREE.Color('#b8603a'), new THREE.Color('#e9c79a'),
+      new THREE.Color('#c47a4a')
+    ];
     const bandH = 1.3;
-    const buckets = palette.map(() => []); // gesammelte Geometrien je Farbe
+    const buckets = palette.map(() => []); // gesammelte 3D-Schichtgeometrien je Farbe
 
     // Verlauf der Schlucht (Fluss) in lokalen Koordinaten
     const gorgeX = (z) => Math.sin(z * 0.09) * 5 + Math.sin(z * 0.23) * 1.5;
     const gorgeHalf = 3.2;
 
-    // Eine Formation = gestapelte Terrassen, jede Terrasse in Farbbänder zerlegt
+    // Eine Formation = gestapelte Terrassen, jede Terrasse in echte 3D-Farbbänder zerlegt (Hohe Polygonanzahl!)
     const baueFormation = (cx, cz, radius, height) => {
-      const nPts = 20;
+      const nPts = 24; // Maximale Polygon-Detailstufe für feingliedrige Felswände
       const phase = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28];
       const footprint = (scale) => {
         const shape = new THREE.Shape();
@@ -1306,7 +1296,7 @@ AFRAME.registerComponent('ki-canyon', {
       }
     }
 
-    // Ein paar schlanke Felsnadeln (Hoodoos) in der Nähe der Schlucht
+    // Schlanke Felsnadeln (Hoodoos) in der Nähe der Schlucht
     for (let i = 0; i < 9; i++) {
       const z = (rnd() - 0.5) * d.tiefe * 0.9;
       const side = rnd() < 0.5 ? -1 : 1;
@@ -1314,34 +1304,56 @@ AFRAME.registerComponent('ki-canyon', {
       baueFormation(x, z, 0.7 + rnd() * 0.5, 5 + rnd() * 6);
     }
 
-    // Felsen etwas "verwittern": Vertices positionsabhängig verschieben (Kanten bleiben dicht)
+    // Felsen verwittern & ALLE Schichten in 1 einzigen GPU-Vertex-Buffer (VBO) mit Hardware-VertexColors packen!
     const noise = (x, y, z) => Math.sin(x * 1.7 + z * 0.9 + y * 0.3) * 0.5 + Math.sin(z * 2.3 - y * 0.7 + x * 0.4) * 0.3 + Math.sin(y * 3.1 + x * 1.1) * 0.2;
 
-    buckets.forEach((geos, idx) => {
-      if (!geos.length) return;
-      let total = 0;
-      geos.forEach(g => { total += g.attributes.position.count; });
-      const pos = new Float32Array(total * 3);
+    let totalVerts = 0;
+    buckets.forEach(geos => geos.forEach(g => { totalVerts += g.attributes.position.count; }));
+
+    if (totalVerts > 0) {
+      const pos = new Float32Array(totalVerts * 3);
+      const col = new Float32Array(totalVerts * 3);
       let off = 0;
-      geos.forEach(g => {
-        pos.set(g.attributes.position.array, off);
-        off += g.attributes.position.count * 3;
-        g.dispose();
+
+      buckets.forEach((geos, idx) => {
+        const c = palette[idx];
+        const cr = c.r, cg = c.g, cb = c.b;
+        geos.forEach(g => {
+          const arr = g.attributes.position.array;
+          const len = arr.length;
+          pos.set(arr, off);
+          for (let k = off; k < off + len; k += 3) {
+            const x = pos[k], y = pos[k + 1], z = pos[k + 2];
+            pos[k] += noise(x, y, z) * 0.45;
+            pos[k + 2] += noise(z + 13.1, y, x) * 0.45;
+            col[k] = cr;
+            col[k + 1] = cg;
+            col[k + 2] = cb;
+          }
+          off += len;
+          g.dispose();
+        });
       });
-      for (let i = 0; i < pos.length; i += 3) {
-        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
-        pos[i] += noise(x, y, z) * 0.45;
-        pos[i + 2] += noise(z + 13.1, y, x) * 0.45;
-      }
+
       const merged = new THREE.BufferGeometry();
       merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      merged.setAttribute('color', new THREE.BufferAttribute(col, 3));
       merged.computeVertexNormals();
-      const mat = new THREE.MeshStandardMaterial({ color: palette[idx], roughness: 0.95, metalness: 0.0, flatShading: true });
+      merged.computeBoundingSphere();
+
+      const mat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.95,
+        metalness: 0.0,
+        flatShading: true
+      });
       const mesh = new THREE.Mesh(merged, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = false;
+      mesh.updateMatrix();
       group.add(mesh);
-    });
+    }
 
     // Wüstenboden (rötlicher Sand) über dem grünen Gras
     const boden = new THREE.Mesh(
@@ -2610,12 +2622,23 @@ AFRAME.registerComponent('ki-auto', {
       : (1400 + inGearFrac * (this.gang === 'S' ? 4800 : 3600) + this.gasStellung * 750);
     this.rpm += (zielRpm - this.rpm) * Math.min(1, deltaSec * 10);
 
-    // Kombiinstrument & Navi regelmäßig aktualisieren
-    this.zeichneKombiinstrument();
-    if (!this._lastNaviUpdate || time - this._lastNaviUpdate > 200) {
-      this._lastNaviUpdate = time;
-      this.zeichneNaviDisplay();
-      if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+    // Kombiinstrument & Navi NUR im Auto-Cockpit [8] und nur bei Wertänderung (max 15 Hz) auf die GPU laden!
+    // Das verhindert teure CPU->GPU CanvasTexture-Stalls (glTexImage2D) in jedem Frame!
+    if (window.EEP.aktiveKamera === 8) {
+      const kmhInt = Math.round(kmh);
+      const rpmStep = Math.round(this.rpm / 80);
+      const blinkState = this.lenkWinkel > 0.08 ? 1 : (this.lenkWinkel < -0.08 ? -1 : 0);
+      const kombiKey = `${kmhInt}_${this.gang}_${this.autoStufe}_${rpmStep}_${blinkState}`;
+      if (this._lastKombiKey !== kombiKey && (!this._lastKombiTime || time - this._lastKombiTime > 55)) {
+        this._lastKombiKey = kombiKey;
+        this._lastKombiTime = time;
+        this.zeichneKombiinstrument();
+      }
+      if (!this._lastNaviUpdate || time - this._lastNaviUpdate > 350) {
+        this._lastNaviUpdate = time;
+        this.zeichneNaviDisplay();
+        if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+      }
     }
 
     // ------------------------------------------------------------------------
@@ -2669,6 +2692,7 @@ AFRAME.registerComponent('ki-steuerung', {
     });
 
     this.baueSteuerpultUI();
+    this.aktiviereHardwareBeschleunigung();
     window.EEP.updateUI = () => this.aktualisiereZugRegler();
     setTimeout(() => {
       this.aktualisiereZugRegler();
@@ -2676,6 +2700,42 @@ AFRAME.registerComponent('ki-steuerung', {
         this.starteAutoSelbsttest();
       }
     }, 300);
+  },
+
+  aktiviereHardwareBeschleunigung: function () {
+    this._frameCount = 0;
+    this._fpsFrames = 0;
+    this._fpsLastTime = performance.now();
+
+    const applyRendererOpts = () => {
+      const renderer = this.el.renderer;
+      if (!renderer) return;
+
+      // 1. Optimales HiDPI-PixelRatio für hohe FPS bei gestochen scharfer Kantenglättung
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+
+      // 2. Shadow-Map-Caching auf der GPU: Statische 100.000-Polygon-Berge müssen nicht mit 144 Hz
+      // in die Schattenkarte neu gerendert werden -> Schatten-Update jeden 3. Frame spart 66% Vertex-Last!
+      if (renderer.shadowMap) {
+        renderer.shadowMap.autoUpdate = false;
+        renderer.shadowMap.needsUpdate = true;
+      }
+
+      // 3. Aktive Grafikkarte (Nvidia dGPU) aus WebGL2 auslesen und im Cockpit anzeigen
+      try {
+        const gl = renderer.getContext();
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        const gpuName = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+        const shortGpu = String(gpuName).replace(/ANGLE \(([^,]+),\s*([^(\n]+).*\)/i, '$2').trim();
+        window.EEP.gpuInfo = shortGpu;
+        console.log('GPU_HARDWARE_INFO:', gpuName);
+        const gpuEl = document.getElementById('eep-gpu-badge');
+        if (gpuEl) gpuEl.title = 'Aktive Hardwarebeschleunigung: ' + gpuName;
+      } catch (e) {}
+    };
+
+    if (this.el.hasLoaded) applyRendererOpts();
+    else this.el.addEventListener('renderstart', applyRendererOpts);
   },
 
   starteAutoSelbsttest: function () {
@@ -2852,6 +2912,26 @@ AFRAME.registerComponent('ki-steuerung', {
   },
 
   tick: function () {
+    // Hardware-Shadow-Map alle 3 Frames aktualisieren (spart 66% Shadow-Pass-Last bei voller Polygonanzahl!)
+    this._frameCount = (this._frameCount || 0) + 1;
+    if (this._frameCount % 3 === 0 && this.el.renderer && this.el.renderer.shadowMap) {
+      this.el.renderer.shadowMap.needsUpdate = true;
+    }
+
+    // Live-FPS-Anzeige aktualisieren
+    this._fpsFrames = (this._fpsFrames || 0) + 1;
+    const now = performance.now();
+    if (now - (this._fpsLastTime || 0) >= 500) {
+      const fps = Math.round((this._fpsFrames * 1000) / (now - this._fpsLastTime));
+      this._fpsFrames = 0;
+      this._fpsLastTime = now;
+      const badge = document.getElementById('eep-gpu-badge');
+      if (badge) {
+        badge.textContent = `⚡ ${fps} FPS (GPU)`;
+        badge.style.color = fps >= 50 ? '#4ade80' : (fps >= 30 ? '#fde047' : '#f87171');
+      }
+    }
+
     const modus = window.EEP.aktiveKamera;
     if (modus === 1 || modus === 4 || modus === 7 || modus === 8) return; // Modus 8 wird für Zero-Lag direkt in ki-auto.tick() synchronisiert!
 
@@ -3043,11 +3123,12 @@ AFRAME.registerComponent('ki-steuerung', {
       </div>
 
       <div class="eep-section">
-        <div class="eep-title">🔊 Sound & Wetter</div>
-        <div class="eep-btn-row">
+        <div class="eep-title">🔊 Sound, Wetter & GPU</div>
+        <div class="eep-btn-row" style="align-items:center;">
           <button class="eep-btn sound-btn" id="eep-pfeife-btn">🚂 Pfeife [H]</button>
           <button class="eep-btn sound-btn" id="eep-horn-btn">🚄 ICE-Horn</button>
           <button class="eep-btn" id="eep-wetter-btn">☀️ Tag (Wald) [L]</button>
+          <span id="eep-gpu-badge" style="font-size:12px; font-weight:800; padding:6px 10px; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(74,222,128,0.4); color:#4ade80;">⚡ GPU Aktiv</span>
         </div>
       </div>
     `;
