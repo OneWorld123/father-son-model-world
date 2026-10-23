@@ -117,6 +117,53 @@ window.EEP.dampfTschuff = function (lautstaerke = 0.06) {
   noise.start(now);
 };
 
+// Zweiklang-Autohupe (415 Hz + 523 Hz)
+window.EEP.autoHupe = function () {
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+  [415.3, 523.25].forEach(freq => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1600, now);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.02);
+    gain.gain.setValueAtTime(0.14, now + 0.32);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.44);
+  });
+};
+
+// Mechanisches Einrasten des Gangwahlhebels
+window.EEP.schaltKlick = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(190, now);
+  osc.frequency.exponentialRampToValueAtTime(75, now + 0.055);
+  gain.gain.setValueAtTime(0.15, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.065);
+};
+
 // ============================================================================
 // 2. GLEIS- & SCHWELLEN-GENERATOR ('ki-gleis')
 // Baut Schotterbett, 3D-Holzschwellen und glänzende Stahlschienen entlang einer Kurve
@@ -1669,13 +1716,938 @@ AFRAME.registerComponent('ki-faehre', {
     this.el.object3D.rotateY(-Math.PI / 2);
   }
 });
+
+// ============================================================================
+// 9. STEUERBARES AUTO MIT VOLLWERTIGEM 3D-COCKPIT ('ki-auto')
+// 3D-Sportlenkrad, 3D-Gangwahlhebel (P-R-N-D-S), Kombiinstrument (Tacho + RPM),
+// GPS-Navi, Gas-/Bremspedale, Rückspiegel, Motorhaube & Ackermann-Fahrphysik
+// ============================================================================
+AFRAME.registerComponent('ki-auto', {
+  schema: {
+    farbe: { type: 'color', default: '#dc2626' }
+  },
+
+  init: function () {
+    window.EEP.autoComp = this;
+
+    // Physik-Zustand (Vorwärtsrichtung im lokalen Raum ist -Z!)
+    this.geschwindigkeit = 0;      // m/s (positiv = vorwärts, negativ = rückwärts)
+    this.lenkWinkel = 0;           // Radiant (+ = links, - = rechts, max +-0.58 rad = 33°)
+    this.radstand = 2.65;          // Meter zwischen Vorder- und Hinterachse
+    this.gang = 'D';               // 'P', 'R', 'N', 'D', 'S'
+    this.autoStufe = 1;            // 1..5 in 'D'/'S'
+    this.rpm = 850;                // Leerlaufdrehzahl
+    this.gasStellung = 0;          // 0..1
+    this.bremsStellung = 0;        // 0..1
+    this.stillstandTimer = 0;      // Für sanftes Auto-Umschalten D <-> R
+
+    // Gedrückte Pfeiltasten
+    this.tasten = { hoch: false, runter: false, links: false, rechts: false };
+
+    window.addEventListener('keydown', (e) => {
+      if (window.EEP.aktiveKamera !== 8) return;
+      if (e.key === 'ArrowUp') { this.tasten.hoch = true; e.preventDefault(); }
+      if (e.key === 'ArrowDown') { this.tasten.runter = true; e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { this.tasten.links = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { this.tasten.rechts = true; e.preventDefault(); }
+      if (e.key.toLowerCase() === 'g') {
+        this.naechsterGang();
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp') this.tasten.hoch = false;
+      if (e.key === 'ArrowDown') this.tasten.runter = false;
+      if (e.key === 'ArrowLeft') this.tasten.links = false;
+      if (e.key === 'ArrowRight') this.tasten.rechts = false;
+    });
+
+    this.baueAutoUndCockpit3D();
+    this.zeichneKombiinstrument();
+    this.zeichneSchaltkulisse();
+    this.zeichneNaviDisplay();
+  },
+
+  setzeGang: function (neuerGang) {
+    const gaenge = ['P', 'R', 'N', 'D', 'S'];
+    if (!gaenge.includes(neuerGang) || this.gang === neuerGang) return;
+    this.gang = neuerGang;
+    if (neuerGang === 'P') this.geschwindigkeit = 0;
+    window.EEP.schaltKlick();
+    this.zeichneSchaltkulisse();
+    this.zeichneKombiinstrument();
+    if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+  },
+
+  naechsterGang: function () {
+    const gaenge = ['P', 'R', 'N', 'D', 'S'];
+    const idx = (gaenge.indexOf(this.gang) + 1) % gaenge.length;
+    this.setzeGang(gaenge[idx]);
+  },
+
+  teleportiereZu: function (x, y, z, rotYGrad) {
+    this.geschwindigkeit = 0;
+    this.lenkWinkel = 0;
+    this.gang = 'D';
+    this.el.object3D.position.set(x, y, z);
+    this.el.object3D.rotation.set(0, THREE.MathUtils.degToRad(rotYGrad), 0);
+    this.el.object3D.updateMatrixWorld(true);
+    this.zeichneSchaltkulisse();
+    this.zeichneKombiinstrument();
+    this.zeichneNaviDisplay();
+    if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+  },
+
+  baueAutoUndCockpit3D: function () {
+    const root = new THREE.Group();
+    this.el.setObject3D('mesh', root);
+
+    const lackMat = new THREE.MeshStandardMaterial({ color: this.data.farbe, roughness: 0.22, metalness: 0.55 });
+    const streifenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.2 });
+    const dunkelLederMat = new THREE.MeshStandardMaterial({ color: 0x181c24, roughness: 0.7, metalness: 0.1 });
+    const konsoleMat = new THREE.MeshStandardMaterial({ color: 0x11151c, roughness: 0.5, metalness: 0.25 });
+    const aluMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.25, metalness: 0.85 });
+    const chromMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.12, metalness: 0.95 });
+    const rotAkzentMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35, metalness: 0.2 });
+
+    // ========================================================================
+    // 1. KAROSSERIE AUSSEN & KONTURIERTE MOTORHAUBE (Sichtbar aus Cockpit!)
+    // ========================================================================
+    // Unterboden / Chassis-Wanne
+    const boden = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.20, 4.35), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
+    boden.position.set(0, 0.32, 0);
+    boden.castShadow = true;
+    root.add(boden);
+
+    // Seitenschweller & Türen links/rechts (damit das Cockpit seitlich geschlossen ist)
+    [-0.89, 0.89].forEach(xSide => {
+      const tuer = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.58, 2.25), lackMat);
+      tuer.position.set(xSide, 0.68, 0.05);
+      tuer.castShadow = true;
+      root.add(tuer);
+
+      const innenVerkleidung = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.52, 1.95), dunkelLederMat);
+      innenVerkleidung.position.set(xSide * 0.92, 0.68, 0.05);
+      root.add(innenVerkleidung);
+
+      // Armlehne + Chrom-Türgriff innen
+      const armlehne = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.65), aluMat);
+      armlehne.position.set(xSide * 0.89, 0.78, -0.05);
+      root.add(armlehne);
+    });
+
+    // Lange Sport-Motorhaube vorne (z: -0.68 bis -2.16)
+    const haube = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.16, 1.48), lackMat);
+    haube.position.set(0, 0.91, -1.42);
+    haube.rotation.x = THREE.MathUtils.degToRad(-2.5); // Sanft abfallend, damit man Haube + Streifen aus dem Cockpit sieht!
+    haube.castShadow = true;
+    haube.receiveShadow = true;
+    root.add(haube);
+
+    // Ausgeformte Kotflügel-Kanten links & rechts auf der Motorhaube (Fahrzeugbreiten-Peilung!)
+    [-0.78, 0.78].forEach(xFender => {
+      const kotfluegel = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.19, 1.44), lackMat);
+      kotfluegel.position.set(xFender, 0.94, -1.40);
+      kotfluegel.rotation.x = THREE.MathUtils.degToRad(-2.5);
+      root.add(kotfluegel);
+    });
+
+    // Zwei weiße Sport-Rallyestreifen auf der Motorhaube (machen jede Lenkbewegung sofort spürbar!)
+    [-0.24, 0.24].forEach(xStripe => {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.018, 1.44), streifenMat);
+      stripe.position.set(xStripe, 0.995, -1.42);
+      stripe.rotation.x = THREE.MathUtils.degToRad(-2.5);
+      root.add(stripe);
+    });
+
+    // Edle Chrom-Kühlerfigur vorne auf der Haubenspitze (als Zielvisier für die Straße)
+    const sockel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.03, 16), chromMat);
+    sockel.position.set(0, 0.96, -2.06);
+    root.add(sockel);
+    const sternRing = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.009, 12, 24), chromMat);
+    sternRing.position.set(0, 1.03, -2.06);
+    root.add(sternRing);
+
+    // Frontschürze & Kühlergrill
+    const front = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.44, 0.25), lackMat);
+    front.position.set(0, 0.56, -2.08);
+    root.add(front);
+
+    // Heckpartie / Kofferraum
+    const heck = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.56, 1.05), lackMat);
+    heck.position.set(0, 0.68, 1.62);
+    heck.castShadow = true;
+    root.add(heck);
+
+    // Scheinwerfer vorne & Brems-/Rückfahrlichter hinten
+    const scheinwerferMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 2.5 });
+    this.bremsLichtMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, emissive: 0xff1744, emissiveIntensity: 0.4 });
+    this.rueckfahrLichtMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, emissive: 0xffffff, emissiveIntensity: 0.0 });
+
+    [-0.64, 0.64].forEach(xL => {
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.08), scheinwerferMat);
+      sw.position.set(xL, 0.72, -2.19);
+      root.add(sw);
+
+      const bl = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), this.bremsLichtMat);
+      bl.position.set(xL, 0.76, 2.16);
+      root.add(bl);
+
+      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.08), this.rueckfahrLichtMat);
+      rl.position.set(xL * 0.72, 0.64, 2.16);
+      root.add(rl);
+    });
+
+    // ========================================================================
+    // 2. WINDSCHUTZSCHEIBEN-RAHMEN, A-SÄULEN, INNENSPIEGEL & AUSSENSPIEGEL
+    // ========================================================================
+    [-0.84, 0.84].forEach(xPillar => {
+      // Schräge A-Säule
+      const aSaeule = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.74, 0.09), dunkelLederMat);
+      aSaeule.position.set(xPillar, 1.24, -0.52);
+      aSaeule.rotation.x = THREE.MathUtils.degToRad(34);
+      aSaeule.rotation.z = xPillar < 0 ? THREE.MathUtils.degToRad(-8) : THREE.MathUtils.degToRad(8);
+      root.add(aSaeule);
+
+      // Außenspiegel (Links & Rechts)
+      const spiegelArm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.05), lackMat);
+      spiegelArm.position.set(xPillar * 1.12, 0.99, -0.62);
+      root.add(spiegelArm);
+
+      const spiegelGehaeuse = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.13, 0.08), lackMat);
+      spiegelGehaeuse.position.set(xPillar * 1.22, 1.02, -0.62);
+      spiegelGehaeuse.rotation.y = xPillar < 0 ? 0.22 : -0.22;
+      root.add(spiegelGehaeuse);
+
+      const spiegelGlas = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.19, 0.10),
+        new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.05, metalness: 0.95 })
+      );
+      spiegelGlas.position.set(xPillar * 1.22, 1.02, -0.578);
+      spiegelGlas.rotation.y = xPillar < 0 ? 0.22 : -0.22;
+      root.add(spiegelGlas);
+    });
+
+    // Oberer Dachrahmen (Sonnenblenden-Leiste) + Innenspiegel
+    const dachLeiste = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.07, 0.18), dunkelLederMat);
+    dachLeiste.position.set(0, 1.54, -0.32);
+    root.add(dachLeiste);
+
+    const spiegelHalter = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.10, 8), konsoleMat);
+    spiegelHalter.position.set(0, 1.47, -0.38);
+    root.add(spiegelHalter);
+
+    const innenSpiegel = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.075, 0.03), konsoleMat);
+    innenSpiegel.position.set(0, 1.42, -0.40);
+    innenSpiegel.rotation.y = 0.18; // Leicht zum Fahrer geneigt
+    root.add(innenSpiegel);
+
+    const innenSpiegelGlas = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.28, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.08, metalness: 0.92 })
+    );
+    innenSpiegelGlas.position.set(0, 1.42, -0.383);
+    innenSpiegelGlas.rotation.y = 0.18;
+    root.add(innenSpiegelGlas);
+
+    // ========================================================================
+    // 3. ARMATURENBRETT (DASHBOARD), LÜFTUNGSDÜSEN & KOMBIINSTRUMENT
+    // ========================================================================
+    // Haupt-Armaturenträger
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.34, 0.42), dunkelLederMat);
+    dash.position.set(0, 0.84, -0.62);
+    root.add(dash);
+
+    // Durchgehende Aluminium-Zierleiste über das Cockpit
+    const zierleiste = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.035, 0.43), aluMat);
+    zierleiste.position.set(0, 0.92, -0.615);
+    root.add(zierleiste);
+
+    // Tachohaube (Rückwand hinter dem Kombiinstrument + schlanke Blende oben, verdeckt niemals das Display!)
+    const tachoRueckwand = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.22, 0.08), konsoleMat);
+    tachoRueckwand.position.set(-0.38, 1.03, -0.56);
+    root.add(tachoRueckwand);
+
+    const tachoSchirm = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.022, 0.14), konsoleMat);
+    tachoSchirm.position.set(-0.38, 1.14, -0.53);
+    root.add(tachoSchirm);
+
+    // Dynamisches Canvas für Kombiinstrument (RPM-Messer + Digital-Tacho + Gang + Speedometer)
+    this.kombiCanvas = document.createElement('canvas');
+    this.kombiCanvas.width = 512;
+    this.kombiCanvas.height = 220;
+    this.kombiTex = new THREE.CanvasTexture(this.kombiCanvas);
+    const kombiScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.53, 0.20),
+      new THREE.MeshBasicMaterial({ map: this.kombiTex })
+    );
+    kombiScreen.position.set(-0.38, 1.03, -0.515);
+    root.add(kombiScreen);
+
+    // ========================================================================
+    // 4. ECHTES 3D-SPORTLENKRAD (Vor dem Fahrer bei x = -0.38, y = 0.95, z = -0.35)
+    // ========================================================================
+    const lenkSaeule = new THREE.Group();
+    lenkSaeule.position.set(-0.38, 0.95, -0.35);
+    lenkSaeule.rotation.x = THREE.MathUtils.degToRad(-20); // Ergonomischer Lenksäulen-Winkel
+    root.add(lenkSaeule);
+
+    // Feste Lenksäulen-Verkleidung + Blinkerhebel (links) & Wischerhebel (rechts)
+    const saeulenMantel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 16), konsoleMat);
+    saeulenMantel.rotation.x = Math.PI / 2;
+    saeulenMantel.position.set(0, 0, -0.11);
+    lenkSaeule.add(saeulenMantel);
+
+    [-1, 1].forEach(side => {
+      const hebel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.014, 0.14, 10), konsoleMat);
+      hebel.rotation.z = Math.PI / 2;
+      hebel.position.set(side * 0.09, 0.01, -0.06);
+      lenkSaeule.add(hebel);
+    });
+
+    // Drehbare Lenkrad-Gruppe (rotiert um lokale Z-Achse beim Lenken!)
+    this.lenkradDrehGruppe = new THREE.Group();
+    lenkSaeule.add(this.lenkradDrehGruppe);
+
+    // Griffiger Leder-Lenkradkranz (Torus)
+    const kranz = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.023, 18, 48), dunkelLederMat);
+    this.lenkradDrehGruppe.add(kranz);
+
+    // Rote 12-Uhr-Motorsport-Markierung oben am Lenkradkranz
+    const markierung12Uhr = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.045, 16), rotAkzentMat);
+    markierung12Uhr.rotation.z = Math.PI / 2;
+    markierung12Uhr.position.set(0, 0.175, 0);
+    this.lenkradDrehGruppe.add(markierung12Uhr);
+
+    // 3 Aluminium-Lenkradspeichen (Links, Rechts, Unten)
+    const speicheLinks = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.032, 0.018), aluMat);
+    speicheLinks.position.set(-0.09, -0.015, 0);
+    speicheLinks.rotation.z = 0.15;
+    this.lenkradDrehGruppe.add(speicheLinks);
+
+    const speicheRechts = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.032, 0.018), aluMat);
+    speicheRechts.position.set(0.09, -0.015, 0);
+    speicheRechts.rotation.z = -0.15;
+    this.lenkradDrehGruppe.add(speicheRechts);
+
+    const speicheUnten = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.13, 0.018), aluMat);
+    speicheUnten.position.set(0, -0.095, 0);
+    this.lenkradDrehGruppe.add(speicheUnten);
+
+    // Multifunktions-Tasten auf den linken & rechten Speichen
+    [-0.085, 0.085].forEach(xBtn => {
+      const btnBlock = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.022, 0.024), konsoleMat);
+      btnBlock.position.set(xBtn, -0.012, 0.005);
+      this.lenkradDrehGruppe.add(btnBlock);
+    });
+
+    // Pralltopf (Airbag-Nabe) in der Mitte + Chromring & rotes Sport-Emblem
+    const pralltopf = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.064, 0.038, 24), dunkelLederMat);
+    pralltopf.rotation.x = Math.PI / 2;
+    pralltopf.position.set(0, 0, 0.01);
+    this.lenkradDrehGruppe.add(pralltopf);
+
+    const nabenRing = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.004, 10, 24), chromMat);
+    nabenRing.position.set(0, 0, 0.03);
+    this.lenkradDrehGruppe.add(nabenRing);
+
+    const nabenLogo = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.006, 16), rotAkzentMat);
+    nabenLogo.rotation.x = Math.PI / 2;
+    nabenLogo.position.set(0, 0, 0.03);
+    this.lenkradDrehGruppe.add(nabenLogo);
+
+    // ========================================================================
+    // 5. MITTELKONSOLE, NAVI-BILDSCHIRM & ANIMIERTER 3D-GANGWAHLHEBEL (P-R-N-D-S)
+    // ========================================================================
+    // Mittelkonsolen-Tunnel zwischen Fahrer und Beifahrer
+    const mittelTunnel = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.36, 0.95), konsoleMat);
+    mittelTunnel.position.set(0.0, 0.62, -0.25);
+    root.add(mittelTunnel);
+
+    // Silberne Seitenwangen der Mittelkonsole
+    [-0.152, 0.152].forEach(xTrim => {
+      const wange = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.04, 0.82), aluMat);
+      wange.position.set(xTrim, 0.79, -0.28);
+      root.add(wange);
+    });
+
+    // Großes 3D-Infotainment / GPS-Navi-Display oben auf der Mittelkonsole (zum Fahrer geneigt!)
+    const naviRahmen = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.19, 0.03), aluMat);
+    naviRahmen.position.set(0.14, 1.02, -0.53);
+    naviRahmen.rotation.y = THREE.MathUtils.degToRad(16);
+    naviRahmen.rotation.x = THREE.MathUtils.degToRad(-6);
+    root.add(naviRahmen);
+
+    this.naviCanvas = document.createElement('canvas');
+    this.naviCanvas.width = 400;
+    this.naviCanvas.height = 220;
+    this.naviTex = new THREE.CanvasTexture(this.naviCanvas);
+    const naviScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.34, 0.17),
+      new THREE.MeshBasicMaterial({ map: this.naviTex })
+    );
+    naviScreen.position.set(0.135, 1.02, -0.512);
+    naviScreen.rotation.y = THREE.MathUtils.degToRad(16);
+    naviScreen.rotation.x = THREE.MathUtils.degToRad(-6);
+    root.add(naviScreen);
+
+    // Beleuchtete Schaltkulisse (P - R - N - D - S) auf der Mittelkonsole
+    const kulissenRahmen = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.025, 0.28), aluMat);
+    kulissenRahmen.position.set(-0.03, 0.81, -0.38);
+    root.add(kulissenRahmen);
+
+    this.kulisseCanvas = document.createElement('canvas');
+    this.kulisseCanvas.width = 180;
+    this.kulisseCanvas.height = 320;
+    this.kulisseTex = new THREE.CanvasTexture(this.kulisseCanvas);
+    const kulissePlatte = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.14, 0.25),
+      new THREE.MeshBasicMaterial({ map: this.kulisseTex })
+    );
+    kulissePlatte.rotation.x = -Math.PI / 2;
+    kulissePlatte.position.set(-0.03, 0.824, -0.38);
+    root.add(kulissePlatte);
+
+    // Roter START/STOP-Engine-Knopf neben der Schaltkulisse
+    const startKnopfRing = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 16), chromMat);
+    startKnopfRing.position.set(0.08, 0.81, -0.46);
+    root.add(startKnopfRing);
+    const startKnopf = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.017, 0.017, 0.016, 16),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xdc2626, emissiveIntensity: 0.8 })
+    );
+    startKnopf.position.set(0.08, 0.812, -0.46);
+    root.add(startKnopf);
+
+    // Beweglicher 3D-Gangwahlhebel (gleitet physisch zwischen P, R, N, D, S!)
+    this.gangHebelGroup = new THREE.Group();
+    this.gangHebelGroup.position.set(-0.01, 0.82, -0.345); // Position für 'D'
+    root.add(this.gangHebelGroup);
+
+    // Ledermanschette / Schaltsack unten
+    const manschette = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.05, 12), dunkelLederMat);
+    manschette.position.set(0, 0.025, 0);
+    this.gangHebelGroup.add(manschette);
+
+    // Verchromter Schalthebel-Schaft
+    const hebelSchaft = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.013, 0.12, 12), chromMat);
+    hebelSchaft.position.set(0, 0.07, 0);
+    this.gangHebelGroup.add(hebelSchaft);
+
+    // Ergonomischer Automatik-Schaltknauf (T-Griff mit Leder, Alu-Spange & rotem Entriegelungsknopf)
+    const knaufKopf = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.038, 0.048), dunkelLederMat);
+    knaufKopf.position.set(0, 0.135, 0);
+    this.gangHebelGroup.add(knaufKopf);
+
+    const knaufAlu = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.041, 0.050), aluMat);
+    knaufAlu.position.set(0, 0.135, 0);
+    this.gangHebelGroup.add(knaufAlu);
+
+    const knaufTaste = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.012, 12), rotAkzentMat);
+    knaufTaste.rotation.z = Math.PI / 2;
+    knaufTaste.position.set(-0.04, 0.135, 0);
+    this.gangHebelGroup.add(knaufTaste);
+
+    // ========================================================================
+    // 6. FUSSRAUM MIT ANIMIERTEM GAS- & BREMSPEDAL + FAHRERSITZ
+    // ========================================================================
+    // Bremspedal (links im Fußraum des Fahrers)
+    this.bremsPedal = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.12, 0.018), aluMat);
+    this.bremsPedal.position.set(-0.42, 0.52, -0.60);
+    this.bremsPedal.rotation.x = THREE.MathUtils.degToRad(-28);
+    root.add(this.bremsPedal);
+
+    // Gaspedal (rechts im Fußraum des Fahrers)
+    this.gasPedal = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.16, 0.018), aluMat);
+    this.gasPedal.position.set(-0.27, 0.52, -0.61);
+    this.gasPedal.rotation.x = THREE.MathUtils.degToRad(-28);
+    root.add(this.gasPedal);
+
+    // Sportsitze für Fahrer & Beifahrer
+    [-0.38, 0.38].forEach(xSeat => {
+      const sitzFlaeche = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.12, 0.50), dunkelLederMat);
+      sitzFlaeche.position.set(xSeat, 0.54, 0.15);
+      root.add(sitzFlaeche);
+
+      const lehne = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.62, 0.10), dunkelLederMat);
+      lehne.position.set(xSeat, 0.88, 0.38);
+      lehne.rotation.x = THREE.MathUtils.degToRad(-10);
+      root.add(lehne);
+    });
+
+    // ========================================================================
+    // 7. 4 RÄDER (Vorderräder lenkbar + alle 4 drehend)
+    // ========================================================================
+    const reifenMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+    this.vorderRaederLenk = [];
+    this.alleRaederDreh = [];
+
+    const radPos = [
+      { x: -0.92, z: -1.32, vorne: true },
+      { x:  0.92, z: -1.32, vorne: true },
+      { x: -0.92, z:  1.32, vorne: false },
+      { x:  0.92, z:  1.32, vorne: false }
+    ];
+
+    radPos.forEach(rp => {
+      const lenkPivot = new THREE.Group();
+      lenkPivot.position.set(rp.x, 0.36, rp.z);
+      root.add(lenkPivot);
+      if (rp.vorne) this.vorderRaederLenk.push(lenkPivot);
+
+      const drehGruppe = new THREE.Group();
+      lenkPivot.add(drehGruppe);
+      this.alleRaederDreh.push(drehGruppe);
+
+      const reifen = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.24, 20), reifenMat);
+      reifen.rotation.z = Math.PI / 2;
+      reifen.castShadow = true;
+      drehGruppe.add(reifen);
+
+      const felge = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.25, 12), aluMat);
+      felge.rotation.z = Math.PI / 2;
+      drehGruppe.add(felge);
+
+      // Speichenkreuz auf der Felge, damit man die Raddrehung von außen sieht
+      const speiche = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.40, 0.05), chromMat);
+      drehGruppe.add(speiche);
+    });
+
+    // ========================================================================
+    // 8. KAMERA-ANKER FÜR DEN FAHRERSITZ (Taste [8])
+    // Perfekte Ergonomie: Man sieht Lenkrad, Kombiinstrument, Gangwahlhebel,
+    // Navi, Außenspiegel, Innenspiegel UND die Motorhaube auf der Straße!
+    // ========================================================================
+    const camAnchor = document.createElement('a-entity');
+    camAnchor.classList.add('auto-cam-anchor');
+    camAnchor.setAttribute('position', '-0.38 1.29 0.18');
+    camAnchor.setAttribute('rotation', '-9 0 0');
+    this.el.appendChild(camAnchor);
+    this.camAnchorEl = camAnchor;
+  },
+
+  // Zeichnet das hochauflösende Kombiinstrument (Drehzahlmesser, Tacho, Gang & Blinker)
+  zeichneKombiinstrument: function () {
+    if (!this.kombiCanvas) return;
+    const ctx = this.kombiCanvas.getContext('2d');
+    const w = this.kombiCanvas.width;
+    const h = this.kombiCanvas.height;
+
+    // Dunkler Cockpit-Hintergrund
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, w, h);
+
+    // Dezenter blauer Sport-Rahmen
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, w - 8, h - 8);
+
+    const kmh = Math.round(Math.abs(this.geschwindigkeit) * 3.6);
+
+    // --- 1. LINKS: DREHZAHLMESSER (0..7 x1000 RPM) ---
+    const cxL = 110, cy = 118, r = 82;
+    ctx.beginPath();
+    ctx.arc(cxL, cy, r, 0.75 * Math.PI, 2.25 * Math.PI);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // Roter Bereich ab 5.500 RPM
+    ctx.beginPath();
+    ctx.arc(cxL, cy, r, 1.92 * Math.PI, 2.25 * Math.PI);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 7; i++) {
+      const ang = (0.75 + (i / 7) * 1.5) * Math.PI;
+      const tx = cxL + Math.cos(ang) * (r - 22);
+      const ty = cy + Math.sin(ang) * (r - 22) + 4;
+      ctx.fillStyle = i >= 6 ? '#f87171' : '#e2e8f0';
+      ctx.fillText(String(i), tx, ty);
+    }
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 11px Segoe UI, sans-serif';
+    ctx.fillText('x1000 RPM', cxL, cy + 42);
+
+    // Animierte RPM-Nadel
+    const rpmFrac = Math.min(1, Math.max(0, this.rpm / 7000));
+    const rpmAng = (0.75 + rpmFrac * 1.5) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cxL, cy);
+    ctx.lineTo(cxL + Math.cos(rpmAng) * (r - 8), cy + Math.sin(rpmAng) * (r - 8));
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // --- 2. MITTE: DIGITAL-TACHO & GROSSER GANGWAHL-INDIKATOR ---
+    // Blinker-Pfeile oben
+    ctx.font = 'bold 20px Segoe UI, sans-serif';
+    ctx.fillStyle = this.lenkWinkel > 0.08 ? '#22c55e' : '#1e293b';
+    ctx.fillText('◀', w / 2 - 48, 34);
+    ctx.fillStyle = this.lenkWinkel < -0.08 ? '#22c55e' : '#1e293b';
+    ctx.fillText('▶', w / 2 + 48, 34);
+
+    // Digital km/h
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 44px Segoe UI, sans-serif';
+    ctx.fillText(String(kmh), w / 2, 86);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 14px Segoe UI, sans-serif';
+    ctx.fillText('km/h', w / 2, 106);
+
+    // Aktueller Gang-Kasten (P / R / N / D1..D5 / S)
+    ctx.fillStyle = this.gang === 'R' ? '#7f1d1d' : (this.gang === 'P' ? '#334155' : '#065f46');
+    ctx.fillRect(w / 2 - 42, 122, 84, 46);
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(w / 2 - 42, 122, 84, 46);
+
+    const gangText = (this.gang === 'D' || this.gang === 'S') ? (this.gang + this.autoStufe) : this.gang;
+    ctx.fillStyle = this.gang === 'R' ? '#fca5a5' : '#fde047';
+    ctx.font = 'bold 30px Segoe UI, sans-serif';
+    ctx.fillText(gangText, w / 2, 156);
+
+    // --- 3. RECHTS: ANALOG-TACHO (0..160 km/h) ---
+    const cxR = w - 110;
+    ctx.beginPath();
+    ctx.arc(cxR, cy, r, 0.75 * Math.PI, 2.25 * Math.PI);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    ctx.font = 'bold 11px Segoe UI, sans-serif';
+    for (let v = 0; v <= 160; v += 20) {
+      const ang = (0.75 + (v / 160) * 1.5) * Math.PI;
+      const tx = cxR + Math.cos(ang) * (r - 22);
+      const ty = cy + Math.sin(ang) * (r - 22) + 4;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(String(v), tx, ty);
+    }
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('TACHO', cxR, cy + 42);
+
+    const vFrac = Math.min(1, kmh / 160);
+    const vAng = (0.75 + vFrac * 1.5) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cxR, cy);
+    ctx.lineTo(cxR + Math.cos(vAng) * (r - 8), cy + Math.sin(vAng) * (r - 8));
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    this.kombiTex.needsUpdate = true;
+  },
+
+  // Zeichnet die beleuchtete Schaltkulisse (P - R - N - D - S) auf der Mittelkonsole
+  zeichneSchaltkulisse: function () {
+    if (!this.kulisseCanvas) return;
+    const ctx = this.kulisseCanvas.getContext('2d');
+    const w = this.kulisseCanvas.width;
+    const h = this.kulisseCanvas.height;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Schaltschacht-Schlitz links
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(28, 24, 34, h - 48);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(28, 24, 34, h - 48);
+
+    const gaenge = ['P', 'R', 'N', 'D', 'S'];
+    gaenge.forEach((g, idx) => {
+      const y = 52 + idx * 54;
+      const aktiv = this.gang === g;
+
+      if (aktiv) {
+        ctx.fillStyle = g === 'R' ? '#ef4444' : '#22c55e';
+        ctx.fillRect(76, y - 22, 82, 36);
+      }
+
+      ctx.fillStyle = aktiv ? '#020617' : '#94a3b8';
+      ctx.font = 'bold 26px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(g, 117, y + 6);
+
+      // Leuchtpunkt neben dem Schaltschacht
+      ctx.beginPath();
+      ctx.arc(45, y - 3, 7, 0, Math.PI * 2);
+      ctx.fillStyle = aktiv ? '#fde047' : '#1e293b';
+      ctx.fill();
+    });
+
+    this.kulisseTex.needsUpdate = true;
+  },
+
+  // Zeichnet das 3D-Navi-Display in der Mittelkonsole
+  zeichneNaviDisplay: function () {
+    if (!this.naviCanvas) return;
+    const ctx = this.naviCanvas.getContext('2d');
+    const w = this.naviCanvas.width;
+    const h = this.naviCanvas.height;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, w, h);
+
+    const pos = this.el.object3D.position;
+    let ortName = '🌊 Ozean-Küstenstraße';
+    if (pos.x < -50) {
+      ortName = pos.z > 20 ? '🇩🇪 Ostsee-Hafen & Strand' : '🇩🇪 Deutschland – Straße am Fluss';
+    } else if (pos.x > 50) {
+      ortName = pos.z > 15 ? '🇺🇸 Grand Canyon Nationalpark' : '🇺🇸 New York City & Airport';
+    }
+
+    // Header
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, w, 40);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 17px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('🛰️ GPS NAVI: ' + ortName, 12, 26);
+
+    // Mini-Karte (Deutschland links, Ozean Mitte, USA rechts)
+    ctx.fillStyle = '#0369a1';
+    ctx.fillRect(14, 50, w - 28, 115);
+    // DE Land
+    ctx.fillStyle = '#15803d';
+    ctx.fillRect(22, 56, 105, 92);
+    // US Land
+    ctx.fillStyle = '#166534';
+    ctx.fillRect(w - 127, 56, 105, 102);
+
+    // Auto-Punkt auf dem Navi-Radar
+    const mapX = THREE.MathUtils.clamp(((pos.x + 190) / 380) * (w - 40) + 20, 22, w - 22);
+    const mapY = THREE.MathUtils.clamp(((pos.z + 85) / 170) * 105 + 54, 56, 158);
+    ctx.beginPath();
+    ctx.arc(mapX, mapY, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Statuszeile unten
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 14px Segoe UI, sans-serif';
+    ctx.fillText(`Gang: ${this.gang}  |  Lenkung: ${Math.round(THREE.MathUtils.radToDeg(this.lenkWinkel))}°  |  ⬆️⬇️⬅️➡️ Pfeiltasten`, 14, 196);
+
+    this.naviTex.needsUpdate = true;
+  },
+
+  tick: function (time, dt) {
+    if (!dt) return;
+    const deltaSec = Math.min(dt / 1000, 0.08);
+
+    // ------------------------------------------------------------------------
+    // 1. LENKUNG (Geschwindigkeitsabhängig + automatische Rückstellung / Caster)
+    // ------------------------------------------------------------------------
+    const speedAbs = Math.abs(this.geschwindigkeit);
+    const maxLenk = Math.max(0.22, 0.58 - speedAbs * 0.008); // Bei hohem Tempo ruhigerer Geradeauslauf
+    const lenkRate = 1.65; // rad/s beim Einlenken
+
+    if (this.tasten.links) {
+      this.lenkWinkel = Math.min(maxLenk, this.lenkWinkel + lenkRate * deltaSec);
+    } else if (this.tasten.rechts) {
+      this.lenkWinkel = Math.max(-maxLenk, this.lenkWinkel - lenkRate * deltaSec);
+    } else {
+      // Sanfte Selbstzentrierung des Lenkrads (schneller, wenn das Auto rollt)
+      const rueckstellRate = (1.8 + speedAbs * 0.25) * deltaSec;
+      if (Math.abs(this.lenkWinkel) <= rueckstellRate) {
+        this.lenkWinkel = 0;
+      } else {
+        this.lenkWinkel -= Math.sign(this.lenkWinkel) * rueckstellRate;
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. GASPEDAL, BREMSE & AUTOMATISCHE / MANUELLE GANGWAHL (P - R - N - D - S)
+    // ------------------------------------------------------------------------
+    this.gasStellung = 0;
+    this.bremsStellung = 0;
+
+    if (this.gang === 'P') {
+      this.geschwindigkeit = 0;
+      if (this.tasten.hoch) this.setzeGang('D');
+      if (this.tasten.runter) this.setzeGang('R');
+    } else if (this.gang === 'N') {
+      // Im Leerlauf nur ausrollen
+      this.geschwindigkeit *= Math.max(0, 1 - 1.5 * deltaSec);
+      if (this.tasten.hoch && speedAbs < 0.5) this.setzeGang('D');
+      if (this.tasten.runter && speedAbs < 0.5) this.setzeGang('R');
+    } else if (this.gang === 'D' || this.gang === 'S') {
+      const maxSpeed = this.gang === 'S' ? 42.0 : 32.0; // m/s (ca. 150 bzw. 115 km/h)
+      const accel = this.gang === 'S' ? 14.5 : 10.5;
+
+      if (this.tasten.hoch) {
+        this.gasStellung = 1;
+        this.geschwindigkeit = Math.min(maxSpeed, this.geschwindigkeit + accel * deltaSec);
+        this.stillstandTimer = 0;
+      } else if (this.tasten.runter) {
+        this.bremsStellung = 1;
+        if (this.geschwindigkeit > 0.25) {
+          // Kräftig bremsen
+          this.geschwindigkeit = Math.max(0, this.geschwindigkeit - 22.0 * deltaSec);
+          this.stillstandTimer = 0;
+        } else {
+          // Im Stand kurz Pfeil-Runter halten -> Schaltet den Gangwahlhebel auf 'R'!
+          this.geschwindigkeit = 0;
+          this.stillstandTimer += deltaSec;
+          if (this.stillstandTimer > 0.22) {
+            this.setzeGang('R');
+            this.stillstandTimer = 0;
+          }
+        }
+      } else {
+        // Motorbremse / Ausrollen
+        const drag = 3.2 * deltaSec;
+        if (this.geschwindigkeit > drag) this.geschwindigkeit -= drag;
+        else this.geschwindigkeit = 0;
+        this.stillstandTimer = 0;
+      }
+    } else if (this.gang === 'R') {
+      const maxRev = -11.0; // ca. 40 km/h rückwärts
+      if (this.tasten.runter) {
+        // Pfeil runter im Rückwärtsgang = Rückwärts Gas geben!
+        this.gasStellung = 1;
+        this.geschwindigkeit = Math.max(maxRev, this.geschwindigkeit - 8.5 * deltaSec);
+        this.stillstandTimer = 0;
+      } else if (this.tasten.hoch) {
+        // Pfeil hoch im Rückwärtsgang = Bremsen und im Stand zurück in 'D' schalten!
+        this.bremsStellung = 1;
+        if (this.geschwindigkeit < -0.25) {
+          this.geschwindigkeit = Math.min(0, this.geschwindigkeit + 20.0 * deltaSec);
+          this.stillstandTimer = 0;
+        } else {
+          this.geschwindigkeit = 0;
+          this.stillstandTimer += deltaSec;
+          if (this.stillstandTimer > 0.18) {
+            this.setzeGang('D');
+            this.stillstandTimer = 0;
+          }
+        }
+      } else {
+        const drag = 3.8 * deltaSec;
+        if (this.geschwindigkeit < -drag) this.geschwindigkeit += drag;
+        else this.geschwindigkeit = 0;
+        this.stillstandTimer = 0;
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. ACKERMANN-FAHRPHYSIK (Kein Drehen im Stand!)
+    // ------------------------------------------------------------------------
+    if (Math.abs(this.geschwindigkeit) > 0.01) {
+      // Gierwinkel-Änderung dTheta = (v / Radstand) * tan(lenkWinkel) * dt
+      const yawDelta = (this.geschwindigkeit / this.radstand) * Math.tan(this.lenkWinkel) * deltaSec;
+      this.el.object3D.rotation.y += yawDelta;
+
+      // Vorwärtsbewegung entlang lokaler -Z Achse
+      const yaw = this.el.object3D.rotation.y;
+      this.el.object3D.position.x -= Math.sin(yaw) * this.geschwindigkeit * deltaSec;
+      this.el.object3D.position.z -= Math.cos(yaw) * this.geschwindigkeit * deltaSec;
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. ANIMATION VON 3D-LENKRAD, GANGWAHLHEBEL, PEDALEN, RÄDERN & TACHO
+    // ------------------------------------------------------------------------
+    // 4.1 3D-Lenkrad drehen (Übersetzung 1 : 11 -> bis +-360 Grad)
+    if (this.lenkradDrehGruppe) {
+      this.lenkradDrehGruppe.rotation.z = this.lenkWinkel * 11.0;
+    }
+
+    // 4.2 Vorderräder einschlagen & alle 4 Räder drehen
+    this.vorderRaederLenk.forEach(pivot => {
+      pivot.rotation.y = this.lenkWinkel;
+    });
+    const radDrehWinkel = -(this.geschwindigkeit * deltaSec) / 0.36;
+    this.alleRaederDreh.forEach(rad => {
+      rad.rotation.x += radDrehWinkel;
+    });
+
+    // 4.3 3D-Gangwahlhebel in der Schaltkulisse gleiten lassen
+    if (this.gangHebelGroup) {
+      const zielZMap = { 'P': -0.455, 'R': -0.420, 'N': -0.380, 'D': -0.342, 'S': -0.305 };
+      const zielZ = zielZMap[this.gang] !== undefined ? zielZMap[this.gang] : -0.342;
+      this.gangHebelGroup.position.z += (zielZ - this.gangHebelGroup.position.z) * Math.min(1, deltaSec * 16);
+      this.gangHebelGroup.rotation.x = (zielZ + 0.38) * 1.8;
+    }
+
+    // 4.4 Gas- & Bremspedal im Fußraum kippen
+    if (this.gasPedal) {
+      this.gasPedal.rotation.x = THREE.MathUtils.degToRad(-28 - this.gasStellung * 18);
+    }
+    if (this.bremsPedal) {
+      this.bremsPedal.rotation.x = THREE.MathUtils.degToRad(-28 - this.bremsStellung * 16);
+    }
+
+    // 4.5 Bremslichter & Rückfahrscheinwerfer
+    if (this.bremsLichtMat) {
+      this.bremsLichtMat.emissiveIntensity = this.bremsStellung > 0 ? 3.5 : 0.45;
+    }
+    if (this.rueckfahrLichtMat) {
+      this.rueckfahrLichtMat.emissiveIntensity = this.gang === 'R' ? 2.5 : 0.0;
+    }
+
+    // 4.6 Automatik-Schaltstufen (D1..D5) & realistische Drehzahl (RPM) berechnen
+    const kmh = Math.abs(this.geschwindigkeit) * 3.6;
+    if (kmh < 18) this.autoStufe = 1;
+    else if (kmh < 40) this.autoStufe = 2;
+    else if (kmh < 68) this.autoStufe = 3;
+    else if (kmh < 98) this.autoStufe = 4;
+    else this.autoStufe = 5;
+
+    const stufenBasis = [0, 18, 40, 68, 98, 155];
+    const stufenSpanne = stufenBasis[this.autoStufe] - stufenBasis[this.autoStufe - 1];
+    const inGearFrac = Math.max(0, (kmh - stufenBasis[this.autoStufe - 1]) / Math.max(10, stufenSpanne));
+    const zielRpm = kmh < 0.5
+      ? (850 + this.gasStellung * 2200)
+      : (1400 + inGearFrac * (this.gang === 'S' ? 4800 : 3600) + this.gasStellung * 750);
+    this.rpm += (zielRpm - this.rpm) * Math.min(1, deltaSec * 10);
+
+    // Kombiinstrument & Navi regelmäßig aktualisieren
+    this.zeichneKombiinstrument();
+    if (!this._lastNaviUpdate || time - this._lastNaviUpdate > 200) {
+      this._lastNaviUpdate = time;
+      this.zeichneNaviDisplay();
+      if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 5. ZERO-LAG KAMERA-SYNC (Verhindert jegliches Cockpit-Zittern!)
+    // ------------------------------------------------------------------------
+    if (window.EEP.aktiveKamera === 8 && this.camAnchorEl) {
+      this.el.object3D.updateMatrixWorld(true);
+      const rig = document.querySelector('#kamera-rig');
+      const cam = document.querySelector('#haupt-kamera');
+      if (rig) {
+        const worldPos = new THREE.Vector3();
+        const worldQuat = new THREE.Quaternion();
+        this.camAnchorEl.object3D.getWorldPosition(worldPos);
+        this.camAnchorEl.object3D.getWorldQuaternion(worldQuat);
+        rig.object3D.position.copy(worldPos);
+        rig.object3D.quaternion.copy(worldQuat);
+      }
+      if (cam) {
+        // Sicherstellen, dass wasd-controls niemals die Kamera im Auto verschiebt!
+        cam.object3D.position.set(0, 0, 0);
+      }
+    }
+  }
+});
+
 AFRAME.registerComponent('ki-steuerung', {
   init: function () {
     this.kameraRig = document.querySelector('#kamera-rig');
     this.hauptKamera = document.querySelector('#haupt-kamera');
     this.umwelt = document.querySelector('#umwelt');
 
-    // Tastatur-Steuerung ([1] DE, [2] Ludmilla, [3] US-Zug, [4] USA/NY, [5] Flugzeug, [6] Schiff, [7] Vogelperspektive)
+    // Tastatur-Steuerung ([1] DE, [2] Ludmilla, [3] US-Zug, [4] USA/NY, [5] Flugzeug, [6] Schiff, [7] Vogelperspektive, [8] Auto-Cockpit)
     window.addEventListener('keydown', (e) => {
       if (e.key === '1') this.setzeKamera(1);
       if (e.key === '2') this.setzeKamera(2);
@@ -1684,15 +2656,74 @@ AFRAME.registerComponent('ki-steuerung', {
       if (e.key === '5') this.setzeKamera(5);
       if (e.key === '6') this.setzeKamera(6);
       if (e.key === '7') this.setzeKamera(7);
+      if (e.key === '8') this.setzeKamera(8);
       if (e.key.toLowerCase() === 'l') this.wechselWetter();
       if (e.key.toLowerCase() === 'h' || e.key === ' ') {
-        window.EEP.dampfPfeife();
+        if (window.EEP.aktiveKamera === 8) {
+          window.EEP.autoHupe();
+          e.preventDefault();
+        } else {
+          window.EEP.dampfPfeife();
+        }
       }
     });
 
     this.baueSteuerpultUI();
     window.EEP.updateUI = () => this.aktualisiereZugRegler();
-    setTimeout(() => this.aktualisiereZugRegler(), 300);
+    setTimeout(() => {
+      this.aktualisiereZugRegler();
+      if (window.location.search.includes('autotest=1')) {
+        this.starteAutoSelbsttest();
+      }
+    }, 300);
+  },
+
+  starteAutoSelbsttest: function () {
+    this.setzeKamera(8);
+    const ac = window.EEP.autoComp;
+    if (!ac) {
+      console.error('AUTO_TEST_FAILED: ki-auto nicht gefunden');
+      return;
+    }
+
+    // Test 1: Im Stand lenken -> Lenkrad dreht sich, aber Auto dreht sich NICHT auf der Stelle!
+    const startYaw = ac.el.object3D.rotation.y;
+    ac.geschwindigkeit = 0;
+    ac.tasten.links = true;
+    ac.tick(100, 200);
+    const standYawDiff = Math.abs(ac.el.object3D.rotation.y - startYaw);
+    const lenkradRotStand = ac.lenkradDrehGruppe.rotation.z;
+
+    // Test 2: Gangwahlhebel-Positionen testen (R -> D)
+    ac.setzeGang('R');
+    ac.tick(200, 100);
+    const hebelZ_R = ac.gangHebelGroup.position.z;
+    ac.setzeGang('D');
+    ac.tick(300, 100);
+    const hebelZ_D = ac.gangHebelGroup.position.z;
+
+    // Test 3: Beschleunigen auf der deutschen Straße + leichtes Einlenken für das Live-Cockpit-Foto
+    const startPos = ac.el.object3D.position.clone();
+    ac.tasten.hoch = true;
+    ac.tasten.links = true;
+    for (let i = 0; i < 18; i++) {
+      ac.tick(400 + i * 50, 50);
+      if (i === 5) ac.tasten.links = false; // Nur leicht in die Straßenkurve einlenken
+      if (i === 14) ac.tasten.rechts = true; // Leichtes Gegenlenken für dynamische Lenkradstellung
+    }
+    const gefahreneDistanz = ac.el.object3D.position.distanceTo(startPos);
+    const kmh = Math.round(ac.geschwindigkeit * 3.6);
+
+    console.log('AUTO_TEST_RESULT:', JSON.stringify({
+      kameraModus: window.EEP.aktiveKamera,
+      keinDrehenImStand: standYawDiff < 0.0001,
+      lenkradDreht: Math.abs(lenkradRotStand) > 0.5,
+      schalthebelBewegtSich: Math.abs(hebelZ_D - hebelZ_R) > 0.01,
+      gefahreneMeter: Number(gefahreneDistanz.toFixed(2)),
+      tachoKmh: kmh,
+      drehzahlRpm: Math.round(ac.rpm),
+      gangAnzeige: ac.gang + ac.autoStufe
+    }));
   },
 
   setzeKamera: function (modus) {
@@ -1700,6 +2731,16 @@ AFRAME.registerComponent('ki-steuerung', {
     document.querySelectorAll('.eep-cam-btn').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.cam) === modus);
     });
+
+    // Im Auto-Cockpit [8] das Hauptsteuerpult nach oben andocken, damit Lenkrad & Gangwahlhebel unten 100% frei sichtbar sind!
+    const cockpitUI = document.getElementById('eep-cockpit');
+    const autoHUD = document.getElementById('eep-auto-hud');
+    if (cockpitUI) {
+      cockpitUI.classList.toggle('auto-modus-oben', modus === 8);
+    }
+    if (autoHUD) {
+      autoHUD.style.display = modus === 8 ? 'flex' : 'none';
+    }
 
     if (modus === 1) {
       // Panorama-Blick Deutschland (bei Mein Haus mit Blick auf Ludmilla, Bahnhof, Fluss & Ostsee)
@@ -1723,9 +2764,16 @@ AFRAME.registerComponent('ki-steuerung', {
       this.kameraRig.object3D.position.set(0, 75, 95);
       this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-35), 0, 0);
     } else {
-      // Zug-/Flugzeug-/Schiffs-Kamera: WASD deaktivieren, damit man fest im Cockpit sitzt
+      // Zug-/Flugzeug-/Schiffs-/Auto-Cockpit: WASD deaktivieren & Kamera-Offset/Blickwinkel zentrieren!
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: false');
+        this.hauptKamera.object3D.position.set(0, 0, 0);
+        this.hauptKamera.object3D.rotation.set(0, 0, 0);
+        const lookCtrl = this.hauptKamera.components['look-controls'];
+        if (lookCtrl) {
+          if (lookCtrl.pitchObject) lookCtrl.pitchObject.rotation.x = 0;
+          if (lookCtrl.yawObject) lookCtrl.yawObject.rotation.y = 0;
+        }
       }
     }
   },
@@ -1805,7 +2853,7 @@ AFRAME.registerComponent('ki-steuerung', {
 
   tick: function () {
     const modus = window.EEP.aktiveKamera;
-    if (modus === 1 || modus === 4 || modus === 7) return; // Freie / Fußgänger-Kameras
+    if (modus === 1 || modus === 4 || modus === 7 || modus === 8) return; // Modus 8 wird für Zero-Lag direkt in ki-auto.tick() synchronisiert!
 
     let targetSelector = null;
     if (modus === 2) targetSelector = '.ludmilla-cam-anchor, .dampflok-cam-anchor';
@@ -1847,6 +2895,58 @@ AFRAME.registerComponent('ki-steuerung', {
         align-items: center;
         box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         max-width: 96vw;
+        transition: top 0.2s ease, bottom 0.2s ease;
+      }
+      #eep-cockpit.auto-modus-oben {
+        bottom: auto;
+        top: 8px;
+        padding: 6px 12px;
+        background: rgba(15, 23, 42, 0.85);
+        transform: translateX(-50%) scale(0.88);
+        transform-origin: top center;
+      }
+      #eep-cockpit.auto-modus-oben .eep-section:nth-child(2) {
+        display: none;
+      }
+      #eep-auto-hud {
+        position: fixed;
+        bottom: 14px;
+        left: 14px;
+        z-index: 9999;
+        background: rgba(15, 23, 42, 0.90);
+        border: 2px solid rgba(56, 189, 248, 0.45);
+        border-radius: 14px;
+        padding: 9px 13px;
+        color: #fff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        display: none;
+        flex-direction: column;
+        gap: 7px;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.65);
+        transform: scale(0.92);
+        transform-origin: bottom left;
+      }
+      .eep-gear-btn {
+        background: #1e293b;
+        color: #94a3b8;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 7px;
+        padding: 6px 11px;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .eep-gear-btn.active {
+        background: #16a34a;
+        color: #fff;
+        border-color: #86efac;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+      }
+      .eep-gear-btn.active-r {
+        background: #dc2626;
+        color: #fff;
+        border-color: #fca5a5;
+        box-shadow: 0 0 10px rgba(220, 38, 38, 0.7);
       }
       .eep-section {
         display: flex;
@@ -1933,6 +3033,7 @@ AFRAME.registerComponent('ki-steuerung', {
           <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug [5]</button>
           <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Mein Schiff [6]</button>
           <button class="eep-btn eep-cam-btn" data-cam="7">🦅 Übersicht [7]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="8" style="border-color:#f87171;">🚗 Auto-Cockpit [8]</button>
         </div>
       </div>
 
@@ -1951,6 +3052,56 @@ AFRAME.registerComponent('ki-steuerung', {
       </div>
     `;
     document.body.appendChild(ui);
+
+    // Interaktives Auto-Gangwahl- & Teleport-Panel unten rechts (nur in Kamera [8] sichtbar)
+    const autoHud = document.createElement('div');
+    autoHud.id = 'eep-auto-hud';
+    autoHud.innerHTML = `
+      <div class="eep-title">🕹️ Gangwahlhebel [G] & Pfeiltasten (⬆️ Gas | ⬇️ Bremse/R | ⬅️➡️ Lenken)</div>
+      <div class="eep-btn-row" id="eep-gear-row">
+        <button class="eep-gear-btn" data-gear="P">P</button>
+        <button class="eep-gear-btn" data-gear="R">R</button>
+        <button class="eep-gear-btn" data-gear="N">N</button>
+        <button class="eep-gear-btn active" data-gear="D">D</button>
+        <button class="eep-gear-btn" data-gear="S">S (Sport)</button>
+        <button class="eep-btn sound-btn" id="eep-auto-hupe-btn" style="margin-left:6px;">📣 Hupe [H]</button>
+      </div>
+      <div class="eep-title" style="margin-top:2px;">📍 Auto umsetzen (Schnellreise)</div>
+      <div class="eep-btn-row">
+        <button class="eep-btn eep-car-tp" data-tp="-93,0.28,-51,138">🇩🇪 Mein Haus DE</button>
+        <button class="eep-btn eep-car-tp" data-tp="-96,0.28,38,85">🇩🇪 Hafen Ostsee</button>
+        <button class="eep-btn eep-car-tp" data-tp="143,0.28,-33,155">🇺🇸 New York</button>
+        <button class="eep-btn eep-car-tp" data-tp="96,0.28,48,180">🇺🇸 Grand Canyon</button>
+      </div>
+    `;
+    document.body.appendChild(autoHud);
+
+    autoHud.querySelectorAll('.eep-gear-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.EEP.autoComp) window.EEP.autoComp.setzeGang(btn.dataset.gear);
+      });
+    });
+
+    document.getElementById('eep-auto-hupe-btn').addEventListener('click', () => window.EEP.autoHupe());
+
+    autoHud.querySelectorAll('.eep-car-tp').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!window.EEP.autoComp) return;
+        const p = btn.dataset.tp.split(',').map(Number);
+        window.EEP.autoComp.teleportiereZu(p[0], p[1], p[2], p[3]);
+      });
+    });
+
+    window.EEP.aktualisiereAutoHUD = () => {
+      if (!window.EEP.autoComp) return;
+      const g = window.EEP.autoComp.gang;
+      autoHud.querySelectorAll('.eep-gear-btn').forEach(b => {
+        b.classList.remove('active', 'active-r');
+        if (b.dataset.gear === g) {
+          b.classList.add(g === 'R' ? 'active-r' : 'active');
+        }
+      });
+    };
 
     // Event-Listener für Kamera-Buttons
     ui.querySelectorAll('.eep-cam-btn').forEach(btn => {

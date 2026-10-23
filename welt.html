@@ -20,9 +20,9 @@
     <a-entity id="licht-ambient" light="type: ambient; color: #fff8e1; intensity: 0.9"></a-entity>
     <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -220; shadowCameraRight: 220" position="-60 95 -40"></a-entity>
 
-    <!-- 2. SPIELER-KAMERA (Start in Deutschland mit Panoramablick auf Ludmilla, Haus, Fluss & Hafen) -->
+    <!-- 2. SPIELER-KAMERA (Start in Deutschland mit Panoramablick; near=0.05 verhindert Cockpit-Clipping!) -->
     <a-entity id="kamera-rig" position="-94 7.5 -50" rotation="-10 142 0">
-      <a-camera id="haupt-kamera" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
+      <a-camera id="haupt-kamera" near="0.05" far="1200" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
 
     <!-- ====================================================================== -->
@@ -75,7 +75,9 @@
     <!-- 2. MEIN HAUS (Deutschland - oben rechts neben den Alpen) -->
     <a-entity ki-haus="farbe: #fef08a; dachFarbe: #dc2626; etagen: 2" position="-92 0.25 -58" rotation="0 -20 0"></a-entity>
     <a-text value="MEIN HAUS" color="#fef08a" width="24" align="center" position="-92 6.8 -56"></a-text>
-    <a-entity gltf-model="models/cars/Models/GLB format/ambulance.glb" scale="1.2 1.2 1.2" position="-96 0.25 -54" rotation="0 30 0"></a-entity>
+
+    <!-- STEUERBARES AUTO MIT 3D-COCKPIT, LENKRAD & GANGWAHLHEBEL (Kamera [8], Pfeiltasten-Steuerung) -->
+    <a-entity id="spieler-auto" ki-auto="farbe: #dc2626" position="-93 0.28 -51" rotation="0 138 0"></a-entity>
 
     <!-- 3. DURCHGEHENDE STRASSE IN DEUTSCHLAND (Von Mein Haus rechts entlang des Flusses bis zum Hafen!) -->
     <a-entity ki-strasse="breite: 3.8; punkte: -92 0.28 -53, -104 0.28 -42, -98 0.28 -20, -90 0.28 5, -88 0.28 28, -98 0.28 42"></a-entity>
