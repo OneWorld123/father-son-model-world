@@ -4,24 +4,24 @@
   <meta charset="UTF-8">
   <title>3D-Modelleisenbahn – Deutschland ⇄ Ozean ⇄ Amerika</title>
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.7/dist/aframe-environment-component.min.js"></script>
   <script src="baukasten.js"></script>
 </head>
 <body style="margin: 0; overflow: hidden; background: #000;">
 
   <a-scene
-    renderer="antialias: true; colorManagement: true; powerPreference: high-performance; physicallyCorrectLights: true"
+    renderer="antialias: true; colorManagement: true"
+    fog="type: exponential; color: #bae6fd; density: 0.002"
     shadow="type: pcfsoft"
     ki-steuerung>
 
-    <!-- 1. HIMMEL & BELEUCHTUNG (Ohne Boden-Dressing im Ozean) -->
-    <a-entity id="umwelt" environment="preset: forest; dressingAmount: 0; hills: false; shadow: true; lightPosition: -1.0 0.65 -0.6; skyColor: #38bdf8; horizonColor: #fde68a; groundColor: #0369a1; groundColor2: #075985; fog: 0.22"></a-entity>
+    <!-- 1. HIMMEL & BELEUCHTUNG (Fehlerfrei & blitzschnell ohne externes Environment-Plugin) -->
+    <a-sky id="himmel" color="#38bdf8"></a-sky>
 
-    <a-entity light="type: ambient; color: #fff8e1; intensity: 0.85"></a-entity>
-    <a-entity light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -220; shadowCameraRight: 220" position="-60 95 -40"></a-entity>
+    <a-entity id="licht-ambient" light="type: ambient; color: #fff8e1; intensity: 0.9"></a-entity>
+    <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -220; shadowCameraRight: 220" position="-60 95 -40"></a-entity>
 
-    <!-- 2. SPIELER-KAMERA (Start in Deutschland bei Mein Haus; [1] DE, [4] USA, [7] Übersicht) -->
-    <a-entity id="kamera-rig" position="-100 1.65 -45" rotation="0 0 0">
+    <!-- 2. SPIELER-KAMERA (Start in Deutschland mit Panoramablick auf Ludmilla, Haus, Fluss & Hafen) -->
+    <a-entity id="kamera-rig" position="-94 7.5 -50" rotation="-10 142 0">
       <a-camera id="haupt-kamera" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
 

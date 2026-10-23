@@ -1702,19 +1702,19 @@ AFRAME.registerComponent('ki-steuerung', {
     });
 
     if (modus === 1) {
-      // Fußgänger Deutschland (bei Mein Haus / Alpenblick)
+      // Panorama-Blick Deutschland (bei Mein Haus mit Blick auf Ludmilla, Bahnhof, Fluss & Ostsee)
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
       }
-      this.kameraRig.object3D.position.set(-100, 1.65, -45);
-      this.kameraRig.object3D.rotation.set(0, 0, 0);
+      this.kameraRig.object3D.position.set(-94, 7.5, -50);
+      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-10), THREE.MathUtils.degToRad(142), 0);
     } else if (modus === 4) {
-      // Fußgänger Amerika (bei Mein Haus / New York)
+      // Panorama-Blick Amerika (bei New York / Mein Haus mit Blick auf US-Bahn & Grand Canyon)
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
       }
-      this.kameraRig.object3D.position.set(132, 1.65, -35);
-      this.kameraRig.object3D.rotation.set(0, 0, 0);
+      this.kameraRig.object3D.position.set(146, 8.5, -34);
+      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-10), THREE.MathUtils.degToRad(152), 0);
     } else if (modus === 7) {
       // Freie Vogelperspektive über dem Ozean (Übersicht über alle 3 Blätter!)
       if (this.hauptKamera) {
@@ -1733,29 +1733,49 @@ AFRAME.registerComponent('ki-steuerung', {
   wechselWetter: function (zielIndex) {
     const presets = [
       {
-        name: '☀️ Tag (Wald)',
-        env: 'preset: forest; dressingAmount: 200; hills: true; shadow: true; lightPosition: 1 2.5 1; fog: 0.65',
-        ambient: 0.75
+        name: '☀️ Tag (Sonne)',
+        sky: '#38bdf8',
+        fog: '#bae6fd',
+        ambientColor: '#fff8e1',
+        ambientInt: 0.9,
+        sunColor: '#ffe0b2',
+        sunInt: 2.2
       },
       {
         name: '🌅 Abendrot',
-        env: 'preset: forest; dressingAmount: 200; hills: true; shadow: true; skyColor: #ff7043; horizonColor: #ffcc80; lightPosition: -2 0.35 -1; groundColor: #334d2b; fog: 0.7',
-        ambient: 0.45
+        sky: '#fb7185',
+        fog: '#fdba74',
+        ambientColor: '#fed7aa',
+        ambientInt: 0.55,
+        sunColor: '#f97316',
+        sunInt: 1.6
       },
       {
-        name: '🌙 Nacht',
-        env: 'preset: starry; dressingAmount: 180; hills: true; shadow: true; groundColor: #0d1b12; fog: 0.8',
-        ambient: 0.15
+        name: '🌙 Sternennacht',
+        sky: '#090d16',
+        fog: '#0f172a',
+        ambientColor: '#38bdf8',
+        ambientInt: 0.22,
+        sunColor: '#64748b',
+        sunInt: 0.35
       },
       {
         name: '🌌 Neon-Nacht',
-        env: 'preset: tron; dressingAmount: 120; hills: true; shadow: true; fog: 0.75',
-        ambient: 0.35
+        sky: '#1e1b4b',
+        fog: '#311042',
+        ambientColor: '#c084fc',
+        ambientInt: 0.4,
+        sunColor: '#38bdf8',
+        sunInt: 0.8
       },
       {
-        name: '❄️ Schnee & Winter',
-        env: 'preset: forest; dressingAmount: 200; hills: true; shadow: true; groundColor: #f0f4f8; groundColor2: #dce6f2; dressingColor: #e8f0f8; skyColor: #b0bec5; horizonColor: #eceff1; fog: 0.75',
-        ambient: 0.85
+        name: '❄️ Winter-Nebel',
+        sky: '#cbd5e1',
+        fog: '#e2e8f0',
+        ambientColor: '#f8fafc',
+        ambientInt: 1.0,
+        sunColor: '#ffffff',
+        sunInt: 1.5
       }
     ];
 
@@ -1766,9 +1786,16 @@ AFRAME.registerComponent('ki-steuerung', {
     }
 
     const p = presets[window.EEP.wetterIndex];
-    if (this.umwelt) {
-      this.umwelt.setAttribute('environment', p.env);
-    }
+    const himmel = document.getElementById('himmel');
+    if (himmel) himmel.setAttribute('color', p.sky);
+
+    this.el.setAttribute('fog', `type: exponential; color: ${p.fog}; density: 0.0022`);
+
+    const amb = document.getElementById('licht-ambient');
+    if (amb) amb.setAttribute('light', `type: ambient; color: ${p.ambientColor}; intensity: ${p.ambientInt}`);
+
+    const sun = document.getElementById('licht-sonne');
+    if (sun) sun.setAttribute('light', `type: directional; color: ${p.sunColor}; intensity: ${p.sunInt}; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -220; shadowCameraRight: 220`);
 
     const wetterBtn = document.getElementById('eep-wetter-btn');
     if (wetterBtn) {

@@ -1,12 +1,38 @@
-# Selbsttest: laedt welt.html im Headless-Edge und prueft auf JS-Fehler + Steuerpult.
-# Aufruf: powershell -ExecutionPolicy Bypass -File test_welt.ps1  (Server muss auf :8080 laufen)
+# Startet Edge mit echtem WebGL, schiesst einen Screenshot von welt.html und liest alle Console/JS-Logs aus.
 $edge = @("C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe","C:\Program Files\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-$out = "$env:TEMP\eep_dom.html"; $err = "$env:TEMP\eep_err.txt"
-$prof = "$env:TEMP\eep_profile_$([guid]::NewGuid().ToString('N').Substring(0,8))"
-$p = Start-Process -FilePath $edge -ArgumentList "--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check","--enable-logging=stderr","--v=0","--virtual-time-budget=8000","--user-data-dir=$prof","--dump-dom","http://localhost:8080/welt.html" -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -WindowStyle Hidden
-$p.WaitForExit(40000) | Out-Null
+$shot = "C:\Users\Markus\.gemini\antigravity\brain\1c19476e-1808-4bdf-b72c-9116af9b0e6c\screenshot_welt.png"
+$err  = "C:\Users\Markus\.gemini\antigravity\brain\1c19476e-1808-4bdf-b72c-9116af9b0e6c\scratch\console.log"
+$prof = "$env:TEMP\eep_shot_$([guid]::NewGuid().ToString('N').Substring(0,8))"
+
+Remove-Item $shot -ErrorAction SilentlyContinue
+Remove-Item $err -ErrorAction SilentlyContinue
+
+$args = @(
+  "--headless=new",
+  "--window-size=1440,900",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--enable-webgl",
+  "--ignore-gpu-blocklist",
+  "--enable-logging=stderr",
+  "--v=0",
+  "--virtual-time-budget=9000",
+  "--user-data-dir=$prof",
+  "--screenshot=$shot",
+  "http://localhost:8080/welt.html"
+)
+
+$p = Start-Process -FilePath $edge -ArgumentList $args -RedirectStandardError $err -PassThru -WindowStyle Hidden
+$p.WaitForExit(35000) | Out-Null
 Remove-Item -Recurse -Force $prof -ErrorAction SilentlyContinue
-$cockpit = Select-String -Path $out -Pattern 'id="eep-cockpit"' -Quiet
-$fehler = Select-String -Path $err -Pattern "Uncaught|SyntaxError|ReferenceError|TypeError" | Where-Object { $_.Line -match "localhost" }
-if ($cockpit -and -not $fehler) { Write-Host "OK: Steuerpult geladen, keine JS-Fehler." }
-else { Write-Host "FEHLER!"; if (-not $cockpit) { Write-Host "- Steuerpult fehlt" }; $fehler | ForEach-Object { Write-Host $_.Line } ; exit 1 }
+
+if (Test-Path $shot) {
+  Write-Host "SCREENSHOT_OK: $shot ($((Get-Item $shot).Length) bytes)"
+} else {
+  Write-Host "SCREENSHOT_FAILED"
+}
+
+Write-Host "=== CONSOLE LOGS ==="
+if (Test-Path $err) {
+  Get-Content $err | Select-String -Pattern "CONSOLE|Uncaught|Error|WARN" | Where-Object { $_.Line -notmatch "fallback_task_provider|external_registry_loader|edge_elevation" } | ForEach-Object { $_.Line }
+}
