@@ -2927,7 +2927,8 @@ AFRAME.registerComponent('ki-steuerung', {
       this._fpsLastTime = now;
       const badge = document.getElementById('eep-gpu-badge');
       if (badge) {
-        badge.textContent = `⚡ ${fps} FPS (GPU)`;
+        const gpuShort = (window.EEP.gpuInfo || 'GPU').replace(/Intel\(R\) HD Graphics/i, 'Intel HD').replace(/NVIDIA GeForce/i, 'NVIDIA').substring(0, 18);
+        badge.textContent = `⚡ ${fps} FPS | ${gpuShort}`;
         badge.style.color = fps >= 50 ? '#4ade80' : (fps >= 30 ? '#fde047' : '#f87171');
       }
     }
