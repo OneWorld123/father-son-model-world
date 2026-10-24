@@ -1,0 +1,170 @@
+schema_version: 1
+area: architecture-lod
+title: Paket 0 – Entkoppelte Modul-Architektur, ehrliche Performance-Anzeige und dynamisches LOD für stabile 60 FPS
+
+specs:
+  - id: s-architecture-lod-001
+    title: Simulations-Kern in eigenen, A-Frame-freien JS-Modulen (Strangler-Pattern)
+    given:
+      - "baukasten.js ist ein Monolith mit ca. 5.400 Zeilen, in dem Simulation, Physik und 3D-Darstellung vermischt sind."
+      - Die Pakete A (Welt/Kollision) und B (Schaden) bringen neue Simulationslogik.
+    when: welt.html geladen wird.
+    then:
+      - "Die neue Logik liegt NICHT in baukasten.js, sondern in eigenen klassischen Script-Dateien unter js/ (kein Bundler, kein Build-Schritt, läuft über den bestehenden HTTP-Server auf Port 8080)."
+      - "Pflicht-Module und Ladereihenfolge in welt.html (nach aframe, vor baukasten.js): js/core/eep-kern.js, js/core/perf-lod.js, js/welt/welt-karte.js, js/physik/kollision.js, js/physik/fahrzeug-physik.js, js/physik/schaden.js."
+      - "Module unter js/core (außer perf-lod.js), js/welt und js/physik referenzieren weder AFRAME noch document noch window.THREE; sie arbeiten nur mit reinen Zahlen/Objekten und sind dadurch ohne Rendering testbar."
+      - "Bestehende A-Frame-Komponenten (ki-auto, ki-faehre, ki-flugzeug, ki-lara, ki-strasse, ki-gleis, ki-haus, ...) bleiben in baukasten.js und rufen die neuen Dienste nur auf (View liest Zustand und schreibt Meshes)."
+      - "Kein Massen-Umzug von Bestandscode in dieser Nacht-Schicht; Bestandscode wird erst verschoben, wenn er ohnehin angefasst wird."
+      - "Jedes neue Modul bleibt unter 800 Zeilen; beim Überschreiten wird es fachlich geteilt."
+    why: Der Nutzer verlangt Aufteilung nach Best Practices. Ein schrittweiser Strangler-Ansatz verhindert, dass ein Big-Bang-Refactoring über Nacht die laufende Welt zerstört, und bereitet einen späteren Engine-Wechsel vor.
+
+  - id: s-architecture-lod-002
+    title: Zentraler Namespace, Event-Bus und Körper-Registry
+    given:
+      - js/core/eep-kern.js ist geladen.
+    when: Komponenten Fahrzeuge, Schiffe, Flugzeug oder Lara initialisieren.
+    then:
+      - "window.EEP bleibt das einzige globale Objekt; bestehende Felder (autoComp, laraComp, aktiveKamera, Audio-Funktionen) bleiben unverändert erhalten."
+      - "EEP.bus bietet on(name, fn), off(name, fn) und emit(name, daten); Fehler in einem Listener werden per console.error gemeldet und blockieren andere Listener nicht."
+      - "EEP.sim.registriere(koerper) nimmt Simulationskörper auf und liefert deren id; EEP.sim.koerper(id) und EEP.sim.alle(typ) liefern sie zurück; EEP.sim.entferne(id) entfernt sie."
+      - "Pflichtfelder eines Körpers - id, typ ('auto' | 'schiff' | 'flugzeug' | 'lara'), x, y, z, yaw (rad), v (m/s, vorzeichenbehaftet), halbBreite, halbLaenge, hoehe (m), profil, schaden (siehe damage-sinking)."
+      - "EEP.version enthält mindestens { kern, perf, welt, kollision, fahrzeugPhysik, schaden } als Versionsstrings, damit Tests das Laden aller Module prüfen können."
+    why: Ein gemeinsamer Datenvertrag zwischen Simulation und Darstellung ist die Voraussetzung, damit Kollisionen (Paket A) und Schaden (Paket B) für alle Verkehrsmittel gleich funktionieren.
+
+  - id: s-architecture-lod-003
+    title: Ehrliche Performance-Anzeige statt scheinbar fester 60 FPS
+    given:
+      - "Die bisherige Badge zeigt nur Bilder pro Sekunde; durch VSync ist der Wert bei 60-Hz-Monitoren nach oben auf 60 gedeckelt und wirkt deshalb 'fest'."
+    when: Die Welt läuft.
+    then:
+      - "Die FPS-Badge zeigt im Format '60 FPS · 7.4 ms · Last 44 % · Stufe Hoch (Auto) | GPU-Kurzname'."
+      - "FPS = gleitender Mittelwert über ein 1,0-s-Fenster aus echten Frame-Abständen; ms = mittlere Rechenzeit pro Frame (Szenen-Tick + renderer.render, gemessen mit performance.now)."
+      - "Last % = mittlere Rechenzeit / 16,67 ms × 100; so sieht der Nutzer die Reserve auch dann, wenn VSync die FPS auf 60 deckelt."
+      - "Farbe - grün bei FPS ≥ 55 und Last < 70 %, gelb bei FPS 35–54 oder Last 70–95 %, rot bei FPS < 35 oder Last > 95 %."
+      - "Taste [F] blendet ein Detail-Overlay ein/aus mit 95-Perzentil-Frame-Zeit, Draw-Calls (renderer.info.render.calls), Dreiecken (renderer.info.render.triangles), aktiver Qualitätsstufe und Anzahl sichtbarer LOD-Objekte je Stufe."
+    why: Der Nutzer sieht immer nur 60 FPS und kann so nicht erkennen, wie nah das System an der Grenze arbeitet.
+
+  - id: s-architecture-lod-004
+    title: Automatischer FPS-Wächter mit Qualitätsstufen und Hysterese
+    given:
+      - EEP.perf läuft und misst FPS, Frame-Zeit und Last wie in s-architecture-lod-003.
+    when: Die Leistung sinkt (z. B. Grand Canyon, Wolkenkratzer, viele Bäume) oder steigt wieder.
+    then:
+      - "Es gibt 4 Qualitätsstufen 0 Ultra, 1 Hoch, 2 Mittel, 3 Niedrig mit den exakten Parametern aus d-architecture-lod-002; Startstufe ist 1 Hoch."
+      - "Abstufen um eine Stufe, wenn FPS-Mittel < 52 durchgehend 2,0 s lang ODER 95-Perzentil-Frame-Zeit > 22 ms durchgehend 2,0 s lang."
+      - "Aufstufen um eine Stufe, wenn FPS-Mittel ≥ 58 UND Last < 60 % durchgehend 6,0 s lang."
+      - "Nach jedem Stufenwechsel gilt eine Sperrzeit von 4,0 s ohne weiteren Wechsel (kein Flackern)."
+      - "Jeder Wechsel wird per EEP.bus.emit('qualitaet', { von, nach, grund }) gemeldet und als console.info 'PERF_STUFE von→nach grund' geloggt."
+      - "Taste [F] mit gedrückter Shift-Taste schaltet zyklisch Auto → Ultra → Hoch → Mittel → Niedrig → Auto; URL-Parameter ?qualitaet=ultra|hoch|mittel|niedrig|auto setzt den Startmodus. In festen Stufen ist der Wächter inaktiv."
+      - "Für Tests existiert EEP.perf.simuliereFps(fps, lastProzent), das echte Messwerte bis zum Aufruf EEP.perf.simuliereFps(null) überschreibt."
+    why: Laut Nutzer soll bei sinkender Bildrate automatisch die Detailstufe ferner Objekte reduziert werden.
+
+  - id: s-architecture-lod-005
+    title: Distanzbasiertes LOD für Bäume, Gebäude, Landschaft und Beschriftungen
+    given:
+      - Der FPS-Wächter liefert den aktuellen LOD-Faktor der Qualitätsstufe.
+    when: Objekte sich in unterschiedlicher Entfernung zur aktiven Kamera befinden.
+    then:
+      - "EEP.lod.registriere(object3D, kategorie, stufen) hüllt Objekte in ein THREE.LOD; stufen ist eine Liste aus { dist, object } mit aufsteigender Distanz; object null bedeutet unsichtbar."
+      - "Alle LOD-Distanzen werden mit dem LOD-Faktor der aktiven Qualitätsstufe multipliziert und bei jedem Stufenwechsel neu gesetzt."
+      - "Pflicht-Kategorien und Basis-Distanzen gemäß d-architecture-lod-003 - baum, gebaeude, wolkenkratzer, landschaft (Canyon, Alpen), beschriftung (a-text), deko."
+      - "Im Nahbereich (LOD0) bleiben alle Modelle in voller Detailstufe; insbesondere behält der Grand Canyon im Nahbereich seine volle Polygonanzahl (Entscheidung d-car-cockpit-002 bleibt gültig)."
+      - "Die Kamera-Sichtweite (camera far) und die Nebel-Distanz folgen der Qualitätsstufe, ohne dass Objekte in Sichtweite aufpoppen (Nebel-Ende = 0,95 × far)."
+      - "LOD-Updates laufen höchstens alle 100 ms (nicht in jedem Frame) und kosten im Mittel < 0,5 ms."
+    why: Ferne Objekte brauchen keine volle Polygonanzahl; das schafft Reserve für Physik, Kollision und Schadenseffekte.
+
+decisions:
+  - id: d-architecture-lod-001
+    title: Klassische Script-Module unter js/ mit Strangler-Pattern statt Big-Bang-Refactoring oder Bundler
+    status: accepted
+    specs: [s-architecture-lod-001, s-architecture-lod-002]
+    decision: "Neue Fachlogik entsteht als klassische Scripts (IIFE, die an window.EEP andocken) in js/core, js/welt und js/physik. Kein ES-Module-Import-Graph, kein npm-Build. baukasten.js bleibt lauffähig und wird nur an definierten Andockpunkten erweitert."
+    why: "Ein Bundler-Setup oder ein Komplett-Umzug von 5.400 Zeilen in einer unbeaufsichtigten Nacht ist das höchste Risiko für eine kaputte Welt. Klassische Scripts laufen sofort auf dem bestehenden Server, und reine Simulationsmodule ohne AFRAME/document sind später 1:1 in ES-Module, Web-Worker oder einen anderen Renderer übertragbar."
+    how:
+      - "Modul-Gerüst je Datei - (function () { const EEP = window.EEP = window.EEP || {}; ... EEP.version.<name> = '1.0.0'; })();"
+      - "window.EEP in baukasten.js Zeile 7 von Neuzuweisung auf Merge umstellen (Object.assign(window.EEP = window.EEP || {}, {...})), damit vorher geladene Module nicht überschrieben werden."
+      - "Script-Tags in welt.html in der Reihenfolge aus s-architecture-lod-001 direkt vor baukasten.js einfügen."
+      - "Statische Prüfung im Test - Select-String über js/welt, js/physik und js/core/eep-kern.js darf keine Treffer für 'AFRAME', 'document.' oder 'THREE.' liefern."
+
+  - id: d-architecture-lod-002
+    title: Exakte Parameter der Qualitätsstufen
+    status: accepted
+    specs: [s-architecture-lod-004, s-architecture-lod-005]
+    decision: "Die Stufen setzen pixelRatio, Schattenauflösung, Sichtweite, LOD-Faktor und Deko-Dichte genau nach folgender Tabelle."
+    why: Feste, nachvollziehbare Zahlen machen das Verhalten testbar und reproduzierbar.
+    how:
+      - "Stufe 0 Ultra - pixelRatio min(devicePixelRatio, 2.0); Schatten 2048; far 1200; LOD-Faktor 1.00; Deko-Dichte 100 %."
+      - "Stufe 1 Hoch - pixelRatio min(devicePixelRatio, 1.5); Schatten 2048; far 1000; LOD-Faktor 0.80; Deko-Dichte 100 %."
+      - "Stufe 2 Mittel - pixelRatio 1.0; Schatten 1024; far 800; LOD-Faktor 0.60; Deko-Dichte 60 %."
+      - "Stufe 3 Niedrig - pixelRatio 0.75; Schatten 512; far 600; LOD-Faktor 0.40; Deko-Dichte 30 %."
+      - "Deko-Dichte blendet registrierte Deko-Objekte deterministisch aus (Objekt-Index modulo, kein Zufall), damit die Szene nicht flackert."
+      - "Schattenauflösung wird nur bei Stufenwechsel geändert; danach shadow.map.dispose() und shadow.map = null, damit three.js die Map neu erzeugt."
+
+  - id: d-architecture-lod-003
+    title: Basis-LOD-Distanzen und Ersatzgeometrien je Kategorie
+    status: accepted
+    specs: [s-architecture-lod-005]
+    decision: "Basis-Distanzen (vor Multiplikation mit dem LOD-Faktor) und Ersatzgeometrien sind fest definiert."
+    why: Billige Ersatzgeometrien (1–2 Meshes) statt GLB-Volldetail halbieren Draw-Calls und Dreiecke in der Ferne.
+    how:
+      - "baum (GLB-Kiefern, Palmen) - LOD0 GLB bis 90 m; LOD1 Kegel/Kugel + Zylinder (max. 2 Meshes, ≤ 60 Dreiecke) bis 220 m; darüber unsichtbar."
+      - "gebaeude (ki-haus, ki-bahnhof, Terminal) - LOD0 Volldetail bis 150 m; LOD1 ein Quader + ein Dachprisma in Originalfarben bis 450 m; darüber unsichtbar."
+      - "wolkenkratzer - LOD0 bis 200 m; LOD1 ein Quader in Fassadenfarbe bis Sichtweite (Skyline bleibt sichtbar)."
+      - "landschaft (Canyon, Alpen) - LOD0 Volldetail bis 350 m; LOD1 vereinfachte Geometrie mit ca. 25 % der Dreiecke bis Sichtweite."
+      - "beschriftung (a-text) - sichtbar bis 260 m, darüber unsichtbar."
+      - "deko (Felder, Strandpalmen, Kleinkram) - LOD0 bis 120 m; darüber unsichtbar."
+      - "Fahrzeuge, Züge, Lara und alles im Abstand < 30 m zur Kamera sind von LOD ausgenommen."
+
+  - id: d-architecture-lod-004
+    title: Engine-Wechsel (WebGPU / reines three.js) vorbereitet, aber nicht in dieser Nacht
+    status: proposed
+    specs: [s-architecture-lod-001]
+    decision: "Ein Wechsel auf THREE.WebGPURenderer oder reines three.js ohne A-Frame wird erst evaluiert, wenn das LOD-System auf Stufe 3 Niedrig keine 55 FPS mehr hält. Bis dahin sorgt die A-Frame-freie Simulationsschicht dafür, dass ein Wechsel nur die View-Schicht betrifft."
+    why: Der Nutzer hat den Engine-Wechsel als Option genannt; er ist teuer und erst bei nachgewiesenem Bedarf sinnvoll.
+
+tests:
+  - id: t-architecture-lod-001
+    title: Modul-Architektur geladen, A-Frame-frei und abwärtskompatibel
+    specs: [s-architecture-lod-001, s-architecture-lod-002]
+    suites: [smoke, regression]
+    areas: [architecture-lod]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "Statisch per PowerShell Select-String über js/welt/*.js, js/physik/*.js und js/core/eep-kern.js nach 'AFRAME', 'document.' und 'THREE.' suchen."
+        expected:
+          - Keine Treffer.
+          - Jede Datei unter js/ hat weniger als 800 Zeilen.
+      - action: "http://localhost:8080/welt.html?archtest=1 im Headless-Browser öffnen."
+        expected:
+          - "Die Konsole enthält ARCH_TEST_RESULT mit module=6, versionen enthält kern, perf, welt, kollision, fahrzeugPhysik, schaden; busOk=true; registryOk=true; bestandOk=true (EEP.autos hat 2 Einträge, EEP.laraComp und EEP.autoHupe existieren)."
+          - Keine Uncaught-Ausnahmen (ReferenceError, TypeError, SyntaxError).
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: archtest=1
+
+  - id: t-architecture-lod-002
+    title: FPS-Wächter stuft bei simuliertem Einbruch ab und bei Erholung wieder auf; LOD greift
+    specs: [s-architecture-lod-003, s-architecture-lod-004, s-architecture-lod-005]
+    suites: [regression]
+    areas: [architecture-lod]
+    risk: medium
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?lodtest=1 öffnen; der Selbsttest ruft EEP.perf.simuliereFps(30, 120) für 2,5 s, danach EEP.perf.simuliereFps(60, 30) für 10,5 s (mit beschleunigter Testuhr EEP.perf.testUhr) auf."
+        expected:
+          - "LOD_TEST_RESULT meldet startStufe=1, nachEinbruch=2, nachErholung=1, sperrzeitEingehalten=true."
+          - "LOD_TEST_RESULT meldet lodObjekte.baum ≥ 10, lodObjekte.gebaeude ≥ 3, lodObjekte.beschriftung ≥ 5 und farMitStufe=true (far 1000 bei Hoch, 800 bei Mittel)."
+          - "LOD_TEST_RESULT meldet badgeFormatOk=true (Badge-Text enthält 'FPS', 'ms', 'Last' und 'Stufe')."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: lodtest=1
