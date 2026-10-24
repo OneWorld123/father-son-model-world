@@ -38,11 +38,21 @@ specs:
       - Mein Schiff besitzt einen realistischen Kreuzfahrtschiff-Rumpf (dunkelblauer Rumpf mit rotem Wasserpass, spitzer Bug und abgerundetes Heck), mehrstöckige weiße Kabinendecks mit leuchtenden Balkonfenster-Bändern, eine auskragende Kommandobrücke (Brückennock), ein türkisfarbenes Pooldeck am Heck, seitliche orangefarbene Rettungsboote, einen markanten Schornstein mit drehendem Radar sowie Heckwellen-Gischt.
     why: Das Schiff soll in der 3rd-Person-Ansicht und beim Umkreisen mit Shift+Pfeiltasten wie ein echtes modernes Kreuzfahrtschiff ("Mein Schiff") aussehen statt aus bloßen Klötzen.
 
+  - id: s-ship-airplane-004
+    title: Deutlich vergrößerter Ozean-Abstand zwischen Deutschland (Blatt 1) und Amerika (Blatt 3)
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+    when: Die Kontinente Deutschland (links) und Amerika (rechts) sowie der dazwischenliegende Ozean betrachtet oder mit Flugzeug und Schiff überquert werden.
+    then:
+      - Deutschland liegt im westlichen Bereich um X = -282 (von ca. X = -346 bis -218) und Amerika im östlichen Bereich um X = +286 (von ca. X = +216 bis +348), sodass zwischen beiden Küsten über 430 Meter offener Ozean liegen.
+      - Alle Eisenbahngleise (de-bahn, us-bahn), Straßen, Häuser, Häfen, Flughäfen, Canyons, Schnellreise-Ziele, Autopilot-Routen und die Startpositionen von Lara Croft, Auto, Flugzeug und Mein Schiff sind konsistent auf die neuen Länder-Positionen abgestimmt.
+    why: Die beiden Länder sollen räumlich klar voneinander getrennt sein, damit sich eine Ozeanüberquerung mit Mein Schiff oder dem Flugzeug wie eine echte Fernreise anfühlt.
+
 decisions:
   - id: d-ship-airplane-001
     title: Nahtlose Übernahme aus dem Autopilot-Pfad in die freie Vektor-Physik
     status: accepted
-    specs: [s-ship-airplane-001, s-ship-airplane-002]
+    specs: [s-ship-airplane-001, s-ship-airplane-002, s-ship-airplane-004]
     decision: Sowohl ki-flugzeug als auch ki-faehre (hauptschiff) besitzen einen Modus manuell, der beim Wechsel in Kamera 5 bzw. 6 oder bei Tastendruck die aktuelle Weltposition und den aktuellen Kurs (yaw) direkt aus dem 3D-Objekt übernimmt und per [P] oder HUD-Button jederzeit zwischen Manuell und Autopilot umschaltbar ist.
     why: Wenn der Spieler als Lara Croft oder im Zug unterwegs ist, beleben Flugzeug und Schiff die Welt auf ihren Routen; in Kamera 5 und 6 hat der Spieler sofort die direkte Kontrolle ohne Positions-Sprünge.
     how:
@@ -62,7 +72,7 @@ decisions:
 tests:
   - id: t-ship-airplane-001
     title: Manuelle Flugzeugsteuerung (Steigflug, Kurvenflug mit Rollwinkel & Selbstzentrierung) prüfen
-    specs: [s-ship-airplane-001]
+    specs: [s-ship-airplane-001, s-ship-airplane-004]
     suites: [smoke, regression]
     areas: [ship-airplane-controls]
     risk: high

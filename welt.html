@@ -33,90 +33,90 @@
     <a-sky id="himmel" color="#38bdf8"></a-sky>
 
     <a-entity id="licht-ambient" light="type: ambient; color: #fff8e1; intensity: 0.9"></a-entity>
-    <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048; shadowCameraNear: 15; shadowCameraFar: 260; shadowCameraTop: 140; shadowCameraBottom: -140; shadowCameraLeft: -200; shadowCameraRight: 200" position="-60 95 -40"></a-entity>
+    <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048; shadowCameraNear: 15; shadowCameraFar: 320; shadowCameraTop: 150; shadowCameraBottom: -150; shadowCameraLeft: -370; shadowCameraRight: 370" position="-60 110 -40"></a-entity>
 
     <!-- 2. SPIELER-KAMERA (Start in Deutschland mit Panoramablick; near=0.05 verhindert Cockpit-Clipping!) -->
-    <a-entity id="kamera-rig" position="-94 7.5 -50" rotation="-10 142 0">
-      <a-camera id="haupt-kamera" near="0.05" far="1200" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
+    <a-entity id="kamera-rig" position="-244 7.5 -50" rotation="-10 142 0">
+      <a-camera id="haupt-kamera" near="0.05" far="1600" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
 
     <!-- ====================================================================== -->
     <!-- BLATT 2 (MITTE): DER GROSSE OZEAN, DIE OSTSEE, 4 INSELN & SCHIFFE      -->
     <!-- ====================================================================== -->
 
-    <!-- Gewaltiges Weltmeer (Ozean + Ostsee) -->
-    <a-plane position="0 0.05 0" rotation="-90 0 0" width="520" height="280"
+    <!-- Gewaltiges Weltmeer (Ozean + Ostsee, verbreitert für weite Kontinent-Distanz) -->
+    <a-plane position="0 0.05 0" rotation="-90 0 0" width="980" height="360"
              material="color: #0369a1; roughness: 0.12; metalness: 0.85"></a-plane>
 
     <!-- 4 Gelbe Sand-Inseln im Ozean vor der Küste Amerikas (wie gezeichnet) -->
-    <a-cylinder color="#fde047" radius="8.5" height="0.7" scale="0.7 1 1.6" position="48 0.15 -22" rotation="0 -15 0" shadow="receive: true"></a-cylinder>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedTall.glb" scale="2.2 2.2 2.2" position="48 0.45 -22"></a-entity>
+    <a-cylinder color="#fde047" radius="8.5" height="0.7" scale="0.7 1 1.6" position="135 0.15 -22" rotation="0 -15 0" shadow="receive: true"></a-cylinder>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedTall.glb" scale="2.2 2.2 2.2" position="135 0.45 -22"></a-entity>
 
-    <a-cylinder color="#fde047" radius="7.5" height="0.7" scale="0.7 1 1.5" position="42 0.15 10" rotation="0 12 0" shadow="receive: true"></a-cylinder>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedShort.glb" scale="2.2 2.2 2.2" position="42 0.45 10"></a-entity>
+    <a-cylinder color="#fde047" radius="7.5" height="0.7" scale="0.7 1 1.5" position="118 0.15 10" rotation="0 12 0" shadow="receive: true"></a-cylinder>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedShort.glb" scale="2.2 2.2 2.2" position="118 0.45 10"></a-entity>
 
-    <a-cylinder color="#fde047" radius="6.0" height="0.7" scale="0.7 1 1.4" position="52 0.15 44" shadow="receive: true"></a-cylinder>
-    <a-cylinder color="#fde047" radius="5.0" height="0.7" scale="0.7 1 1.3" position="56 0.15 62" shadow="receive: true"></a-cylinder>
+    <a-cylinder color="#fde047" radius="6.0" height="0.7" scale="0.7 1 1.4" position="152 0.15 44" shadow="receive: true"></a-cylinder>
+    <a-cylinder color="#fde047" radius="5.0" height="0.7" scale="0.7 1 1.3" position="168 0.15 62" shadow="receive: true"></a-cylinder>
 
     <!-- Ozean-Schiff 1 (Oben im Ozean) -->
-    <a-entity ki-faehre="tempo: 1.0; von: -55 0.35 -42; nach: 48 0.35 -42">
+    <a-entity ki-faehre="tempo: 1.0; von: -185 0.35 -42; nach: 165 0.35 -42">
       <a-box color="#1e293b" width="4.2" height="1.5" depth="15" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#f8fafc" width="3.0" height="1.8" depth="9" position="0 1.5 0" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-cylinder color="#0284c7" radius="0.45" height="1.6" position="0 2.7 0"></a-cylinder>
     </a-entity>
 
     <!-- Ozean-Schiff 2 (Unten im Ozean) -->
-    <a-entity ki-faehre="tempo: 1.0; von: 40 0.35 28; nach: -50 0.35 45">
+    <a-entity ki-faehre="tempo: 1.0; von: 145 0.35 28; nach: -180 0.35 45">
       <a-box color="#0f172a" width="4.5" height="1.6" depth="16" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#f8fafc" width="3.2" height="1.8" depth="10" position="0 1.6 0" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-cylinder color="#dc2626" radius="0.45" height="1.6" position="0 2.8 0"></a-cylinder>
     </a-entity>
 
     <!-- ====================================================================== -->
-    <!-- BLATT 1 (LINKS): DEUTSCHLAND (X: -195 bis -68)                         -->
+    <!-- BLATT 1 (LINKS): DEUTSCHLAND (X: -346 bis -218)                        -->
     <!-- ====================================================================== -->
 
     <!-- Deutsches Festland (Grüne Wiese von Z: -85 bis +42, darunter Strand & Ostsee) -->
-    <a-box color="#1e5631" width="128" height="0.5" depth="126" position="-132 0.0 -22" material="roughness: 0.95" shadow="receive: true"></a-box>
+    <a-box color="#1e5631" width="128" height="0.5" depth="126" position="-282 0.0 -22" material="roughness: 0.95" shadow="receive: true"></a-box>
     <!-- Strand an der Ostsee (Südküste Deutschlands bei Z: +41 bis +49) -->
-    <a-box color="#fde047" width="128" height="0.38" depth="10" position="-132 0.02 44" material="roughness: 0.9" shadow="receive: true"></a-box>
+    <a-box color="#fde047" width="128" height="0.38" depth="10" position="-282 0.02 44" material="roughness: 0.9" shadow="receive: true"></a-box>
     <!--Großes Ostsee-Schild im Wasser -->
-    <a-text value="OSTSEE" color="#bae6fd" width="90" align="center" position="-130 0.6 72" rotation="-90 0 0"></a-text>
+    <a-text value="OSTSEE" color="#bae6fd" width="90" align="center" position="-280 0.6 72" rotation="-90 0 0"></a-text>
 
     <!-- 1. ALPEN (Oben im Norden Deutschlands bei Z: -68) -->
-    <a-entity ki-alpen="breite: 65; tiefe: 26; hoehe: 30" position="-140 0.2 -66"></a-entity>
-    <a-text value="ALPEN" color="#ffffff" width="55" align="center" position="-140 24 -58"></a-text>
+    <a-entity ki-alpen="breite: 65; tiefe: 26; hoehe: 30" position="-290 0.2 -66"></a-entity>
+    <a-text value="ALPEN" color="#ffffff" width="55" align="center" position="-290 24 -58"></a-text>
 
     <!-- 2. MEIN HAUS (Deutschland - oben rechts neben den Alpen) -->
-    <a-entity ki-haus="farbe: #fef08a; dachFarbe: #dc2626; etagen: 2" position="-92 0.25 -58" rotation="0 -20 0"></a-entity>
-    <a-text value="MEIN HAUS" color="#fef08a" width="24" align="center" position="-92 6.8 -56"></a-text>
+    <a-entity ki-haus="farbe: #fef08a; dachFarbe: #dc2626; etagen: 2" position="-242 0.25 -58" rotation="0 -20 0"></a-entity>
+    <a-text value="MEIN HAUS" color="#fef08a" width="24" align="center" position="-242 6.8 -56"></a-text>
 
     <!-- SPIELERFIGUR: LARA CROFT (Originalgetreues 15-Mesh Low-Poly-Modell, 3rd-Person-Ansicht in [1] DE & [4] USA) -->
-    <a-entity id="lara-spieler" ki-lara position="-102 0.25 -36" rotation="0 165 0"></a-entity>
+    <a-entity id="lara-spieler" ki-lara position="-252 0.25 -36" rotation="0 165 0"></a-entity>
 
     <!-- STEUERBARES AUTO MIT 3D-COCKPIT, LENKRAD & GANGWAHLHEBEL (Kamera [8], Pfeiltasten-Steuerung) -->
-    <a-entity id="spieler-auto" ki-auto="farbe: #dc2626" position="-93 0.28 -51" rotation="0 138 0"></a-entity>
+    <a-entity id="spieler-auto" ki-auto="farbe: #dc2626" position="-243 0.28 -51" rotation="0 138 0"></a-entity>
 
     <!-- 3. DURCHGEHENDE STRASSE IN DEUTSCHLAND (Von Mein Haus rechts entlang des Flusses bis zum Hafen!) -->
-    <a-entity ki-strasse="breite: 3.8; punkte: -92 0.28 -53, -104 0.28 -42, -98 0.28 -20, -90 0.28 5, -88 0.28 28, -98 0.28 42"></a-entity>
+    <a-entity ki-strasse="breite: 3.8; punkte: -242 0.28 -53, -254 0.28 -42, -248 0.28 -20, -240 0.28 5, -238 0.28 28, -248 0.28 42"></a-entity>
 
     <!-- 4. DEUTSCHER FLUSS MIT FÄHRE & FLUSS-INSEL (Von den Alpen zur Ostsee + Seitenarm zum Ozean) -->
-    <!-- Hauptarm von Alpen (-130, -54) über (-82, 0) bis in die Ostsee (-80, +48) -->
-    <a-box color="#0284c7" width="8.5" height="0.52" depth="108" position="-82 0.04 -4" rotation="0 -8 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <!-- Hauptarm von Alpen (-280, -54) über (-232, 0) bis in die Ostsee (-230, +48) -->
+    <a-box color="#0284c7" width="8.5" height="0.52" depth="108" position="-232 0.04 -4" rotation="0 -8 0" material="roughness: 0.1; metalness: 0.85"></a-box>
     <!-- Seitenarm nach rechts in den Ozean -->
-    <a-box color="#0284c7" width="24" height="0.52" depth="6.5" position="-74 0.04 -18" rotation="0 -18 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <a-box color="#0284c7" width="24" height="0.52" depth="6.5" position="-224 0.04 -18" rotation="0 -18 0" material="roughness: 0.1; metalness: 0.85"></a-box>
     <!-- Insel mitten im deutschen Fluss -->
-    <a-cylinder color="#fde047" radius="2.4" height="0.65" scale="0.8 1 2.6" position="-81 0.12 10"></a-cylinder>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineSmallA.glb" scale="1.8 1.8 1.8" position="-81 0.4 10"></a-entity>
+    <a-cylinder color="#fde047" radius="2.4" height="0.65" scale="0.8 1 2.6" position="-231 0.12 10"></a-cylinder>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineSmallA.glb" scale="1.8 1.8 1.8" position="-231 0.4 10"></a-entity>
     <!-- Fluss-Fähre Deutschland -->
-    <a-entity ki-faehre="tempo: 0.8; von: -86 0.35 -32; nach: -83 0.35 -8">
+    <a-entity ki-faehre="tempo: 0.8; von: -236 0.35 -32; nach: -233 0.35 -8">
       <a-box color="#f8fafc" width="2.4" height="1.1" depth="6.5" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#0284c7" width="1.8" height="0.8" depth="4.0" position="0 0.9 0" rotation="0 90 0"></a-box>
     </a-entity>
 
     <!-- 5. EISENBAHN DEUTSCHLAND (Geschlossene Schleife von den Alpen bis zum Ostsee-Hafen + Bahnhof) -->
-    <a-entity ki-gleis="id: de-bahn; punkte: -115 0.30 -44, -136 0.30 -25, -142 0.30 2, -135 0.30 26, -124 0.30 39, -106 0.30 39, -104 0.30 18, -108 0.30 -12, -110 0.30 -35"></a-entity>
-    <a-entity ki-bahnhof="name: Deutschland Hbf" position="-108 0.25 -22" rotation="0 -95 0"></a-entity>
+    <a-entity ki-gleis="id: de-bahn; punkte: -265 0.30 -44, -286 0.30 -25, -292 0.30 2, -285 0.30 26, -274 0.30 39, -256 0.30 39, -254 0.30 18, -258 0.30 -12, -260 0.30 -35"></a-entity>
+    <a-entity ki-bahnhof="name: Deutschland Hbf" position="-258 0.25 -22" rotation="0 -95 0"></a-entity>
 
     <!-- ZUG DEUTSCHLAND: Detaillierte DR BR 132 Ludmilla mit Güterzug -->
     <a-entity ki-zug="name: 🇩🇪 DR 132 Ludmilla; gleis: de-bahn; tempo: 9.5; startPos: 15">
@@ -127,75 +127,75 @@
       <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-lumber.glb; scale: 1.4 1.4 1.4"></a-entity>
     </a-entity>
 
-    <!-- 6. FLUGHAFEN DEUTSCHLAND (Links bei X: -162 mit Tower, Terminal, Rollfeld & Startbahn) -->
-    <a-entity ki-flughafen="name: FLUGHAFEN DEUTSCHLAND; laenge: 52; terminalSeite: links" position="-162 0.25 -6"></a-entity>
+    <!-- 6. FLUGHAFEN DEUTSCHLAND (Links bei X: -312 mit Tower, Terminal, Rollfeld & Startbahn) -->
+    <a-entity ki-flughafen="name: FLUGHAFEN DEUTSCHLAND; laenge: 52; terminalSeite: links" position="-312 0.25 -6"></a-entity>
 
     <!-- 7. FELD & DICHTER WALD (Unterhalb des Flughafens Deutschland) -->
     <!-- Goldenes Getreidefeld -->
-    <a-box color="#eab308" width="26" height="0.15" depth="16" position="-158 0.26 28" material="roughness: 0.9"></a-box>
-    <a-text value="FELD" color="#fef08a" width="25" align="center" position="-158 2.2 28"></a-text>
+    <a-box color="#eab308" width="26" height="0.15" depth="16" position="-308 0.26 28" material="roughness: 0.9"></a-box>
+    <a-text value="FELD" color="#fef08a" width="25" align="center" position="-308 2.2 28"></a-text>
     <!-- Dichter Wald vor dem Strand -->
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallA.glb" scale="3.2 3.8 3.2" position="-175 0.25 36" shadow="cast: true"></a-entity>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallB.glb" scale="3.5 4.2 3.5" position="-168 0.25 38" shadow="cast: true"></a-entity>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallC.glb" scale="3.0 3.6 3.0" position="-160 0.25 37" shadow="cast: true"></a-entity>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineDefaultA.glb" scale="3.4 4.0 3.4" position="-152 0.25 38" shadow="cast: true"></a-entity>
-    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallA.glb" scale="3.2 3.8 3.2" position="-145 0.25 36" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallA.glb" scale="3.2 3.8 3.2" position="-325 0.25 36" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallB.glb" scale="3.5 4.2 3.5" position="-318 0.25 38" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallC.glb" scale="3.0 3.6 3.0" position="-310 0.25 37" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineDefaultA.glb" scale="3.4 4.0 3.4" position="-302 0.25 38" shadow="cast: true"></a-entity>
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_pineTallA.glb" scale="3.2 3.8 3.2" position="-295 0.25 36" shadow="cast: true"></a-entity>
 
     <!-- 8. HAFEN DEUTSCHLAND & "MEIN SCHIFF" AN DER OSTSEE (Z: +44 bis +55) -->
-    <a-box color="#475569" width="32" height="0.8" depth="4.5" position="-112 0.35 45" shadow="cast: true; receive: true"></a-box>
-    <a-box color="#475569" width="4.5" height="0.8" depth="14" position="-126 0.35 50"></a-box>
-    <a-box color="#475569" width="4.5" height="0.8" depth="14" position="-98 0.35 50"></a-box>
-    <a-text value="HAFEN" color="#ffffff" width="28" align="center" position="-112 3.2 45"></a-text>
+    <a-box color="#475569" width="32" height="0.8" depth="4.5" position="-262 0.35 45" shadow="cast: true; receive: true"></a-box>
+    <a-box color="#475569" width="4.5" height="0.8" depth="14" position="-276 0.35 50"></a-box>
+    <a-box color="#475569" width="4.5" height="0.8" depth="14" position="-248 0.35 50"></a-box>
+    <a-text value="HAFEN" color="#ffffff" width="28" align="center" position="-262 3.2 45"></a-text>
 
     <!-- "MEIN SCHIFF" (Detailliertes 3D-Kreuzfahrtschiff, steuerbar in Kamera [6]!) -->
-    <a-entity ki-faehre="tempo: 1.0; von: -135 0.40 58; nach: -45 0.40 58; hauptschiff: true">
+    <a-entity ki-faehre="tempo: 1.0; von: -285 0.40 58; nach: -165 0.40 58; hauptschiff: true">
       <a-entity class="schiff-cam-anchor" position="-20 6.5 0" rotation="-12 -90 0"></a-entity>
     </a-entity>
 
 
     <!-- ====================================================================== -->
-    <!-- BLATT 3 (RECHTS): AMERIKA (X: +68 bis +195)                            -->
+    <!-- BLATT 3 (RECHTS): AMERIKA (X: +216 bis +348)                           -->
     <!-- ====================================================================== -->
 
     <!-- Amerikanisches Festland & langer Westküsten-Strand zum Ozean -->
-    <a-box color="#fde047" width="12" height="0.38" depth="165" position="72 0.02 0" material="roughness: 0.9" shadow="receive: true"></a-box>
-    <a-box color="#2d4c1e" width="125" height="0.5" depth="165" position="136 0.0 0" material="roughness: 0.95" shadow="receive: true"></a-box>
+    <a-box color="#fde047" width="12" height="0.38" depth="165" position="222 0.02 0" material="roughness: 0.9" shadow="receive: true"></a-box>
+    <a-box color="#2d4c1e" width="125" height="0.5" depth="165" position="286 0.0 0" material="roughness: 0.95" shadow="receive: true"></a-box>
 
-    <!-- 1. NEW YORK SKYLINE & "MEIN HAUS" AMERIKA (Oben rechts bei X: +135 bis +175, Z: -65 bis -35) -->
-    <a-text value="NEW YORK" color="#38bdf8" width="65" align="center" position="155 34 -62"></a-text>
-    <a-entity ki-wolkenkratzer="breite: 6.5; tiefe: 6.5; hoehe: 30; farbe: #1e293b; spitze: true" position="152 0.25 -62"></a-entity>
-    <a-entity ki-wolkenkratzer="breite: 5.8; tiefe: 5.8; hoehe: 24; farbe: #334155; spitze: false" position="162 0.25 -58"></a-entity>
-    <a-entity ki-wolkenkratzer="breite: 5.2; tiefe: 5.2; hoehe: 20; farbe: #475569; spitze: false" position="144 0.25 -56"></a-entity>
-    <a-entity ki-wolkenkratzer="breite: 6.0; tiefe: 5.5; hoehe: 26; farbe: #0f172a; spitze: true" position="168 0.25 -48"></a-entity>
+    <!-- 1. NEW YORK SKYLINE & "MEIN HAUS" AMERIKA (Oben rechts bei X: +285 bis +325, Z: -65 bis -35) -->
+    <a-text value="NEW YORK" color="#38bdf8" width="65" align="center" position="305 34 -62"></a-text>
+    <a-entity ki-wolkenkratzer="breite: 6.5; tiefe: 6.5; hoehe: 30; farbe: #1e293b; spitze: true" position="302 0.25 -62"></a-entity>
+    <a-entity ki-wolkenkratzer="breite: 5.8; tiefe: 5.8; hoehe: 24; farbe: #334155; spitze: false" position="312 0.25 -58"></a-entity>
+    <a-entity ki-wolkenkratzer="breite: 5.2; tiefe: 5.2; hoehe: 20; farbe: #475569; spitze: false" position="294 0.25 -56"></a-entity>
+    <a-entity ki-wolkenkratzer="breite: 6.0; tiefe: 5.5; hoehe: 26; farbe: #0f172a; spitze: true" position="318 0.25 -48"></a-entity>
 
     <!-- "Mein Haus" in Amerika (bei New York, mit Straße zum US-Flughafen) -->
-    <a-entity ki-haus="farbe: #fef08a; dachFarbe: #b91c1c; etagen: 2" position="142 0.25 -36" rotation="0 -35 0"></a-entity>
-    <a-text value="MEIN HAUS (USA)" color="#fef08a" width="24" align="center" position="142 6.8 -34"></a-text>
+    <a-entity ki-haus="farbe: #fef08a; dachFarbe: #b91c1c; etagen: 2" position="292 0.25 -36" rotation="0 -35 0"></a-entity>
+    <a-text value="MEIN HAUS (USA)" color="#fef08a" width="24" align="center" position="292 6.8 -34"></a-text>
 
     <!-- Straße von Mein Haus (USA) zum US-Flughafen -->
-    <a-entity ki-strasse="breite: 3.6; punkte: 142 0.28 -31, 148 0.28 -20, 162 0.28 -10"></a-entity>
+    <a-entity ki-strasse="breite: 3.6; punkte: 292 0.28 -31, 298 0.28 -20, 312 0.28 -10"></a-entity>
 
     <!-- 2. MAISFELD (Oben links bei New York, in der großen Bahnschleife) -->
-    <a-box color="#ca8a04" width="22" height="0.2" depth="18" position="106 0.26 -56" material="roughness: 0.9"></a-box>
-    <a-text value="MAISFELD" color="#fef08a" width="28" align="center" position="106 3.0 -56"></a-text>
+    <a-box color="#ca8a04" width="22" height="0.2" depth="18" position="256 0.26 -56" material="roughness: 0.9"></a-box>
+    <a-text value="MAISFELD" color="#fef08a" width="28" align="center" position="256 3.0 -56"></a-text>
 
     <!-- 3. HAFEN AMERIKA (Oben links an der US-Westküste mit gezackten Piers & Fluss) -->
-    <a-box color="#475569" width="5" height="0.8" depth="28" position="75 0.35 -36"></a-box>
-    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="68 0.35 -46"></a-box>
-    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="68 0.35 -36"></a-box>
-    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="68 0.35 -26"></a-box>
-    <a-text value="US HAFEN" color="#bae6fd" width="28" align="center" position="76 3.8 -36" rotation="0 -90 0"></a-text>
+    <a-box color="#475569" width="5" height="0.8" depth="28" position="225 0.35 -36"></a-box>
+    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="218 0.35 -46"></a-box>
+    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="218 0.35 -36"></a-box>
+    <a-box color="#475569" width="12" height="0.8" depth="3.5" position="218 0.35 -26"></a-box>
+    <a-text value="US HAFEN" color="#bae6fd" width="28" align="center" position="226 3.8 -36" rotation="0 -90 0"></a-text>
 
     <!-- Oberer US-Fluss (Vom US-Hafen Richtung Landesinnere/Flughafen) -->
-    <a-box color="#0284c7" width="5.5" height="0.52" depth="62" position="105 0.04 -22" rotation="0 68 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <a-box color="#0284c7" width="5.5" height="0.52" depth="62" position="255 0.04 -22" rotation="0 68 0" material="roughness: 0.1; metalness: 0.85"></a-box>
 
     <!-- 4. GROSSER GRAND CANYON IM SÜDEN AMERIKAS + COLORADO-FLUSS MIT FÄHRE -->
-    <a-entity ki-canyon="breite: 46; tiefe: 44; hoehe: 22; seed: 7; fluss: true" position="116 0.25 54"></a-entity>
-    <a-text value="GRAND CANYON" color="#fed7aa" width="48" align="center" position="116 24 54"></a-text>
+    <a-entity ki-canyon="breite: 46; tiefe: 44; hoehe: 22; seed: 7; fluss: true" position="266 0.25 54"></a-entity>
+    <a-text value="GRAND CANYON" color="#fed7aa" width="48" align="center" position="266 24 54"></a-text>
 
     <!-- Fluss vom Grand Canyon zum Ozean mit amerikanischer Fluss-Fähre -->
-    <a-box color="#0284c7" width="7.5" height="0.52" depth="48" position="88 0.04 34" rotation="0 -38 0" material="roughness: 0.1; metalness: 0.85"></a-box>
-    <a-entity ki-faehre="tempo: 0.9; von: 76 0.35 22; nach: 96 0.35 42">
+    <a-box color="#0284c7" width="7.5" height="0.52" depth="48" position="238 0.04 34" rotation="0 -38 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <a-entity ki-faehre="tempo: 0.9; von: 226 0.35 22; nach: 246 0.35 42">
       <a-box color="#f8fafc" width="2.4" height="1.1" depth="6.5" rotation="0 90 0" shadow="cast: true"></a-box>
       <a-box color="#dc2626" width="1.8" height="0.8" depth="4.0" position="0 0.9 0" rotation="0 90 0"></a-box>
     </a-entity>
@@ -203,8 +203,8 @@
     <!-- 5. DAS GROSSE US-EISENBAHNNETZ -->
     <!-- Fährt um das Maisfeld, direkt weiter nach NEW YORK hinein (und an Mein Haus vorbei), -->
     <!-- zum US-Hafen und in einer riesigen Schleife komplett rund um den Grand Canyon! -->
-    <a-entity ki-gleis="id: us-bahn; punkte: 106 0.30 -68, 92 0.30 -56, 108 0.30 -44, 138 0.30 -56, 156 0.30 -46, 136 0.30 -30, 118 0.30 -10, 128 0.30 22, 146 0.30 48, 138 0.30 76, 94 0.30 76, 84 0.30 46, 84 0.30 8, 80 0.30 -32, 102 0.30 -40, 118 0.30 -58"></a-entity>
-    <a-entity ki-bahnhof="name: New York Central" position="148 0.25 -42" rotation="0 -135 0"></a-entity>
+    <a-entity ki-gleis="id: us-bahn; punkte: 256 0.30 -68, 242 0.30 -56, 258 0.30 -44, 288 0.30 -56, 306 0.30 -46, 286 0.30 -30, 268 0.30 -10, 278 0.30 22, 296 0.30 48, 288 0.30 76, 244 0.30 76, 234 0.30 46, 234 0.30 8, 230 0.30 -32, 252 0.30 -40, 268 0.30 -58"></a-entity>
+    <a-entity ki-bahnhof="name: New York Central" position="298 0.25 -42" rotation="0 -135 0"></a-entity>
 
     <!-- ZUG AMERIKA: Schnellzug Express auf der großen US-Strecke -->
     <a-entity ki-zug="name: 🇺🇸 US-Express; gleis: us-bahn; tempo: 15.0; startPos: 40">
@@ -214,8 +214,8 @@
       <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-electric-bullet-c.glb; scale: 1.5 1.5 1.5"></a-entity>
     </a-entity>
 
-    <!-- 6. US-FLUGHAFEN (Rechts bei X: +156 mit Startbahn, großem Terminal, Rollfeld & Tower im Süden) -->
-    <a-entity ki-flughafen="name: NEW YORK AIRPORT; laenge: 58; terminalSeite: rechts" position="156 0.25 14"></a-entity>
+    <!-- 6. US-FLUGHAFEN (Rechts bei X: +306 mit Startbahn, großem Terminal, Rollfeld & Tower im Süden) -->
+    <a-entity ki-flughafen="name: NEW YORK AIRPORT; laenge: 58; terminalSeite: rechts" position="306 0.25 14"></a-entity>
 
     <!-- ====================================================================== -->
     <!-- TRANSATLANTIK-FLUGZEUG (Verbindet Flughafen DE ⇄ Ozean ⇄ Flughafen USA) -->

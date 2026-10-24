@@ -1843,28 +1843,28 @@ AFRAME.registerComponent('ki-flugzeug', {
 
     this.tasten = { hoch: false, runter: false, links: false, rechts: false, schubPlus: false, schubMinus: false };
 
-    // Transatlantik-Rundflug (Autopilot): Start Flughafen DE (-162, Z=0) -> Alpen -> Ozean ->
-    // Touch-and-Go auf dem US-Flughafen (+156, Z=+15) -> Kurve über den Grand Canyon (+118, Z=+58) ->
+    // Transatlantik-Rundflug (Autopilot): Start Flughafen DE (-312, Z=0) -> Alpen -> Ozean ->
+    // Touch-and-Go auf dem US-Flughafen (+306, Z=+15) -> Kurve über den Grand Canyon (+268, Z=+58) ->
     // Über die Ostsee zurück zur Landung auf dem Flughafen DE!
     const points = [
-      new THREE.Vector3(-162, 0.9, 18),   // 0: Start Flughafen DE (Südende Piste)
-      new THREE.Vector3(-162, 0.9, -12),  // 1: Beschleunigen auf Piste DE
-      new THREE.Vector3(-145, 16, -42),   // 2: Abheben vor den Alpen
-      new THREE.Vector3(-45,  34, -35),   // 3: Steigflug über den nördlichen Ozean
-      new THREE.Vector3(65,   32, -15),   // 4: Anflug über die 4 Inseln auf Amerika
-      new THREE.Vector3(156,  10, -12),   // 5: Endanflug Piste USA (Nord)
-      new THREE.Vector3(156,  1.2, 16),   // 6: Touch-and-Go auf der US-Startbahn!
-      new THREE.Vector3(156,  12,  42),   // 7: Durchstarten Richtung Süden
-      new THREE.Vector3(118,  28,  58),   // 8: Panorama-Kurve direkt über den Grand Canyon!
-      new THREE.Vector3(10,   35,  48),   // 9: Rückflug über den südlichen Ozean
-      new THREE.Vector3(-115, 22,  55),   // 10: Überflug Ostsee & Mein Schiff
-      new THREE.Vector3(-162, 7,   36)    // 11: Landeanflug Flughafen DE
+      new THREE.Vector3(-312, 0.9, 18),   // 0: Start Flughafen DE (Südende Piste)
+      new THREE.Vector3(-312, 0.9, -12),  // 1: Beschleunigen auf Piste DE
+      new THREE.Vector3(-295, 16, -42),   // 2: Abheben vor den Alpen
+      new THREE.Vector3(-120, 36, -35),   // 3: Steigflug über den nördlichen Ozean
+      new THREE.Vector3(145,  34, -15),   // 4: Anflug über die 4 Inseln auf Amerika
+      new THREE.Vector3(306,  10, -12),   // 5: Endanflug Piste USA (Nord)
+      new THREE.Vector3(306,  1.2, 16),   // 6: Touch-and-Go auf der US-Startbahn!
+      new THREE.Vector3(306,  12,  42),   // 7: Durchstarten Richtung Süden
+      new THREE.Vector3(268,  28,  58),   // 8: Panorama-Kurve direkt über den Grand Canyon!
+      new THREE.Vector3(30,   38,  48),   // 9: Rückflug über den südlichen Ozean
+      new THREE.Vector3(-265, 22,  55),   // 10: Überflug Ostsee & Mein Schiff
+      new THREE.Vector3(-312, 7,   36)    // 11: Landeanflug Flughafen DE
     ];
     this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.45);
     this.totalLen = this.curve.getLength();
 
     // Startposition auf der Piste DE initialisieren
-    this.el.object3D.position.set(-162, 0.9, 18);
+    this.el.object3D.position.set(-312, 0.9, 18);
     this.el.object3D.rotation.set(0, 0, 0, 'YXZ');
 
     window.addEventListener('keydown', (e) => {
@@ -2026,9 +2026,9 @@ AFRAME.registerComponent('ki-flugzeug', {
         pos.y = 140;
       }
 
-      // Sanfte Weltbegrenzung (-230..+230, -125..+125)
-      pos.x = THREE.MathUtils.clamp(pos.x, -230, 230);
-      pos.z = THREE.MathUtils.clamp(pos.z, -125, 125);
+      // Sanfte Weltbegrenzung (-390..+390, -145..+145)
+      pos.x = THREE.MathUtils.clamp(pos.x, -390, 390);
+      pos.z = THREE.MathUtils.clamp(pos.z, -145, 145);
 
       this.el.object3D.rotation.set(this.pitch, this.yaw, this.roll, 'YXZ');
 
@@ -2392,8 +2392,8 @@ AFRAME.registerComponent('ki-faehre', {
       pos.y = 0.40 + Math.sin(time * 0.0022) * 0.04; // Sanftes Schaukeln auf den Meereswellen
 
       // Weltbegrenzung auf Meer/Ostsee/Ozean
-      pos.x = THREE.MathUtils.clamp(pos.x, -185, 115);
-      pos.z = THREE.MathUtils.clamp(pos.z, -110, 110);
+      pos.x = THREE.MathUtils.clamp(pos.x, -370, 330);
+      pos.z = THREE.MathUtils.clamp(pos.z, -135, 135);
 
       // Leichte Kurvenkrängung + lokale +X-Bug-Ausrichtung (yaw + PI/2)
       const zielKraengung = -this.ruderWinkel * (Math.abs(this.geschwindigkeit) / 18.0) * 0.14;
@@ -3124,9 +3124,9 @@ AFRAME.registerComponent('ki-auto', {
 
     const pos = this.el.object3D.position;
     let ortName = '🌊 Ozean-Küstenstraße';
-    if (pos.x < -50) {
+    if (pos.x < -150) {
       ortName = pos.z > 20 ? '🇩🇪 Ostsee-Hafen & Strand' : '🇩🇪 Deutschland – Straße am Fluss';
-    } else if (pos.x > 50) {
+    } else if (pos.x > 150) {
       ortName = pos.z > 15 ? '🇺🇸 Grand Canyon Nationalpark' : '🇺🇸 New York City & Airport';
     }
 
@@ -3138,18 +3138,18 @@ AFRAME.registerComponent('ki-auto', {
     ctx.textAlign = 'left';
     ctx.fillText('🛰️ GPS NAVI: ' + ortName, 12, 26);
 
-    // Mini-Karte (Deutschland links, Ozean Mitte, USA rechts)
+    // Mini-Karte (Deutschland links, weiter Ozean Mitte, USA rechts)
     ctx.fillStyle = '#0369a1';
     ctx.fillRect(14, 50, w - 28, 115);
     // DE Land
     ctx.fillStyle = '#15803d';
-    ctx.fillRect(22, 56, 105, 92);
+    ctx.fillRect(20, 56, 72, 92);
     // US Land
     ctx.fillStyle = '#166534';
-    ctx.fillRect(w - 127, 56, 105, 102);
+    ctx.fillRect(w - 92, 56, 72, 102);
 
     // Auto-Punkt auf dem Navi-Radar
-    const mapX = THREE.MathUtils.clamp(((pos.x + 190) / 380) * (w - 40) + 20, 22, w - 22);
+    const mapX = THREE.MathUtils.clamp(((pos.x + 345) / 690) * (w - 40) + 20, 22, w - 22);
     const mapY = THREE.MathUtils.clamp(((pos.z + 85) / 170) * 105 + 54, 56, 158);
     ctx.beginPath();
     ctx.arc(mapX, mapY, 7, 0, Math.PI * 2);
@@ -4156,7 +4156,7 @@ AFRAME.registerComponent('ki-steuerung', {
       lara.tick(3500 + i * 45, 45);
       this.tick(3500 + i * 45, 45);
     }
-    lara.teleportiereZu(-102, 0.25, -36, 165);
+    lara.teleportiereZu(-252, 0.25, -36, 165);
     this.tick(4300, 50);
 
     console.log('LARA_TEST_RESULT:', JSON.stringify({
@@ -4184,7 +4184,7 @@ AFRAME.registerComponent('ki-steuerung', {
 
     // 1. Test t-ship-airplane-001: Manuelle Flugzeugsteuerung in Kamera [5] (Steigflug + Linkskurve)
     this.setzeKamera(5);
-    fc.teleportiereZu(-162, 0.9, 18, 0, 1.2);
+    fc.teleportiereZu(-312, 0.9, 18, 0, 1.2);
     const startPlaneY = fc.el.object3D.position.y;
     const startPlaneYaw = fc.yaw;
     fc.tasten.hoch = true;
@@ -4291,12 +4291,12 @@ AFRAME.registerComponent('ki-steuerung', {
     if (modus === 1 && lara) {
       // Wenn Lara in Amerika stand, nach Deutschland vor den Bahnhof holen
       if (lara.el.object3D.position.x > 0) {
-        lara.teleportiereZu(-102, 0.25, -36, 165);
+        lara.teleportiereZu(-252, 0.25, -36, 165);
       }
     } else if (modus === 4 && lara) {
       // Wenn Lara in Deutschland stand, nach Amerika (New York / Mein Haus) holen
       if (lara.el.object3D.position.x < 0) {
-        lara.teleportiereZu(144, 0.25, -34, 152);
+        lara.teleportiereZu(294, 0.25, -34, 152);
       }
     }
 
@@ -4305,7 +4305,7 @@ AFRAME.registerComponent('ki-steuerung', {
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 85; fly: true');
       }
-      this.kameraRig.object3D.position.set(0, 75, 95);
+      this.kameraRig.object3D.position.set(0, 135, 185);
       this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-35), 0, 0);
     } else {
       // In allen Lara- (1, 4) und Fahrzeug-Modi (2, 3, 5, 6, 8) A-Frame wasd-controls deaktivieren!
@@ -4387,7 +4387,7 @@ AFRAME.registerComponent('ki-steuerung', {
     if (amb) amb.setAttribute('light', `type: ambient; color: ${p.ambientColor}; intensity: ${p.ambientInt}`);
 
     const sun = document.getElementById('licht-sonne');
-    if (sun) sun.setAttribute('light', `type: directional; color: ${p.sunColor}; intensity: ${p.sunInt}; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -220; shadowCameraRight: 220`);
+    if (sun) sun.setAttribute('light', `type: directional; color: ${p.sunColor}; intensity: ${p.sunInt}; castShadow: true; shadowCameraTop: 180; shadowCameraBottom: -180; shadowCameraLeft: -370; shadowCameraRight: 370`);
 
     const wetterBtn = document.getElementById('eep-wetter-btn');
     if (wetterBtn) {
@@ -4758,10 +4758,10 @@ AFRAME.registerComponent('ki-steuerung', {
       </div>
       <div class="eep-title" style="margin-top:2px;">📍 Auto umsetzen (Schnellreise)</div>
       <div class="eep-btn-row">
-        <button class="eep-btn eep-car-tp" data-tp="-93,0.28,-51,138">🇩🇪 Mein Haus DE</button>
-        <button class="eep-btn eep-car-tp" data-tp="-96,0.28,38,85">🇩🇪 Hafen Ostsee</button>
-        <button class="eep-btn eep-car-tp" data-tp="143,0.28,-33,155">🇺🇸 New York</button>
-        <button class="eep-btn eep-car-tp" data-tp="96,0.28,48,180">🇺🇸 Grand Canyon</button>
+        <button class="eep-btn eep-car-tp" data-tp="-243,0.28,-51,138">🇩🇪 Mein Haus DE</button>
+        <button class="eep-btn eep-car-tp" data-tp="-246,0.28,38,85">🇩🇪 Hafen Ostsee</button>
+        <button class="eep-btn eep-car-tp" data-tp="293,0.28,-33,155">🇺🇸 New York</button>
+        <button class="eep-btn eep-car-tp" data-tp="246,0.28,48,180">🇺🇸 Grand Canyon</button>
       </div>
     `;
     document.body.appendChild(autoHud);
@@ -4833,9 +4833,9 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn" id="eep-flugzeug-ap-btn">🤖 Autopilot: AUS [P]</button>
         <button class="eep-btn" data-plane-act="schubPlus">➕ Schub + [E]</button>
         <button class="eep-btn" data-plane-act="schubMinus">➖ Schub - [Q]</button>
-        <button class="eep-btn" data-plane-tp="-162,0.9,18,0,1.0">🇩🇪 Startbahn DE</button>
-        <button class="eep-btn" data-plane-tp="156,0.9,-14,180,1.0">🇺🇸 Startbahn USA</button>
-        <button class="eep-btn" data-plane-tp="118,28,72,0,1.2">🏜️ Grand Canyon</button>
+        <button class="eep-btn" data-plane-tp="-312,0.9,18,0,1.0">🇩🇪 Startbahn DE</button>
+        <button class="eep-btn" data-plane-tp="306,0.9,-14,180,1.0">🇺🇸 Startbahn USA</button>
+        <button class="eep-btn" data-plane-tp="268,28,72,0,1.2">🏜️ Grand Canyon</button>
         <button class="eep-btn" data-plane-tp="-15,32,0,-90,1.2">🌊 Über Ozean</button>
       </div>
     `;
@@ -4872,9 +4872,9 @@ AFRAME.registerComponent('ki-steuerung', {
       <div class="eep-btn-row">
         <button class="eep-btn sound-btn" id="eep-schiff-horn-btn">📣 Nebelhorn [H]</button>
         <button class="eep-btn" id="eep-schiff-ap-btn">🤖 Autopilot: AUS [P]</button>
-        <button class="eep-btn" data-ship-tp="-112,0.40,56,-90">🇩🇪 Hafen Ostsee</button>
-        <button class="eep-btn" data-ship-tp="22,0.40,2,-90">🏝️ Ozean-Inseln</button>
-        <button class="eep-btn" data-ship-tp="52,0.40,-36,-90">🇺🇸 US-Hafen</button>
+        <button class="eep-btn" data-ship-tp="-262,0.40,56,-90">🇩🇪 Hafen Ostsee</button>
+        <button class="eep-btn" data-ship-tp="105,0.40,2,-90">🏝️ Ozean-Inseln</button>
+        <button class="eep-btn" data-ship-tp="202,0.40,-36,-90">🇺🇸 US-Hafen</button>
         <button class="eep-btn" data-ship-tp="-15,0.40,-42,90">🌊 Nord-Atlantik</button>
       </div>
     `;
