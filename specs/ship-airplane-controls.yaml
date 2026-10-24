@@ -29,6 +29,15 @@ specs:
       - Ein kompaktes Schiffs-HUD (#eep-schiff-hud) oben bietet Schnellreise-Anlegestellen (Hafen Ostsee, Ozean-Inseln, US-Hafen), Autopilot-Umschalter [P], Nebelhorn [H] und Live-Nautik-Anzeige (Knoten, Kurs, Ruderlage).
     why: Der Nutzer möchte Mein Schiff frei über die Ostsee, den großen Ozean, rund um die Inseln und in die Häfen steuern können.
 
+  - id: s-ship-airplane-003
+    title: Detailliertes 3D-Kreuzfahrtschiff-Modell für Mein Schiff
+    given:
+      - Die 3D-Welt in welt.html ist geladen und Kamera 6 (Mein Schiff) ist aktiv.
+    when: Das Hauptschiff (ki-faehre mit hauptschiff=true) gerendert wird.
+    then:
+      - Mein Schiff besitzt einen realistischen Kreuzfahrtschiff-Rumpf (dunkelblauer Rumpf mit rotem Wasserpass, spitzer Bug und abgerundetes Heck), mehrstöckige weiße Kabinendecks mit leuchtenden Balkonfenster-Bändern, eine auskragende Kommandobrücke (Brückennock), ein türkisfarbenes Pooldeck am Heck, seitliche orangefarbene Rettungsboote, einen markanten Schornstein mit drehendem Radar sowie Heckwellen-Gischt.
+    why: Das Schiff soll in der 3rd-Person-Ansicht und beim Umkreisen mit Shift+Pfeiltasten wie ein echtes modernes Kreuzfahrtschiff ("Mein Schiff") aussehen statt aus bloßen Klötzen.
+
 decisions:
   - id: d-ship-airplane-001
     title: Nahtlose Übernahme aus dem Autopilot-Pfad in die freie Vektor-Physik
@@ -43,7 +52,7 @@ decisions:
   - id: d-ship-airplane-002
     title: Einheitliche Euler-Ordnung YXZ für freie 3D-Flug- und Schiffsrotation und 3rd-Person-Kameraverfolgung
     status: accepted
-    specs: [s-ship-airplane-001, s-ship-airplane-002]
+    specs: [s-ship-airplane-001, s-ship-airplane-002, s-ship-airplane-003]
     decision: Flugzeug und Hauptschiff verwalten ihren Kurs als expliziten Winkel yaw um die Welt-Y-Achse, kombiniert mit pitch und roll in der Euler-Ordnung YXZ, und übergeben yaw direkt an die 3rd-Person-Verfolgerkamera in ki-steuerung.
     why: Verhindert Gimbal-Lock bei kombinierten Kurven- und Steigflügen und garantiert eine absolut ruhige 3rd-Person-Kamera inklusive Shift+Pfeiltasten-Orbit.
     how:
@@ -74,7 +83,7 @@ tests:
 
   - id: t-ship-airplane-002
     title: Manuelle Schiffssteuerung (Maschine voraus, Ruder-Kurve & Shift-Look) prüfen
-    specs: [s-ship-airplane-002]
+    specs: [s-ship-airplane-002, s-ship-airplane-003]
     suites: [smoke, regression]
     areas: [ship-airplane-controls]
     risk: high

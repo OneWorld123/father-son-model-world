@@ -2091,6 +2091,7 @@ AFRAME.registerComponent('ki-faehre', {
     this.tasten = { hoch: false, runter: false, links: false, rechts: false };
 
     if (this.data.hauptschiff) {
+      this.baueKreuzfahrtschiff3D();
       const startPos = new THREE.Vector3().lerpVectors(this.pStart, this.pEnd, this.progress);
       this.el.object3D.position.copy(startPos);
       this.el.object3D.rotation.set(0, this.yaw + Math.PI / 2, 0, 'YXZ');
@@ -2152,6 +2153,156 @@ AFRAME.registerComponent('ki-faehre', {
     this.aktualisiereSchiffHUD();
   },
 
+  baueKreuzfahrtschiff3D: function () {
+    // Detailliertes 3D-Kreuzfahrtschiff ("MEIN SCHIFF"): Bug zeigt entlang +X, Heck entlang -X
+    const root = new THREE.Group();
+    this.el.setObject3D('mesh', root);
+
+    const navyMat = new THREE.MeshStandardMaterial({ color: 0x0a2540, roughness: 0.35, metalness: 0.4 });
+    const rotWasserpassMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5 });
+    const weissMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.15 });
+    const teakDeckMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.75 });
+    const glasMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x38bdf8, emissiveIntensity: 0.55, roughness: 0.1, metalness: 0.85 });
+    const brueckenGlasMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x0284c7, emissiveIntensity: 0.35, roughness: 0.08, metalness: 0.9 });
+    const poolMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x22d3ee, emissiveIntensity: 0.45, roughness: 0.1 });
+    const rettungsbootMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35 });
+    const schornsteinRotMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.3 });
+    const gischtMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.75, roughness: 0.9 });
+
+    // 1. WASSERPASS (Rot) & HAUPTRUMPF (TUI-Dunkelblau) + SPITZER BUG & RUNDES HECK
+    const wasserpass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.35, 4.45), rotWasserpassMat);
+    wasserpass.position.set(-0.3, 0.05, 0);
+    root.add(wasserpass);
+
+    const rumpfMitte = new THREE.Mesh(new THREE.BoxGeometry(14.0, 1.55, 4.4), navyMat);
+    rumpfMitte.position.set(-0.5, 0.90, 0);
+    rumpfMitte.castShadow = true;
+    root.add(rumpfMitte);
+
+    // Spitzer Kreuzfahrt-Bug (+X) aus 4-seitigem Kegel-Keil + Bugwulst
+    const bugKeilGeo = new THREE.ConeGeometry(3.11, 4.8, 4);
+    const bugKeil = new THREE.Mesh(bugKeilGeo, navyMat);
+    bugKeil.rotation.z = -Math.PI / 2;
+    bugKeil.rotation.x = Math.PI / 4;
+    bugKeil.scale.set(0.5, 1.0, 1.0);
+    bugKeil.position.set(8.8, 0.90, 0);
+    bugKeil.castShadow = true;
+    root.add(bugKeil);
+
+    // Abgerundetes Kreuzfahrt-Heck (-X) mit Teakholz-Achterdeck
+    const heckRund = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.0, 1.55, 16), navyMat);
+    heckRund.position.set(-7.5, 0.90, 0);
+    heckRund.castShadow = true;
+    root.add(heckRund);
+
+    const achterDeck = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.15, 0.12, 16), teakDeckMat);
+    achterDeck.position.set(-7.5, 1.70, 0);
+    root.add(achterDeck);
+
+    // 2. MEHRSTÖCKIGE WEISSE BALKONKABINEN-DECKS (3 gestufte Etagen mit leuchtenden Fensterbändern)
+    const etagen = [
+      { len: 13.6, h: 0.85, b: 4.1, x: -0.4, y: 2.10 },
+      { len: 12.2, h: 0.85, b: 3.8, x: -0.6, y: 2.95 },
+      { len: 10.6, h: 0.80, b: 3.5, x: -0.9, y: 3.78 }
+    ];
+    etagen.forEach((et) => {
+      const deckBox = new THREE.Mesh(new THREE.BoxGeometry(et.len, et.h, et.b), weissMat);
+      deckBox.position.set(et.x, et.y, 0);
+      deckBox.castShadow = true;
+      root.add(deckBox);
+
+      const glasBand = new THREE.Mesh(new THREE.BoxGeometry(et.len - 0.5, et.h * 0.48, et.b + 0.08), glasMat);
+      glasBand.position.set(et.x, et.y + 0.04, 0);
+      root.add(glasBand);
+    });
+
+    // 3. KOMMANDOBRÜCKE MIT SEITLICHEN BRÜCKENNOCKS (Überhängend vorne bei X: +4.4)
+    const bruecke = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.72, 4.9), weissMat);
+    bruecke.position.set(4.3, 3.82, 0);
+    bruecke.castShadow = true;
+    root.add(bruecke);
+
+    const brueckeGlas = new THREE.Mesh(new THREE.BoxGeometry(2.28, 0.36, 4.96), brueckenGlasMat);
+    brueckeGlas.position.set(4.35, 3.86, 0);
+    root.add(brueckeGlas);
+
+    // 4. OBERES SONNENDECK MIT 25m-TÜRKIS-POOL & PANORAMA-LOUNGE
+    const sonnenDeck = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.16, 3.55), teakDeckMat);
+    sonnenDeck.position.set(-0.9, 4.24, 0);
+    root.add(sonnenDeck);
+
+    const poolWanne = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.22, 1.6), weissMat);
+    poolWanne.position.set(-2.6, 4.32, 0);
+    root.add(poolWanne);
+
+    const poolWasser = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.25, 1.35), poolMat);
+    poolWasser.position.set(-2.6, 4.34, 0);
+    root.add(poolWasser);
+
+    // Vordere Panorama-Lounge (Himmel & Meer Lounge)
+    const lounge = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.65, 0.65, 12), brueckenGlasMat);
+    lounge.position.set(2.4, 4.55, 0);
+    root.add(lounge);
+    const loungeDach = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.14, 12), weissMat);
+    loungeDach.position.set(2.4, 4.92, 0);
+    root.add(loungeDach);
+
+    // 5. MARKANTER SCHORNSTEIN (Abgeschrägter Liner-Funnel) & DREHENDER RADARMAST
+    const schornsteinBasis = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.78, 1.65, 12), navyMat);
+    schornsteinBasis.scale.set(1.5, 1, 0.85);
+    schornsteinBasis.rotation.z = 0.22;
+    schornsteinBasis.position.set(0.2, 5.05, 0);
+    schornsteinBasis.castShadow = true;
+    root.add(schornsteinBasis);
+
+    const schornsteinKappe = new THREE.Mesh(new THREE.CylinderGeometry(0.50, 0.56, 0.42, 12), schornsteinRotMat);
+    schornsteinKappe.scale.set(1.5, 1, 0.85);
+    schornsteinKappe.rotation.z = 0.22;
+    schornsteinKappe.position.set(0.0, 5.95, 0);
+    root.add(schornsteinKappe);
+
+    // Radarmast mit Kuppel (Radom) + drehendem Radar-Balken
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.9, 8), weissMat);
+    mast.position.set(2.6, 5.7, 0);
+    root.add(mast);
+
+    const radom = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 10), weissMat);
+    radom.position.set(2.0, 5.35, 0);
+    root.add(radom);
+
+    this.radarBalken = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 1.35), weissMat);
+    this.radarBalken.position.set(2.6, 6.65, 0);
+    root.add(this.radarBalken);
+
+    // 6. SEITLICHE RETTUNGSBOote (Je 3 leuchtend orange Boote Backbord & Steuerbord)
+    [-2.5, -0.3, 1.9].forEach((bx) => {
+      [-2.12, 2.12].forEach((bz) => {
+        const boot = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.38, 0.48), rettungsbootMat);
+        boot.position.set(bx, 2.15, bz);
+        root.add(boot);
+      });
+    });
+
+    // 7. SCHRIFTZUG "MEIN SCHIFF" BEIDSEITIG AM RUMPF + KIELWASSER-HECKWELLE
+    ['1', '-1'].forEach((dir) => {
+      const s = Number(dir);
+      const txt = document.createElement('a-text');
+      txt.setAttribute('value', 'MEIN SCHIFF');
+      txt.setAttribute('color', '#38bdf8');
+      txt.setAttribute('width', '18');
+      txt.setAttribute('align', 'center');
+      txt.setAttribute('position', `0.5 1.15 ${s * 2.24}`);
+      txt.setAttribute('rotation', `0 ${s > 0 ? 0 : 180} 0`);
+      this.el.appendChild(txt);
+    });
+
+    this.heckWelle = new THREE.Mesh(new THREE.ConeGeometry(2.1, 6.5, 5), gischtMat);
+    this.heckWelle.rotation.z = Math.PI / 2;
+    this.heckWelle.scale.set(0.08, 1.0, 1.15);
+    this.heckWelle.position.set(-11.2, 0.02, 0);
+    root.add(this.heckWelle);
+  },
+
   umschaltenAutopilot: function () {
     if (!this.data.hauptschiff) return;
     if (this.manuell) {
@@ -2198,6 +2349,9 @@ AFRAME.registerComponent('ki-faehre', {
   tick: function (time, dt) {
     if (!dt) return;
     const deltaSec = Math.min(dt / 1000, 0.08);
+    if (this.radarBalken) {
+      this.radarBalken.rotation.y += 3.5 * deltaSec;
+    }
 
     // 1. MANUELLE SCHIFFSSTEUERUNG FÜR "MEIN SCHIFF" (Kamera [6])
     if (this.data.hauptschiff && this.manuell) {
@@ -4072,6 +4226,13 @@ AFRAME.registerComponent('ki-steuerung', {
     ls.left = false;
     for (let i = 0; i < 30; i++) this.tick(2400 + i * 50, 50);
     const schiffLookYawAfter = ls.yaw;
+
+    // Für den Screenshot leichter 3/4-Kamerablick von schräg achtern auf das neue Kreuzfahrtschiff
+    ls.shift = true;
+    ls.aktiv = true;
+    ls.yaw = 0.58;
+    ls.pitch = -0.05;
+    this.tick(4000, 16);
 
     console.log('VEHICLE_TEST_RESULT:', JSON.stringify({
       flugzeugManuell: fc.manuell,
