@@ -1,0 +1,242 @@
+schema_version: 1
+area: world-collisions
+title: Paket A – Weltkarte, Untergründe, Höhen, Kollisions-Grid und Geländegängigkeit für Autos, Schiffe und Lara
+
+specs:
+  - id: s-world-collisions-001
+    title: Zentraler Weltdienst EEP.welt.abfrage(x, z)
+    given:
+      - js/welt/welt-karte.js ist geladen und alle Zonen sind registriert (EEP.welt.bereit === true).
+    when: Ein beliebiger Simulationskörper oder Test fragt EEP.welt.abfrage(x, z) für einen Weltpunkt ab.
+    then:
+      - "Rückgabe ist immer ein Objekt { untergrund, hoehe, steigungX, steigungZ, steigung, reibung, rollwiderstand, tiefe, kontinent, spitz }."
+      - "untergrund ist genau einer von 'strasse', 'bordstein', 'schiene', 'gras', 'waldboden', 'sand', 'fels', 'wasser', 'riff'."
+      - "hoehe = Geländehöhe in m (Weltkoordinate y); bei 'wasser'/'riff' ist hoehe = Meeresgrund (negativ) und tiefe = Wasserspiegel 0,05 − hoehe > 0; an Land ist tiefe = 0."
+      - "steigungX/steigungZ = Gradient dh/dx bzw. dh/dz (zentrale Differenz mit 0,5 m Abstand); steigung = Betrag des Gradienten in Prozent (100 · √(sx² + sz²))."
+      - "kontinent ist 'europa', 'amerika', 'afrika', 'insel' oder 'ozean'; spitz=true nur in Zonen mit scharfkantigem Geröll."
+      - "Ein Aufruf dauert im Mittel < 0,02 ms (Zonen sind in einem 16-m-Raster vorindiziert); 10.000 Aufrufe in < 200 ms."
+      - "EEP.welt.hoeheBei(x, z) und EEP.welt.untergrundBei(x, z) sind schnelle Kurzformen."
+    why: Ein einziger Dienst für Boden, Höhe und Wasser ist das Fundament aller Realismus-Pakete (Kollision, Schaden, Einsinken, Bergung).
+
+  - id: s-world-collisions-002
+    title: Untergründe und Wasserkörper für alle drei Kontinente korrekt kartiert
+    given:
+      - Die Zonen aus d-world-collisions-002 sind registriert.
+    when: Die Referenzpunkte aus d-world-collisions-002 abgefragt werden.
+    then:
+      - "Jeder Referenzpunkt liefert exakt den dort angegebenen Untergrund (z. B. Europa-Wiese gras, Ostsee wasser, Amerika-Straße strasse, Straßenrand bordstein, Gleise schiene, Ägypten sand, Alpen fels, Rotes-Meer-Riff riff)."
+      - "Straßen (ki-strasse) und Gleise (ki-gleis) melden ihre Mittellinie selbst bei EEP.welt an; Straßen erhalten automatisch auf beiden Seiten einen 0,30 m breiten Bordstein-Streifen."
+      - "Binnengewässer (Fluss/See Europa, Fluss Amerika, Nil, Canyon-Fluss) und die vier Inseln sind als eigene Zonen erfasst."
+      - "Die Alpen liefern ihre Höhe aus derselben Kegelformel wie die Geometrie in ki-alpen (Abweichung Höhe Gelände/Mesh < 0,5 m)."
+    why: Der Nutzer will Land, Wasser, Straße, Bordstein und Gelände physikalisch unterscheidbar haben.
+
+  - id: s-world-collisions-003
+    title: Räumliches Kollisions-Grid für alle statischen Hindernisse
+    given:
+      - js/physik/kollision.js ist geladen.
+    when: Bauwerke und Naturobjekte initialisiert werden.
+    then:
+      - "Folgende Objekte registrieren sich als Hindernis (gedrehte Rechteck-Box oder Kreis in der x/z-Ebene plus Höhe) - ki-haus, ki-bahnhof, ki-wolkenkratzer, ki-flughafen-Terminal/Tower, ki-pyramiden (jede Pyramide, Sphinx, Tempel), alle Bäume (Kreis r = 0,35 × Modell-Scale), Kai-/Hafenmauern (#475569-Boxen), Brückenpfeiler, Signale (Kreis 0,25 m)."
+      - "Hindernisse liegen in einem Spatial-Hash mit 8-m-Zellen; eine Abfrage EEP.kollision.pruefe(koerper) prüft nur die Zellen der Körper-Hülle und dauert im Mittel < 0,05 ms."
+      - "EEP.kollision.pruefe liefert null oder { hindernisId, art, normalX, normalZ, eindringtiefe, vImpact }, wobei vImpact = Geschwindigkeitsanteil entlang der Kontakt-Normale in m/s ist."
+      - "Hindernisse niedriger als 0,25 m (Bordsteine, Gleisbett) blockieren nicht, sondern werden über den Untergrund behandelt."
+      - "Bewegliche Körper (zwei G-Klassen, Hauptschiff, Lara) kollidieren auch untereinander (Kreis-gegen-Kreis bzw. Box-gegen-Box mit derselben Ergebnisstruktur)."
+      - "URL-Parameter ?kollisionen=sichtbar zeichnet alle Hindernis-Hüllen als rote Drahtgitter (Debug)."
+    why: Fahrzeuge und Lara dürfen nicht mehr durch Häuser, Bäume und Pyramiden fahren oder laufen.
+
+  - id: s-world-collisions-004
+    title: Kollisionsantwort - Stoppen, Abprallen und Herausschieben ohne Durchtunneln
+    given:
+      - Ein Körper bewegt sich auf ein Hindernis zu.
+    when: Die Hülle des Körpers ein Hindernis berührt.
+    then:
+      - "Der Körper wird entlang der Normale um eindringtiefe + 0,02 m herausgeschoben; er steckt nie in einer Wand."
+      - "Die Geschwindigkeit wird zerlegt; der Normalanteil wird mit Restitution e umgekehrt (Auto 0,15; Schiff 0,05; Lara 0,0), der Tangentialanteil mit Faktor 0,7 beibehalten (Entlangschrammen an Wänden möglich)."
+      - "Bei vImpact ≥ 2,0 m/s wird EEP.bus.emit('aufprall', { koerperId, hindernisId, vImpact, normalX, normalZ, vorneTreffer }) ausgelöst (Eingang für Paket B Schaden); vorneTreffer=true, wenn der Winkel zwischen Fahrtrichtung und Gegen-Normale < 45° ist."
+      - "Gegen Durchtunneln wird jeder Physikschritt in Teilschritte zerlegt, sodass kein Körper pro Teilschritt mehr als 0,5 m zurücklegt; deltaSec wird auf maximal 0,05 s begrenzt."
+      - "Kein Körper durchquert bei 150 km/h (41,7 m/s) eine 0,3 m dünne Hindernis-Wand."
+    why: Realistisches Anhalten bzw. Abprallen statt Durchfahren, und eine saubere Schnittstelle zum Schadensmodell.
+
+  - id: s-world-collisions-005
+    title: Fahrzeug-Untergrundphysik und Geländegängigkeit (G-Klasse gegen normalen PKW)
+    given:
+      - "Jeder Auto-Körper besitzt ein profil - 'gelaende' (beide G-Klassen, Standard) oder 'strassenpkw' (Referenzprofil für normale PKW, per EEP.welt.testProfil oder Konsole umschaltbar)."
+    when: Ein Auto über verschiedene Untergründe und Steigungen fährt.
+    then:
+      - "Die Höchstgeschwindigkeit je Untergrund und Profil entspricht exakt der Tabelle in d-world-collisions-003; beim Wechsel auf einen langsameren Untergrund bremst das Fahrzeug mit maximal 6 m/s² auf das neue Limit ab."
+      - "Die y-Position und Neigung (Pitch/Roll) des Autos folgen der Geländehöhe an den vier Radaufstandspunkten (Radstand 2,89 m, Spur 1,64 m)."
+      - "Steigung in Fahrtrichtung s = (steigungX · sin(yaw) + steigungZ · cos(yaw)) · 100 % (Vorzeichen passend zur Fahrtrichtung)."
+      - "Maximale Steigfähigkeit - strassenpkw 18 %; G-Klasse 32 %; G-Klasse mit Geländeuntersetzung 45 %."
+      - "Bis zur Steigfähigkeit sinkt die Höchstgeschwindigkeit linear auf 40 % (bei s = Maximum); oberhalb verlieren die Räder die Traktion - das Fahrzeug verzögert mit a = −(9,81 · sin(atan(s)) + 3,0) m/s², Gasgeben hilft nicht mehr, und es rollt rückwärts, sobald v < 0 (Handbremse/Gang P hält es nur bis sMax)."
+      - "Taste [U] schaltet bei der G-Klasse die Geländeuntersetzung (LOW) an/aus; nur im Stand oder unter 5 km/h schaltbar; mit LOW ist die Höchstgeschwindigkeit 30 km/h (8,3 m/s). Das Kombiinstrument zeigt 'LOW' und 4MATIC-Symbol."
+      - "Wasserdurchfahrt - G-Klasse bis tiefe 0,70 m (Watttiefe), strassenpkw bis 0,30 m, jeweils mit maximal 10 km/h (2,8 m/s); tiefer wird an Paket B (Einsinken) übergeben."
+      - "Am Fuß der Alpen existiert die Bergstraßen-Teststrecke 'Alpen-Pass' (d-world-collisions-004) mit 12,5 %, 25 % und 37,5 % Steigung - der strassenpkw scheitert ab dem 25-%-Abschnitt, die G-Klasse schafft 25 % ohne und 37,5 % nur mit Untersetzung."
+    why: Der Nutzer wünscht, dass die G-Klasse als Geländewagen besonders steile Bergwege schafft, an denen normale PKW scheitern, und dass Sand/Fels/Wiese realistisch bremsen.
+
+  - id: s-world-collisions-006
+    title: Schiffe fahren nur auf Wasser und laufen an Küsten, Untiefen, Riffen und Kai-Mauern auf Grund
+    given:
+      - "Jedes Schiff hat einen Tiefgang - Hauptschiff 'Mein Schiff' 2,5 m; Ozean-Fähren 1,5 m; Nil-Fähre 0,8 m; Ruderboot/kleines Boot 0,5 m."
+    when: Das vom Spieler gesteuerte Hauptschiff in flaches Wasser, auf ein Riff, an Land oder gegen eine Kai-Mauer fährt.
+    then:
+      - "Ist an Bug-, Mittel- oder Heckpunkt tiefe < Tiefgang + 0,2 m oder untergrund kein 'wasser'/'riff', läuft das Schiff auf Grund - v wird mit 8 m/s² auf 0 abgebremst, das Schiff neigt sich um 3° und ein Knirsch-Geräusch spielt."
+      - "Ein aufgelaufenes Schiff kommt nur mit Rückwärtsfahrt frei, und zwar nur wenn mindestens der Heckpunkt wieder genug Wassertiefe hat; sonst bleibt es fest (Bergung folgt in Paket D)."
+      - "Riff-Zonen haben tiefe 0,8 m - das Hauptschiff und die Ozean-Fähren laufen dort auf Grund, kleine Boote nicht."
+      - "Kai-Mauern sind Hindernisse aus s-world-collisions-003; Anlegen mit ≤ 1,0 m/s erzeugt keinen Aufprall-Event."
+      - "Bei Auflaufen mit v ≥ 2,0 m/s wird zusätzlich 'aufprall' mit art='grund' gemeldet."
+      - "Die festen Routen der KI-Fähren werden beim Laden in 2-m-Schritten geprüft; Punkte mit zu wenig Tiefe werden als console.warn 'ROUTE_UNGUELTIG <schiff> x z tiefe' gemeldet (Routen selbst bleiben unverändert kinematisch)."
+    why: Schiffe sollen nicht mehr über Land fahren können und Untiefen/Riffe sollen eine echte Gefahr sein.
+
+  - id: s-world-collisions-007
+    title: Lara Croft läuft nicht über Wasser, watet, schwimmt und respektiert Hindernisse und Steilhänge
+    given:
+      - Lara wird vom Spieler gesteuert (Kamera 9).
+    when: Lara gegen Gebäude, Bäume, Pyramiden läuft oder ins Wasser geht.
+    then:
+      - "Lara (Kreis r = 0,35 m, Höhe 1,75 m) kann Hindernisse nicht durchlaufen und gleitet tangential an ihnen entlang."
+      - "Laras Füße stehen immer auf EEP.welt.hoeheBei(x, z) (Abweichung < 0,05 m), auch an den Alpen und auf der Teststrecke."
+      - "Wassertiefe 0,30–1,20 m - Waten mit 50 % Laufgeschwindigkeit, Spritz-Partikel an den Beinen."
+      - "Wassertiefe > 1,20 m - Schwimmen - Körper 70° nach vorne geneigt, Kopf über Wasser (y = 0,05 − 1,35 m für die Füße), Schwimmtempo 1,2 m/s, Springen/Salto deaktiviert; an Land steigt sie automatisch wieder aus."
+      - "Steigung > 60 % - Lara kann nicht hinauflaufen und rutscht mit 2 m/s zurück; Sprünge auf Kanten bleiben erlaubt."
+    why: Lara soll wie im echten Leben nicht auf tiefem Wasser laufen und nicht durch Wände gehen können.
+
+decisions:
+  - id: d-world-collisions-001
+    title: Datenmodell - priorisierte Zonen-Liste mit 16-m-Vorindex statt Heightmap-Textur
+    status: accepted
+    specs: [s-world-collisions-001, s-world-collisions-002]
+    decision: "EEP.welt verwaltet Zonen als Liste von Formen { id, form ('rechteck' | 'ellipse' | 'polylinie' | 'kegelfeld' | 'hoehenfunktion'), prioritaet, untergrund, kontinent, hoehe (Konstante oder Funktion), tiefe (bei Wasser), spitz }. Für die Abfrage gewinnt die Zone mit der höchsten Priorität, die den Punkt enthält. Ein 16-m-Rasterindex speichert pro Zelle die Zonen-Kandidaten."
+    why: "Die Welt besteht aus wenigen großen Formen; ein vektorbasiertes Modell ist exakt (Bordstein 0,30 m breit), speicherarm, ohne Rendering testbar und von Komponenten selbst registrierbar. Eine Heightmap-Textur wäre ungenau an Kanten und an das Rendering gekoppelt."
+    how:
+      - "Prioritäten - 0 Weltmeer, 10 Kontinent-Land, 20 Strand, 30 Insel, 40 Binnengewässer, 50 Riff, 60 Wald (waldboden), 70 Fels/Gebirge, 80 Schiene, 90 Bordstein, 100 Straße/Rollbahn."
+      - "API - EEP.welt.registriereZone(zone), EEP.welt.entferneZone(id), EEP.welt.abfrage(x, z), EEP.welt.hoeheBei(x, z), EEP.welt.untergrundBei(x, z), EEP.welt.bereit."
+      - "Polylinien (Straße, Gleis) werden als Segmentliste mit halber Breite gespeichert; Abstand Punkt–Segment entscheidet über strasse/bordstein/schiene. Straßen sind Catmull-Rom-Kurven - sie werden mit denselben Parametern (centripetal, 0,5) in Abständen ≤ 1 m abgetastet wie die Geometrie in ki-strasse."
+      - "Meerestiefe - tiefe = min(40, 0,2 + 0,25 · Abstand zur nächsten Land-Zone in m); dadurch wird es zur Küste hin realistisch flach (0,6 m Furt ca. 1,6 m vor dem Strand, 2,7 m Hauptschiff-Tiefgang erst ab 10 m) und im Atlantik tief."
+      - "Untergrund-Kennwerte (reibung μ / rollwiderstand c_rr) - strasse 1,00/0,015; bordstein 0,90/0,015; schiene 0,60/0,020; gras 0,65/0,080; waldboden 0,55/0,100; sand 0,40/0,300; fels 0,70/0,060; wasser 0,00/–; riff 0,30/–."
+
+  - id: d-world-collisions-002
+    title: Zonen-Koordinaten und Referenzpunkte (aus welt.html abgeleitet)
+    status: accepted
+    specs: [s-world-collisions-002]
+    decision: "Die folgenden Zonen werden beim Laden registriert; die Referenzpunkte sind Pflicht-Prüfpunkte im Test. Bei Abweichungen gilt die tatsächliche Geometrie in welt.html, die Koordinaten werden dann hier nachgezogen."
+    why: Exakte Koordinaten machen die Karte prüfbar, ohne dass jemand die 3D-Szene visuell absuchen muss.
+    how:
+      - "Weltmeer (wasser, ozean) - Rechteck x −540…540, z −250…370."
+      - "Europa (gras) - x −346…−218, z −85…41; Ostsee-Strand (sand) - x −346…−218, z 39…49."
+      - "Amerika (gras) - x 223,5…348,5, z −82,5…82,5; Atlantik-Strand (sand) - x 216…228, z −82,5…82,5."
+      - "Afrika/Ägypten (sand) - x 20…190, z 120…256; Strand Rotes Meer (sand) - x 24…132, z 112,5…121,5."
+      - "Inseln (sand, insel, Ellipsen gemäß a-cylinder radius × scale) - (135, −22), (118, 10), (152, 44), (168, 62)."
+      - "Binnengewässer (wasser, tiefe 1,5 m) - aus den blauen metallischen a-box-Flächen in welt.html (u. a. Europa x −224 z −18 Drehung −18°, Amerika x 255 z −22 5,5 × 62 m Drehung 68°, Nil, Canyon-Fluss) inklusive Drehung."
+      - "Alpen (fels, spitz=true) - kegelfeld um (−290, −66) mit den 7 Kegeln aus ki-alpen (h = hPeak · (1 − d/r), Maximum über alle Kegel)."
+      - "Grand Canyon (fels, spitz=true) - Höhenfunktion, die ki-canyon beim Bau selbst registriert."
+      - "Rotes-Meer-Riff (riff, tiefe 0,8 m) - Ellipse Mitte (125, 95), Halbachsen 22 × 7 m."
+      - "Wald (waldboden) - Kreis r = 1,2 × Baum-Scale um jeden registrierten Baum."
+      - "Flughafen-Rollbahnen (strasse) - Rechtecke, die ki-flughafen beim Bau registriert."
+      - "Referenzpunkte - (−280, −10) gras europa; (−280, 44) sand; (−280, 72) wasser; (0, 60) wasser ozean mit tiefe ≥ 20; (300, 30) gras amerika; Mittellinie der US-Straße bei (298, −20) strasse; 2,0 m seitlich davon bordstein; ein Punkt auf der de-bahn-Strecke (−286, −25) schiene; (105, 200) sand afrika; (125, 95) riff; Gipfel des höchsten Alpen-Kegels hoehe > 25 und fels."
+
+  - id: d-world-collisions-003
+    title: Höchstgeschwindigkeit je Untergrund und Fahrzeugprofil
+    status: accepted
+    specs: [s-world-collisions-005]
+    decision: "Die Geschwindigkeitsgrenzen sind tabellarisch festgelegt (statt voller Reifen-Kraftphysik), weil sie deterministisch testbar sind und das gewünschte Verhalten direkt abbilden."
+    why: Die G-Klasse soll im Gelände klar überlegen sein; feste Grenzwerte vermeiden instabile Physik in der Nacht-Implementierung.
+    how:
+      - "strasse - strassenpkw 150 km/h (41,7 m/s) / G-Klasse 150 km/h, Gang S wie bisher (42,0 m/s)."
+      - "bordstein (Überfahren) - beide wie Nachbar-Untergrund; Reifenplatzer-Regeln siehe damage-sinking."
+      - "schiene - strassenpkw 30 km/h (8,3 m/s) / G-Klasse 50 km/h (13,9 m/s)."
+      - "gras - strassenpkw 50 km/h (13,9 m/s) / G-Klasse 80 km/h (22,2 m/s)."
+      - "waldboden - strassenpkw 30 km/h (8,3 m/s) / G-Klasse 60 km/h (16,7 m/s)."
+      - "sand - strassenpkw 25 km/h (6,9 m/s) und bleibt nach Stillstand > 2 s stecken (Anfahren unmöglich) / G-Klasse 70 km/h (19,4 m/s)."
+      - "fels - strassenpkw 15 km/h (4,2 m/s) / G-Klasse 40 km/h (11,1 m/s)."
+      - "LOW-Untersetzung der G-Klasse - begrenzt jedes Limit zusätzlich auf 30 km/h (8,3 m/s), hebt aber die Steigfähigkeit auf 45 %."
+
+  - id: d-world-collisions-004
+    title: Bergstraßen-Teststrecke 'Alpen-Pass' am Alpenrand
+    status: accepted
+    specs: [s-world-collisions-005, s-world-collisions-007]
+    decision: "Östlich der Alpen wird eine 4 m breite Schotter-Bergstraße (untergrund fels, spitz=false, damit dort keine Reifen platzen) als Höhenfunktion plus sichtbares Mesh gebaut - Mittellinie x = −254, von z = −60 (Höhe 0) nach z = −84. Abschnitt 1 z −60…−68 - Höhe 0 → 1,0 m (12,5 %); Abschnitt 2 z −68…−76 - 1,0 → 3,0 m (25 %); Abschnitt 3 z −76…−84 - 3,0 → 6,0 m (37,5 %); oben ein 4 × 4 m Plateau mit Schild 'ALPEN-PASS 37 %'."
+    why: Die vorhandenen Alpen-Kegel sind mit über 100 % Steigung unbefahrbar; eine definierte Teststrecke macht die Geländegängigkeit sichtbar und automatisch prüfbar.
+    how:
+      - Seitlich der Straße Leitpfosten im Abstand 4 m (als Hindernisse mit Kreis 0,1 m).
+      - "Schild am Fuß bei (−251, −58) - 'ALPEN-PASS · nur 4x4 · [U] Untersetzung'."
+      - Die Strecke darf das Haus 'MEIN HAUS' (−242, −58), Lara-Start (−252, −36) und Auto-Start (−243, −51) nicht überlappen.
+
+  - id: d-world-collisions-005
+    title: Physik-Takt und Andockpunkte in den Bestands-Komponenten
+    status: accepted
+    specs: [s-world-collisions-004, s-world-collisions-005, s-world-collisions-006, s-world-collisions-007]
+    decision: "Die Bewegungsintegration bleibt in den tick()-Methoden von ki-auto, ki-faehre (nur hauptschiff bzw. spielergesteuert) und ki-lara; nach der Positionsberechnung ruft jede Komponente EEP.fahrzeugPhysik.schritt(koerper, deltaSec) auf, das Untergrund, Steigung, Kollision und Teilschritte erledigt und die korrigierte Position zurückschreibt."
+    why: Minimal-invasiv gegenüber dem Bestand, aber die gesamte Physikentscheidung liegt im testbaren, A-Frame-freien Modul.
+    how:
+      - "deltaSec = min(dtMs / 1000, 0,05); Teilschritte n = ceil(|v| · deltaSec / 0,5)."
+      - "Kamera-Synchronisation (d-car-cockpit-001) erfolgt weiterhin NACH der Physik-Korrektur, damit das Cockpit nicht zittert."
+      - "KI-Fähren und Züge bleiben kinematisch auf ihren Routen/Gleisen; sie werden aber als bewegliche Hindernisse registriert, damit Spielerfahrzeuge mit ihnen kollidieren."
+
+tests:
+  - id: t-world-collisions-001
+    title: Weltkarte - Referenzpunkte, Höhen, Steigungen und Performance von EEP.welt.abfrage
+    specs: [s-world-collisions-001, s-world-collisions-002]
+    suites: [smoke, regression]
+    areas: [world-collisions]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?welttest=1 öffnen; der Selbsttest fragt alle Referenzpunkte aus d-world-collisions-002 ab und misst 10.000 Zufallsabfragen."
+        expected:
+          - "WELT_TEST_RESULT meldet referenzpunkte=n/n korrekt (n ≥ 11) und listet bei Fehlern Punkt, erwartet und erhalten."
+          - "WELT_TEST_RESULT meldet alpenGipfelHoehe > 25, ozeanTiefe ≥ 20, passSteigung25 zwischen 24 und 26, passSteigung37 zwischen 36 und 39."
+          - "WELT_TEST_RESULT meldet abfrage10kMs < 200 und alleUntergruendeGueltig=true."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: welttest=1
+
+  - id: t-world-collisions-002
+    title: Kollisionen - G-Klasse gegen Haus, Lara gegen Pyramide, kein Durchtunneln bei 150 km/h
+    specs: [s-world-collisions-003, s-world-collisions-004, s-world-collisions-007]
+    suites: [regression]
+    areas: [world-collisions]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?kollisionstest=1 öffnen; der Selbsttest setzt die türkise G-Klasse 15 m vor 'MEIN HAUS', fährt mit 30 km/h darauf zu, danach mit 150 km/h auf eine Test-Wand von 0,3 m Dicke; anschließend läuft Lara gegen die Cheops-Pyramide und in die Ostsee."
+        expected:
+          - "KOLLISION_TEST_RESULT meldet hindernisseRegistriert ≥ 40 (Häuser, Bäume, Pyramiden, Kai-Mauern, Wolkenkratzer)."
+          - "KOLLISION_TEST_RESULT meldet autoVorHausGestoppt=true, autoImHaus=false und aufprallEvent.vImpact zwischen 7 und 9."
+          - "KOLLISION_TEST_RESULT meldet tunnel150=false (Auto steht vor der Wand, nicht dahinter)."
+          - "KOLLISION_TEST_RESULT meldet laraInPyramide=false, laraSchwimmtInOstsee=true und laraFussAbweichung < 0,05."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: kollisionstest=1
+
+  - id: t-world-collisions-003
+    title: Geländegängigkeit - Alpen-Pass, Sand und Wasserdurchfahrt für G-Klasse gegen Straßen-PKW; Schiff läuft auf Grund
+    specs: [s-world-collisions-005, s-world-collisions-006]
+    suites: [regression]
+    areas: [world-collisions]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?gelaendetest=1 öffnen; der Selbsttest fährt mit Vollgas (Testuhr, 20 s simuliert) den Alpen-Pass hinauf - nacheinander als strassenpkw, als G-Klasse ohne und mit Untersetzung [U]; danach 10 s Vollgas in Ägypten-Sand; danach Hauptschiff mit voller Fahrt auf den Strand Rotes Meer bzw. das Riff."
+        expected:
+          - "GELAENDE_TEST_RESULT meldet den weitesten erreichten Punkt (kleinstes z, bergauf = abnehmendes z) - strassenpkwMinZ zwischen −70 und −67 (scheitert im 25-%-Abschnitt), gKlasseOhneLowMinZ zwischen −80 und −76 (scheitert im 37,5-%-Abschnitt), gKlasseMitLowOben=true (Plateau erreicht)."
+          - "GELAENDE_TEST_RESULT meldet sandVmaxStrassenpkw ≤ 6,9 und sandVmaxGKlasse zwischen 18 und 19,5."
+          - "GELAENDE_TEST_RESULT meldet watenGKlasse0_6m=true (fährt mit ≤ 2,8 m/s) und watenStrassenpkw0_6m=false (wird an Paket B übergeben)."
+          - "GELAENDE_TEST_RESULT meldet schiffAufGrund=true, schiffV=0, riffAufGrund=true und kleinesBootUeberRiff=true."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: gelaendetest=1
