@@ -1684,6 +1684,85 @@ AFRAME.registerComponent('ki-alpen', {
   }
 });
 
+// ============================================================================
+// 5b. PYRAMIDEN VON GIZEH (Kontinent 3: Afrika / Ägypten)
+// ============================================================================
+AFRAME.registerComponent('ki-pyramiden', {
+  init: function () {
+    const group = new THREE.Group();
+    const sandsteinMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85, flatShading: true });
+    const stufenMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.80, flatShading: true });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.25, metalness: 0.85, flatShading: true });
+    const tempelMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.90, flatShading: true });
+
+    // Die 3 großen Pyramiden (Cheops, Chefren, Mykerinos)
+    const pyramiden = [
+      { x: 0,   z: 0,  r: 15.5, h: 21.5 }, // Große Cheops-Pyramide (Zentrum)
+      { x: -19, z: 7,  r: 13.0, h: 18.0 }, // Chefren-Pyramide (Westlich)
+      { x: 17,  z: 9,  r: 9.0,  h: 12.0 }  // Mykerinos-Pyramide (Östlich)
+    ];
+
+    pyramiden.forEach((p) => {
+      // 4-seitiger Pyramiden-Hauptkörper (um 45° gedreht für exakte Nord-Süd-Kanten)
+      const pyrGeo = new THREE.ConeGeometry(p.r, p.h, 4);
+      const pyr = new THREE.Mesh(pyrGeo, sandsteinMat);
+      pyr.position.set(p.x, p.h * 0.5, p.z);
+      pyr.rotation.y = Math.PI / 4;
+      pyr.castShadow = true;
+      pyr.receiveShadow = true;
+      group.add(pyr);
+
+      // Charakteristische Kalkstein-Stufenterrassen für authentische Ägypten-Optik
+      const stufen = 5;
+      for (let s = 0; s < stufen; s++) {
+        const frac = s / stufen;
+        const stufeBreite = p.r * 1.40 * (1 - frac * 0.72);
+        const stufeHoehe = (p.h * 0.65) / stufen;
+        const stufeBox = new THREE.Mesh(
+          new THREE.BoxGeometry(stufeBreite, stufeHoehe * 0.55, stufeBreite),
+          stufenMat
+        );
+        stufeBox.position.set(p.x, frac * p.h * 0.68 + stufeHoehe * 0.3, p.z);
+        stufeBox.castShadow = true;
+        stufeBox.receiveShadow = true;
+        group.add(stufeBox);
+      }
+
+      // Goldenes Pyramidion (Sonnenspitze) auf dem Gipfel
+      const capH = p.h * 0.16;
+      const capR = p.r * 0.17;
+      const capGeo = new THREE.ConeGeometry(capR, capH, 4);
+      const cap = new THREE.Mesh(capGeo, goldMat);
+      cap.position.set(p.x, p.h - capH * 0.48, p.z);
+      cap.rotation.y = Math.PI / 4;
+      group.add(cap);
+    });
+
+    // Antikes Pharaonen-Tempelportal an der Nordseite der Cheops-Pyramide (Blickrichtung Lara / Bahn)
+    const pylonL = new THREE.Mesh(new THREE.BoxGeometry(2.6, 5.2, 2.2), tempelMat);
+    pylonL.position.set(-2.4, 2.6, -12.2);
+    pylonL.castShadow = true;
+    group.add(pylonL);
+
+    const pylonR = new THREE.Mesh(new THREE.BoxGeometry(2.6, 5.2, 2.2), tempelMat);
+    pylonR.position.set(2.4, 2.6, -12.2);
+    pylonR.castShadow = true;
+    group.add(pylonR);
+
+    const architrav = new THREE.Mesh(new THREE.BoxGeometry(8.2, 1.3, 2.6), stufenMat);
+    architrav.position.set(0, 5.5, -12.2);
+    architrav.castShadow = true;
+    group.add(architrav);
+
+    const sonnenScheibe = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.4, 16), goldMat);
+    sonnenScheibe.rotation.x = Math.PI / 2;
+    sonnenScheibe.position.set(0, 5.5, -13.5);
+    group.add(sonnenScheibe);
+
+    this.el.setObject3D('mesh', group);
+  }
+});
+
 AFRAME.registerComponent('ki-wolkenkratzer', {
   schema: {
     breite: { type: 'number', default: 5.5 },
@@ -2026,9 +2105,9 @@ AFRAME.registerComponent('ki-flugzeug', {
         pos.y = 140;
       }
 
-      // Sanfte Weltbegrenzung (-390..+390, -145..+145)
+      // Sanfte Weltbegrenzung (-390..+390, -145..+280 inkl. Afrika/Rotes Meer)
       pos.x = THREE.MathUtils.clamp(pos.x, -390, 390);
-      pos.z = THREE.MathUtils.clamp(pos.z, -145, 145);
+      pos.z = THREE.MathUtils.clamp(pos.z, -145, 280);
 
       this.el.object3D.rotation.set(this.pitch, this.yaw, this.roll, 'YXZ');
 
@@ -2391,9 +2470,9 @@ AFRAME.registerComponent('ki-faehre', {
       pos.z += -Math.cos(this.yaw) * this.geschwindigkeit * deltaSec;
       pos.y = 0.40 + Math.sin(time * 0.0022) * 0.04; // Sanftes Schaukeln auf den Meereswellen
 
-      // Weltbegrenzung auf Meer/Ostsee/Ozean
+      // Weltbegrenzung auf Meer/Ostsee/Ozean/Rotes Meer
       pos.x = THREE.MathUtils.clamp(pos.x, -370, 330);
-      pos.z = THREE.MathUtils.clamp(pos.z, -135, 135);
+      pos.z = THREE.MathUtils.clamp(pos.z, -135, 280);
 
       // Leichte Kurvenkrängung + lokale +X-Bug-Ausrichtung (yaw + PI/2)
       const zielKraengung = -this.ruderWinkel * (Math.abs(this.geschwindigkeit) / 18.0) * 0.14;
@@ -3124,7 +3203,9 @@ AFRAME.registerComponent('ki-auto', {
 
     const pos = this.el.object3D.position;
     let ortName = '🌊 Ozean-Küstenstraße';
-    if (pos.x < -150) {
+    if (pos.z > 105) {
+      ortName = '🇪🇬 Ägypten – Küste & Pyramiden';
+    } else if (pos.x < -150) {
       ortName = pos.z > 20 ? '🇩🇪 Ostsee-Hafen & Strand' : '🇩🇪 Deutschland – Straße am Fluss';
     } else if (pos.x > 150) {
       ortName = pos.z > 15 ? '🇺🇸 Grand Canyon Nationalpark' : '🇺🇸 New York City & Airport';
@@ -3138,19 +3219,22 @@ AFRAME.registerComponent('ki-auto', {
     ctx.textAlign = 'left';
     ctx.fillText('🛰️ GPS NAVI: ' + ortName, 12, 26);
 
-    // Mini-Karte (Deutschland links, weiter Ozean Mitte, USA rechts)
+    // Mini-Karte (Deutschland NW, Amerika NE, Afrika/Ägypten SE)
     ctx.fillStyle = '#0369a1';
     ctx.fillRect(14, 50, w - 28, 115);
-    // DE Land
+    // DE Land (NW)
     ctx.fillStyle = '#15803d';
-    ctx.fillRect(20, 56, 72, 92);
-    // US Land
+    ctx.fillRect(20, 56, 68, 52);
+    // US Land (NE)
     ctx.fillStyle = '#166534';
-    ctx.fillRect(w - 92, 56, 72, 102);
+    ctx.fillRect(w - 88, 56, 68, 56);
+    // Afrika / Ägypten (SE)
+    ctx.fillStyle = '#d97706';
+    ctx.fillRect(w * 0.50, 116, 82, 44);
 
     // Auto-Punkt auf dem Navi-Radar
     const mapX = THREE.MathUtils.clamp(((pos.x + 345) / 690) * (w - 40) + 20, 22, w - 22);
-    const mapY = THREE.MathUtils.clamp(((pos.z + 85) / 170) * 105 + 54, 56, 158);
+    const mapY = THREE.MathUtils.clamp(((pos.z + 85) / 340) * 105 + 54, 56, 158);
     ctx.beginPath();
     ctx.arc(mapX, mapY, 7, 0, Math.PI * 2);
     ctx.fillStyle = '#ef4444';
@@ -3422,7 +3506,7 @@ AFRAME.registerComponent('ki-lara', {
 
     window.addEventListener('keydown', (e) => {
       const modus = window.EEP.aktiveKamera;
-      if (modus !== 1 && modus !== 4) return;
+      if (modus !== 1 && modus !== 4 && modus !== 9) return;
 
       // Wenn Shift oder Numpad 0 (Look-Modus) gehalten wird -> Pfeiltasten steuern NUR die Kamera!
       if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
@@ -3969,6 +4053,7 @@ AFRAME.registerComponent('ki-steuerung', {
       if (e.key === '6') this.setzeKamera(6);
       if (e.key === '7') this.setzeKamera(7);
       if (e.key === '8') this.setzeKamera(8);
+      if (e.key === '9') this.setzeKamera(9);
       if (e.key.toLowerCase() === 'l') this.wechselWetter();
       if (e.key.toLowerCase() === 'h') {
         if (window.EEP.aktiveKamera === 8) {
@@ -4010,6 +4095,9 @@ AFRAME.registerComponent('ki-steuerung', {
       }
       if (window.location.search.includes('vehicletest=1')) {
         this.starteFahrzeugSelbsttest();
+      }
+      if (window.location.search.includes('afrikatest=1')) {
+        this.starteAfrikaSelbsttest();
       }
       const camMatch = window.location.search.match(/cam=(\d)/);
       if (camMatch) {
@@ -4246,6 +4334,36 @@ AFRAME.registerComponent('ki-steuerung', {
     }));
   },
 
+  starteAfrikaSelbsttest: function () {
+    // 1. Kamera [9] (Lara Croft in Ägypten / Afrika) aktivieren
+    this.setzeKamera(9);
+    const lara = window.EEP.laraComp;
+    if (lara) {
+      // Lara südlich des Bahnhofs Kairo positionieren mit freiem Panoramablick nach Süden (rotY=180°) auf alle 3 Pyramiden von Gizeh & den Wüsten-Express!
+      lara.teleportiereZu(146, 0.25, 179, 180);
+      lara.tick(1000, 16);
+    }
+    const afrikaZug = window.EEP.zuege.find(z => z.data.gleis === 'afrika-bahn');
+    if (afrikaZug) {
+      afrikaZug.distanz = 695;
+      afrikaZug.tick(1000, 16);
+    }
+    this.tick(1000, 16);
+
+    const gleisAfrika = window.EEP.gleise['afrika-bahn'];
+    const pyrEl = document.querySelector('#afrika-pyramiden');
+    const pyrMesh = pyrEl ? pyrEl.getObject3D('mesh') : null;
+
+    console.log('AFRIKA_TEST_RESULT:', JSON.stringify({
+      gleisAfrikaVorhanden: Boolean(gleisAfrika && gleisAfrika.length > 200),
+      gleisAfrikaLaenge: gleisAfrika ? Math.round(gleisAfrika.length) : 0,
+      zuegeAnzahl: window.EEP.zuege.length,
+      pyramidenVorhanden: Boolean(pyrMesh && pyrMesh.children.length >= 10),
+      laraInAfrika: Boolean(lara && lara.el.object3D.position.z > 115),
+      aktiveKamera: window.EEP.aktiveKamera
+    }));
+  },
+
   setzeKamera: function (modus) {
     window.EEP.aktiveKamera = modus;
     if (window.EEP.lookState) {
@@ -4268,7 +4386,7 @@ AFRAME.registerComponent('ki-steuerung', {
       autoHUD.style.display = modus === 8 ? 'flex' : 'none';
     }
     if (laraHUD) {
-      laraHUD.style.display = (modus === 1 || modus === 4) ? 'flex' : 'none';
+      laraHUD.style.display = (modus === 1 || modus === 4 || modus === 9) ? 'flex' : 'none';
     }
     if (flugzeugHUD) {
       flugzeugHUD.style.display = modus === 5 ? 'flex' : 'none';
@@ -4289,14 +4407,19 @@ AFRAME.registerComponent('ki-steuerung', {
 
     const lara = window.EEP.laraComp;
     if (modus === 1 && lara) {
-      // Wenn Lara in Amerika stand, nach Deutschland vor den Bahnhof holen
-      if (lara.el.object3D.position.x > 0) {
+      // Wenn Lara in Amerika oder Afrika stand, nach Deutschland vor den Bahnhof holen
+      if (lara.el.object3D.position.x > -100 || lara.el.object3D.position.z > 90) {
         lara.teleportiereZu(-252, 0.25, -36, 165);
       }
     } else if (modus === 4 && lara) {
-      // Wenn Lara in Deutschland stand, nach Amerika (New York / Mein Haus) holen
-      if (lara.el.object3D.position.x < 0) {
+      // Wenn Lara in Deutschland oder Afrika stand, nach Amerika (New York / Mein Haus) holen
+      if (lara.el.object3D.position.x < 195 || lara.el.object3D.position.z > 90) {
         lara.teleportiereZu(294, 0.25, -34, 152);
+      }
+    } else if (modus === 9 && lara) {
+      // Wenn Lara außerhalb von Afrika/Ägypten stand, vor die Pyramiden von Gizeh & Wüstenbahn holen
+      if (lara.el.object3D.position.z < 115) {
+        lara.teleportiereZu(146, 0.25, 179, 180);
       }
     }
 
@@ -4445,8 +4568,8 @@ AFRAME.registerComponent('ki-steuerung', {
     const modus = window.EEP.aktiveKamera;
     if (modus === 7 || modus === 8) return; // Modus 7 = freie Übersicht, Modus 8 = Auto-Cockpit (in ki-auto.tick synchronisiert)
 
-    // MODUS 1 & 4: 3rd-Person Verfolger-Kamera hinter LARA CROFT (wie in Tomb Raider 1-5!)
-    if ((modus === 1 || modus === 4) && window.EEP.laraComp && this.kameraRig) {
+    // MODUS 1, 4 & 9: 3rd-Person Verfolger-Kamera hinter LARA CROFT (Deutschland [1], USA [4], Ägypten [9])
+    if ((modus === 1 || modus === 4 || modus === 9) && window.EEP.laraComp && this.kameraRig) {
       const laraObj = window.EEP.laraComp.el.object3D;
       const laraPos = laraObj.position;
       const laraYaw = laraObj.rotation.y;
@@ -4723,6 +4846,7 @@ AFRAME.registerComponent('ki-steuerung', {
           <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Mein Schiff [6]</button>
           <button class="eep-btn eep-cam-btn" data-cam="7">🦅 Übersicht [7]</button>
           <button class="eep-btn eep-cam-btn" data-cam="8" style="border-color:#f87171;">🚗 Auto-Cockpit [8]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="9" style="border-color:#facc15;">🇪🇬 Lara Ägypten [9]</button>
         </div>
       </div>
 
@@ -4762,6 +4886,7 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn eep-car-tp" data-tp="-246,0.28,38,85">🇩🇪 Hafen Ostsee</button>
         <button class="eep-btn eep-car-tp" data-tp="293,0.28,-33,155">🇺🇸 New York</button>
         <button class="eep-btn eep-car-tp" data-tp="246,0.28,48,180">🇺🇸 Grand Canyon</button>
+        <button class="eep-btn eep-car-tp" data-tp="145,0.28,124,90">🇪🇬 Ägypten Küste</button>
       </div>
     `;
     document.body.appendChild(autoHud);
@@ -4836,6 +4961,7 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn" data-plane-tp="-312,0.9,18,0,1.0">🇩🇪 Startbahn DE</button>
         <button class="eep-btn" data-plane-tp="306,0.9,-14,180,1.0">🇺🇸 Startbahn USA</button>
         <button class="eep-btn" data-plane-tp="268,28,72,0,1.2">🏜️ Grand Canyon</button>
+        <button class="eep-btn" data-plane-tp="68,0.9,208,0,1.0">🇪🇬 Airport Ägypten</button>
         <button class="eep-btn" data-plane-tp="-15,32,0,-90,1.2">🌊 Über Ozean</button>
       </div>
     `;
@@ -4875,6 +5001,7 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn" data-ship-tp="-262,0.40,56,-90">🇩🇪 Hafen Ostsee</button>
         <button class="eep-btn" data-ship-tp="105,0.40,2,-90">🏝️ Ozean-Inseln</button>
         <button class="eep-btn" data-ship-tp="202,0.40,-36,-90">🇺🇸 US-Hafen</button>
+        <button class="eep-btn" data-ship-tp="156,0.40,102,180">🇪🇬 Hafen Rotes Meer</button>
         <button class="eep-btn" data-ship-tp="-15,0.40,-42,90">🌊 Nord-Atlantik</button>
       </div>
     `;

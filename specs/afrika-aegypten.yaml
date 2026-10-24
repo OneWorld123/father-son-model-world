@@ -1,0 +1,79 @@
+schema_version: 1
+area: afrika-aegypten
+title: Dritter Kontinent Afrika (Ägyptische Küste zum Roten Meer, Pyramiden, Wüsten-Eisenbahn, Hafen, Flughafen, Nil-Fähre)
+
+specs:
+  - id: s-afrika-aegypten-001
+    title: Ägyptische Küste am Roten Meer mit Strand, Hafen, Küstenstraße, Mein Haus Nr. 3 und 4 Oasen-Palmen
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+    when: Der dritte Kontinent Afrika (Ägypten) im Südosten der Weltkarte (X: +20 bis +190, Z: +115 bis +255) betrachtet oder bereist wird.
+    then:
+      - Im Norden grenzt der Kontinent an das Rote Meer (MEER / ROTES MEER) mit einem langen gelben Sandstrand (STRAND) auf der linken/mittleren Seite und einem gezackten Seehafen (HAFEN) auf der rechten Küstenseite.
+      - Direkt hinter Strand und Hafen verläuft die durchgehende Küstenstraße mit einem blauen Küsten-Auto bis nach rechts zu MEIN HAUS (Ägypten) und einer Abzweig-STRASSE nach Süden.
+      - Vier große Oasen-Palmen stehen an den vier gezeichneten Standorten (links am Fluss, Mitte an der Bahnschleife, rechts der Mitte sowie rechts neben Mein Haus und der Abzweig-Straße).
+    why: Die Küsten- und Straßenlandschaft der Handskizze soll 1:1 in der 3D-Welt erlebbar sein.
+
+  - id: s-afrika-aegypten-002
+    title: 3D-Pyramiden von Gizeh (PÜRAMIDEN), Nil-Fluss mit Fähre, Flughafen Ägypten und verschlungene Wüsten-Eisenbahn
+    given:
+      - Der Kontinent Afrika (Ägypten) ist in welt.html geladen.
+    when: Das Landesinnere südlich der Küstenstraße erkundet wird.
+    then:
+      - Links mündet der Fluss (Nil) am Strand ins Meer, fließt am linken Rand nach Süden (mit blauer FÄHRE) und zieht sich am unteren Rand bis unter die mittlere Bahnschleife.
+      - Links der Mitte liegt der ägyptische FLUGHAFEN (EGYPT AIRPORT), eingebettet in die große S-Kurve der Wüsten-Eisenbahn.
+      - Rechts unten erheben sich die drei 3D-Pyramiden von Gizeh (ki-pyramiden) mit dem Schriftzug PÜRAMIDEN.
+      - Die Wüsten-Eisenbahn (afrika-bahn) windet sich vom linken Flussufer um den Flughafen, vollführt in der Mitte eine markante Kreisschleife und umrundet im Osten die Pyramiden; darauf fährt der steuerbare Zug Wüsten-Express.
+    why: Alle gezeichneten Hauptattraktionen des afrikanischen Kontinents inklusive Pyramiden, Nil-Fähre, Flughafen und Schleifen-Eisenbahn müssen vollständig und fahrbar vorhanden sein.
+
+  - id: s-afrika-aegypten-003
+    title: Integration des 3. Kontinents in alle Kameras, Schnellreise-HUDs (Schiff, Flugzeug, Auto, Lara) und das 3D-Auto-Navi
+    given:
+      - Der Spieler nutzt Lara Croft, das Auto [8], das Flugzeug [5], Mein Schiff [6] oder wechselt in die Ägypten-Kamera [9].
+    when: Der Spieler nach Afrika/Ägypten reist oder die Schnellreise-Buttons nutzt.
+    then:
+      - Über Taste [9] (oder Button Lara Ägypten [9]) reist Lara Croft direkt an die ägyptische Küste vor die Pyramiden/Mein Haus.
+      - Im Auto-HUD (#eep-auto-hud), Flugzeug-HUD (#eep-flugzeug-hud) und Schiffs-HUD (#eep-schiff-hud) stehen Schnellreise-Ziele für Ägypten (Küste/Pyramiden, Airport Ägypten, Hafen Rotes Meer) bereit.
+      - Das 3D-GPS-Navi im Auto-Cockpit zeigt Afrika/Ägypten als dritten Kontinent im Südosten der Weltkarte an.
+    why: Der neue Kontinent muss mit allen Verkehrsmitteln (Zug, Auto, Schiff, Flugzeug) und mit Lara Croft nahtlos erreichbar sein.
+
+decisions:
+  - id: d-afrika-aegypten-001
+    title: Platzierung von Afrika/Ägypten im Südosten (X: +20..+190, Z: +115..+255) am Roten Meer
+    status: accepted
+    specs: [s-afrika-aegypten-001, s-afrika-aegypten-002, s-afrika-aegypten-003]
+    decision: Afrika/Ägypten wird im Südosten der Weltkarte (Zentrum X=105, Z=188) südlich des offenen Meeres angelegt, während das Weltmeer auf 1050x620 m erweitert wird.
+    why: Dadurch liegt das Rote Meer wie auf der Skizze im Norden der ägyptischen Küste und ist per Schiff und Flugzeug direkt von Europa/Deutschland und Amerika aus erreichbar, ohne bestehende Kontinente zu überlappen.
+    how:
+      - Wüsten-Grundplatte bei position="105 0.0 188" (width=170, depth=136) und Strand bei position="78 0.02 117" anlegen.
+      - Weltbegrenzungen in ki-flugzeug und ki-faehre auf Z bis +280 erweitern.
+
+  - id: d-afrika-aegypten-002
+    title: Eigene 3D-Komponente ki-pyramiden mit gestuften Kalkstein-Terrassen und Goldspitze
+    status: accepted
+    specs: [s-afrika-aegypten-002]
+    decision: Für die PÜRAMIDEN wird eine dedizierte A-Frame-Komponente ki-pyramiden registriert, die drei unterschiedlich große Pyramiden (Cheops, Chefren, Mykerinos) aus vierseitigen ConeGeometry-Körpern mit gestuften Sandstein-Schichten und goldener Pyramidion-Spitze erzeugt.
+    why: Liefert sofort erkennbare, schattenwerfende 3D-Pyramiden bei minimaler Draw-Call-Anzahl.
+    how:
+      - Vierseitige Kegel (ConeGeometry mit radialSegments=4, um 45 Grad gedreht) und gestufte Terrassen-Boxen in einer gemeinsamen THREE.Group aufbauen.
+
+tests:
+  - id: t-afrika-aegypten-001
+    title: Kontinent Afrika/Ägypten (Pyramiden, Wüsten-Eisenbahn, Hafen, Flughafen & Lara-Kamera 9) prüfen
+    specs: [s-afrika-aegypten-001, s-afrika-aegypten-002, s-afrika-aegypten-003]
+    suites: [smoke, regression]
+    areas: [afrika-aegypten]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: http://localhost:8080/welt.html?afrikatest=1 im Headless-Browser starten und Selbsttest für den Kontinent Afrika/Ägypten ausführen.
+        expected:
+          - AFRIKA_TEST_RESULT bestätigt gleisAfrikaVorhanden=true, zuegeAnzahl=3, pyramidenVorhanden=true und laraInAfrika=true.
+          - Der erzeugte Screenshot zeigt die ägyptische Landschaft mit den 3D-Pyramiden (PÜRAMIDEN), der Wüsten-Eisenbahn, den Palmen, dem Strand/Hafen am Roten Meer und Lara Croft.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: afrikatest=1

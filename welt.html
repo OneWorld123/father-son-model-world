@@ -33,19 +33,19 @@
     <a-sky id="himmel" color="#38bdf8"></a-sky>
 
     <a-entity id="licht-ambient" light="type: ambient; color: #fff8e1; intensity: 0.9"></a-entity>
-    <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048; shadowCameraNear: 15; shadowCameraFar: 320; shadowCameraTop: 150; shadowCameraBottom: -150; shadowCameraLeft: -370; shadowCameraRight: 370" position="-60 110 -40"></a-entity>
+    <a-entity id="licht-sonne" light="type: directional; color: #ffe0b2; intensity: 2.2; castShadow: true; shadowMapWidth: 2048; shadowMapHeight: 2048; shadowCameraNear: 15; shadowCameraFar: 380; shadowCameraTop: 260; shadowCameraBottom: -260; shadowCameraLeft: -380; shadowCameraRight: 380" position="-60 120 -20"></a-entity>
 
     <!-- 2. SPIELER-KAMERA (Start in Deutschland mit Panoramablick; near=0.05 verhindert Cockpit-Clipping!) -->
     <a-entity id="kamera-rig" position="-244 7.5 -50" rotation="-10 142 0">
-      <a-camera id="haupt-kamera" near="0.05" far="1600" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
+      <a-camera id="haupt-kamera" near="0.05" far="1800" wasd-controls="acceleration: 35; fly: false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
 
     <!-- ====================================================================== -->
-    <!-- BLATT 2 (MITTE): DER GROSSE OZEAN, DIE OSTSEE, 4 INSELN & SCHIFFE      -->
+    <!-- BLATT 2 (MITTE): DER GROSSE OZEAN, DIE OSTSEE, ROTES MEER & 4 INSELN   -->
     <!-- ====================================================================== -->
 
-    <!-- Gewaltiges Weltmeer (Ozean + Ostsee, verbreitert für weite Kontinent-Distanz) -->
-    <a-plane position="0 0.05 0" rotation="-90 0 0" width="980" height="360"
+    <!-- Gewaltiges Weltmeer (Ozean + Ostsee + Rotes Meer für alle 3 Kontinente) -->
+    <a-plane position="0 0.05 60" rotation="-90 0 0" width="1080" height="620"
              material="color: #0369a1; roughness: 0.12; metalness: 0.85"></a-plane>
 
     <!-- 4 Gelbe Sand-Inseln im Ozean vor der Küste Amerikas (wie gezeichnet) -->
@@ -216,6 +216,91 @@
 
     <!-- 6. US-FLUGHAFEN (Rechts bei X: +306 mit Startbahn, großem Terminal, Rollfeld & Tower im Süden) -->
     <a-entity ki-flughafen="name: NEW YORK AIRPORT; laenge: 58; terminalSeite: rechts" position="306 0.25 14"></a-entity>
+
+
+    <!-- ====================================================================== -->
+    <!-- KONTINENT 3 (SÜDOSTEN): AFRIKA – ÄGYPTISCHE KÜSTE ZUM ROTEN MEER       -->
+    <!-- (X: +20 bis +190, Z: +115 bis +255 – 1:1 nach eurer neuen Handskizze!) -->
+    <!-- ====================================================================== -->
+
+    <!-- Großes Rotes-Meer-Schild im Wasser vor der ägyptischen Küste -->
+    <a-text value="ROTES MEER" color="#bae6fd" width="95" align="center" position="105 0.6 96" rotation="-90 0 0"></a-text>
+
+    <!-- Ägyptisches Wüsten-Festland (Goldgelber Wüstensand) -->
+    <a-box color="#d97706" width="170" height="0.5" depth="136" position="105 0.0 188" material="roughness: 0.95" shadow="receive: true"></a-box>
+
+    <!-- 1. LANGER GELBER SANDSTRAND ("STRAND", links bis über die Mitte der Küste) -->
+    <a-box color="#facc15" width="108" height="0.38" depth="9" position="78 0.02 117" material="roughness: 0.9" shadow="receive: true"></a-box>
+    <a-text value="STRAND" color="#15803d" width="42" align="center" position="78 2.6 117"></a-text>
+
+    <!-- 2. HAFEN ÄGYPTEN (Rechts oben an der Küste zum Roten Meer, gezackte Kaimauern für "MEIN SCHIFF") -->
+    <a-box color="#334155" width="28" height="0.85" depth="4.2" position="156 0.35 118" shadow="cast: true; receive: true"></a-box>
+    <a-box color="#334155" width="4.0" height="0.85" depth="12" position="144 0.35 113"></a-box>
+    <a-box color="#334155" width="4.0" height="0.85" depth="14" position="156 0.35 112"></a-box>
+    <a-box color="#334155" width="4.0" height="0.85" depth="12" position="168 0.35 113"></a-box>
+    <a-text value="HAFEN (ROTES MEER)" color="#e0f2fe" width="32" align="center" position="156 3.5 118"></a-text>
+
+    <!-- 3. DURCHGEHENDE KÜSTENSTRASSE + ABZWEIG "STRASSE" + BLAUES AUTO + "MEIN HAUS (ÄGYPTEN)" -->
+    <a-entity ki-strasse="breite: 3.8; punkte: 32 0.28 125, 78 0.28 125, 132 0.28 124, 158 0.28 124, 178 0.28 128"></a-entity>
+    <!-- Abzweig-Straße nach Süden ("STRASSE") -->
+    <a-entity ki-strasse="breite: 3.6; punkte: 158 0.28 124, 158 0.28 152, 160 0.28 178"></a-entity>
+    <!-- Rot-braunes Schild "STRASSE" an der Abzweigung (wie auf der Skizze) -->
+    <a-box color="#9a3412" width="1.2" height="3.2" depth="0.3" position="162 1.6 146" shadow="cast: true"></a-box>
+    <a-text value="STRASSE" color="#fef08a" width="16" align="center" position="162 3.8 146"></a-text>
+
+    <!-- Kleines blaues Küsten-Auto auf der Küstenstraße (wie in der Skizze gezeichnet) -->
+    <a-entity position="134 0.35 124" rotation="0 90 0">
+      <a-box color="#0284c7" width="1.8" height="0.65" depth="3.8" position="0 0.35 0" shadow="cast: true"></a-box>
+      <a-box color="#bae6fd" width="1.55" height="0.55" depth="2.0" position="0 0.85 -0.1" shadow="cast: true"></a-box>
+      <a-text value="AUTO" color="#ffffff" width="12" align="center" position="0 1.6 0" rotation="0 -90 0"></a-text>
+    </a-entity>
+
+    <!-- "MEIN HAUS" Nr. 3 (Ganz rechts an der ägyptischen Küste) -->
+    <a-entity ki-haus="farbe: #f8fafc; dachFarbe: #dc2626; etagen: 2" position="178 0.25 135" rotation="0 -45 0"></a-entity>
+    <a-text value="MEIN HAUS (AEGYPTEN)" color="#fef08a" width="26" align="center" position="178 6.8 135"></a-text>
+
+    <!-- 4. DIE 4 GROSSEN OASEN-PALMEN (Exakt an den 4 gezeichneten Standorten!) -->
+    <!-- Palme 1: Links am Flussbogen -->
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedTall.glb" scale="3.4 3.8 3.4" position="38 0.25 168" shadow="cast: true"></a-entity>
+    <!-- Palme 2: Mitte über der Bahnschleife -->
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedTall.glb" scale="3.4 3.8 3.4" position="98 0.25 152" shadow="cast: true"></a-entity>
+    <!-- Palme 3: Rechts der Mitte -->
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedShort.glb" scale="3.8 4.2 3.8" position="128 0.25 148" shadow="cast: true"></a-entity>
+    <!-- Palme 4: Große bunte Palme rechts bei Mein Haus & Abzweig-Straße -->
+    <a-entity gltf-model="models/nature/Models/GLTF format/tree_palmDetailedTall.glb" scale="4.2 4.6 4.2" position="168 0.25 150" shadow="cast: true"></a-entity>
+
+    <!-- 5. DER FLUSS (NIL) MIT BLAUER FÄHRE ("FLUSS" & "FÄHRE" links bis unten Mitte) -->
+    <!-- Linker Flussarm von der Strand-Mündung nach Süden -->
+    <a-box color="#0284c7" width="8.0" height="0.52" depth="118" position="30 0.04 176" rotation="0 -6 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <!-- Südlicher Flussarm am unteren Rand entlang bis unter die Kreisschleife -->
+    <a-box color="#0284c7" width="96" height="0.52" depth="7.5" position="80 0.04 236" rotation="0 2 0" material="roughness: 0.1; metalness: 0.85"></a-box>
+    <a-text value="FLUSS (NIL)" color="#7dd3fc" width="32" align="center" position="105 2.5 236"></a-text>
+    <!-- Blaue Nil-Fähre links unten -->
+    <a-entity ki-faehre="tempo: 0.85; von: 28 0.35 148; nach: 34 0.35 218">
+      <a-box color="#0284c7" width="2.5" height="1.1" depth="6.8" rotation="0 90 0" shadow="cast: true"></a-box>
+      <a-box color="#f8fafc" width="1.8" height="0.85" depth="4.2" position="0 0.9 0" rotation="0 90 0"></a-box>
+      <a-text value="FAEHRE" color="#fef08a" width="14" align="center" position="0 2.1 0"></a-text>
+    </a-entity>
+
+    <!-- 6. FLUGHAFEN ÄGYPTEN (Links der Mitte, eingebettet in die große S-Kurve der Bahn) -->
+    <a-entity ki-flughafen="name: FLUGHAFEN AEGYPTEN; laenge: 48; terminalSeite: links" position="68 0.25 190"></a-entity>
+
+    <!-- 7. "PÜRAMIDEN" / PYRAMIDEN VON GIZEH (Rechts unten unter dem großen Eisenbahnbogen!) -->
+    <a-entity id="afrika-pyramiden" ki-pyramiden position="146 0.25 212"></a-entity>
+    <a-text value="PUERAMIDEN (PYRAMIDEN)" color="#fef08a" width="48" align="center" position="146 25 212" rotation="0 180 0"></a-text>
+    <a-text value="PUERAMIDEN (PYRAMIDEN)" color="#fef08a" width="48" align="center" position="146 25 212"></a-text>
+
+    <!-- 8. DIE GROSSE VERSCHLUNGENE WÜSTEN-EISENBAHN (Mit S-Kurve um den Flughafen, 360°-Kreisschleife & Pyramiden-Bogen!) -->
+    <a-entity ki-gleis="id: afrika-bahn; punkte: 38 0.30 222, 46 0.30 165, 68 0.30 142, 84 0.30 158, 52 0.30 188, 54 0.30 224, 82 0.30 224, 92 0.30 160, 108 0.30 162, 98 0.30 218, 120 0.30 228, 126 0.30 196, 108 0.30 192, 104 0.30 214, 128 0.30 226, 152 0.30 176, 178 0.30 186, 178 0.30 232, 138 0.30 242, 75 0.30 242"></a-entity>
+    <a-entity ki-bahnhof="name: Kairo / Pyramiden Hbf" position="148 0.25 173" rotation="0 12 0"></a-entity>
+
+    <!-- ZUG AFRIKA: Wüsten-Express auf der verschlungenen Ägypten-Strecke -->
+    <a-entity ki-zug="name: 🇪🇬 Wüsten-Express; gleis: afrika-bahn; tempo: 12.0; startPos: 12">
+      <a-entity ki-waggon="typ: dampflok; modell: models/trains/Models/GLB format/train-locomotive-a.glb; scale: 1.45 1.45 1.45"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-passenger-a.glb; scale: 1.45 1.45 1.45"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-passenger-b.glb; scale: 1.45 1.45 1.45"></a-entity>
+      <a-entity ki-waggon="modell: models/trains/Models/GLB format/train-carriage-flatbed-wood.glb; scale: 1.45 1.45 1.45"></a-entity>
+    </a-entity>
 
     <!-- ====================================================================== -->
     <!-- TRANSATLANTIK-FLUGZEUG (Verbindet Flughafen DE ⇄ Ozean ⇄ Flughafen USA) -->
