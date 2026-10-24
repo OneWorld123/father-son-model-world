@@ -38,6 +38,17 @@ specs:
       - Keine Innenseiten des eigenen 3D-Fahrzeugmodells (z. B. weißes Dach von train-electric-bullet-a.glb) verdecken das Sichtfeld.
     why: Die für das Autocockpit reduzierte Near-Plane darf andere Fahrzeug-Kameras nicht durch eigene Hüllgeometrie blockieren.
 
+  - id: s-car-cockpit-004
+    title: Zwei steuerbare 3D-Mercedes-G-Klassen in Türkis und Weiß mit Fahrzeugwechsel
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+    when: Der Nutzer die Autos in der Szene betrachtet oder in Kamera [8] (Auto-Cockpit) fährt.
+    then:
+      - Es existieren zwei vollwertige, steuerbare 3D-Mercedes-G-Klassen (ki-auto): eine G-Klasse in Türkis (#06b6d4) und eine G-Klasse in Weiß (#f8fafc).
+      - Beide G-Klassen besitzen die charakteristische kantige Geländewagen-Karosserie mit aufgesetzten Kotflügel-Blinkern, Panamericana-Kühlergrill mit Rundscheinwerfern und Frontbügel, schwarzen Kotflügelverbreiterungen, Trittbrettern, Sidepipes, B-/C-/D-Säulen-Dachrahmen und Hecktür-Ersatzradabdeckung in Wagenfarbe.
+      - Im Auto-HUD (#eep-auto-hud) sowie per Taste [V] kann der Spieler jederzeit zwischen der türkisen G-Klasse und der weißen G-Klasse wechseln; außerdem lässt sich per Taste [C] oder Button zwischen 3D-Cockpit-Ansicht und 3rd-Person-Außenansicht umschalten.
+    why: Der Nutzer wünscht explizit zwei Mercedes G-Klassen in den Farben Türkis und Weiß als fahrbare Autos.
+
 decisions:
   - id: d-car-cockpit-001
     title: Kamera-Nahgrenze near=0.05 mit Zero-Lag-Synchronisation und deaktivierten wasd-controls
@@ -61,10 +72,21 @@ decisions:
       - In ki-canyon alle Schichtgeometrien mit Vertex-Farben in eine einzige THREE.BufferGeometry mit computeBoundingSphere() und matrixAutoUpdate=false zusammenführen.
       - Vor A-Frame-Initialisierung HTMLCanvasElement.prototype.getContext für WebGL/WebGL2 mit powerPreference="high-performance" erweitern.
 
+  - id: d-car-cockpit-003
+    title: Zwei ki-auto Instanzen (G-Klasse Türkis & Weiß) mit aktivem Fahrzeug-Umschalter in window.EEP.autos
+    status: accepted
+    specs: [s-car-cockpit-001, s-car-cockpit-004]
+    decision: ki-auto baut die charakteristische 3D-Geometrie der Mercedes-Benz G-Klasse (kantige Kastenform, aufgesetzte Kotflügel-Blinker, Panamericana-Grill, Rundscheinwerfer, Frontbügel, Ersatzrad an der Hecktür, Sidepipes) in der jeweiligen Lackfarbe (#06b6d4 Türkis und #f8fafc Weiß) auf und verwaltet beide Fahrzeuge über window.EEP.autos mit aktivem Umschalter window.EEP.wechsleAuto().
+    why: So sind beide G-Klassen gleichzeitig als echte 3D-Objekte in der Welt sichtbar und beide besitzen das vollständige 3D-Cockpit mit Lenkrad, Gangwahlhebel, Kombiinstrument und Navi.
+    how:
+      - In welt.html zwei a-entity mit ki-auto (einmal farbe=#06b6d4, einmal farbe=#f8fafc) platzieren.
+      - In ki-auto nur für das aktuell ausgewählte Fahrzeug (window.EEP.autoComp === this) Tastatureingaben und Kamera-Synchronisation ausführen.
+      - Im Auto-HUD Umschalt-Buttons für G-Klasse Türkis, G-Klasse Weiß und Cockpit/Außenansicht anbieten.
+
 tests:
   - id: t-car-cockpit-001
-    title: Automatisierter Fahrphysik-, Gangwahl- und Cockpit-Sichtbarkeitstest
-    specs: [s-car-cockpit-001, s-car-cockpit-002]
+    title: Automatisierter Fahrphysik-, Gangwahl-, Cockpit- und 2-G-Klassen-Test (Türkis & Weiß)
+    specs: [s-car-cockpit-001, s-car-cockpit-002, s-car-cockpit-004]
     suites: [smoke, regression]
     areas: [car-cockpit]
     risk: high
@@ -76,8 +98,8 @@ tests:
       - action: http://localhost:8080/welt.html?autotest=1 im Headless-Browser öffnen und Selbsttest ausführen.
         expected:
           - Die Browser-Konsole meldet keine Uncaught-Ausnahmen (ReferenceError, TypeError, SyntaxError).
-          - AUTO_TEST_RESULT meldet kameraModus=8, keinDrehenImStand=true, lenkradDreht=true, schalthebelBewegtSich=true und tachoKmh > 0.
-          - Der erzeugte Screenshot zeigt Lenkrad, Kombiinstrument, Gangwahlhebel, GPS-Navi, Motorhaube und freie Sicht auf die Straße.
+          - AUTO_TEST_RESULT meldet kameraModus=8, gKlassenAnzahl=2, farben=["#06b6d4","#f8fafc"], keinDrehenImStand=true, lenkradDreht=true, schalthebelBewegtSich=true und tachoKmh > 0.
+          - Der erzeugte Screenshot zeigt das G-Klasse-Cockpit (Lenkrad, Kombiinstrument, Gangwahlhebel, GPS-Navi, kantige türkise G-Klasse-Motorhaube mit aufgesetzten Blinkern) sowie die zweite weiße G-Klasse auf der Straße.
     cleanup:
       - Temporäres Browser-Profilverzeichnis des Headless-Laufs entfernen.
     automation:

@@ -7,6 +7,8 @@
 window.EEP = {
   gleise: {},      // Speichert alle THREE.CatmullRomCurve3 Strecken nach ID
   zuege: [],       // Liste aller aktiven Zugverbände für das Steuerpult
+  autos: [],       // Liste aller steuerbaren G-Klassen (Türkis & Weiß)
+  autoAussenAnsicht: false, // false = 3D-Cockpit (Lenkrad), true = 3rd-Person-Außenansicht
   kameras: {},     // Kamera-Referenzen
   aktiveKamera: 1, // 1 = Frei, 2 = Dampflok, 3 = ICE, 4 = Bahnhof
   wetterIndex: 0,  // 0 = Tag (Wald), 1 = Abendrot, 2 = Nacht, 3 = Schnee
@@ -2523,11 +2525,16 @@ AFRAME.registerComponent('ki-faehre', {
 // ============================================================================
 AFRAME.registerComponent('ki-auto', {
   schema: {
-    farbe: { type: 'color', default: '#dc2626' }
+    farbe: { type: 'color', default: '#06b6d4' },
+    name: { type: 'string', default: 'G-Klasse' },
+    aktiv: { type: 'boolean', default: true }
   },
 
   init: function () {
-    window.EEP.autoComp = this;
+    window.EEP.autos.push(this);
+    if (this.data.aktiv || !window.EEP.autoComp) {
+      window.EEP.autoComp = this;
+    }
 
     // Physik-Zustand (Vorwärtsrichtung im lokalen Raum ist -Z!)
     this.geschwindigkeit = 0;      // m/s (positiv = vorwärts, negativ = rückwärts)
@@ -2544,7 +2551,7 @@ AFRAME.registerComponent('ki-auto', {
     this.tasten = { hoch: false, runter: false, links: false, rechts: false };
 
     window.addEventListener('keydown', (e) => {
-      if (window.EEP.aktiveKamera !== 8) return;
+      if (window.EEP.aktiveKamera !== 8 || window.EEP.autoComp !== this) return;
       if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
         this.tasten.hoch = false;
         this.tasten.runter = false;
@@ -2558,6 +2565,15 @@ AFRAME.registerComponent('ki-auto', {
       if (e.key === 'ArrowRight') { this.tasten.rechts = true; e.preventDefault(); }
       if (e.key.toLowerCase() === 'g') {
         this.naechsterGang();
+        e.preventDefault();
+      }
+      if (e.key.toLowerCase() === 'v') {
+        if (window.EEP.wechsleAuto) window.EEP.wechsleAuto();
+        e.preventDefault();
+      }
+      if (e.key.toLowerCase() === 'c') {
+        window.EEP.autoAussenAnsicht = !window.EEP.autoAussenAnsicht;
+        if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
         e.preventDefault();
       }
     });
@@ -2609,99 +2625,247 @@ AFRAME.registerComponent('ki-auto', {
     const root = new THREE.Group();
     this.el.setObject3D('mesh', root);
 
-    const lackMat = new THREE.MeshStandardMaterial({ color: this.data.farbe, roughness: 0.22, metalness: 0.55 });
-    const streifenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.2 });
+    const lackMat = new THREE.MeshStandardMaterial({ color: this.data.farbe, roughness: 0.20, metalness: 0.45 });
+    const schwarzMattMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.75, metalness: 0.2 });
     const dunkelLederMat = new THREE.MeshStandardMaterial({ color: 0x181c24, roughness: 0.7, metalness: 0.1 });
     const konsoleMat = new THREE.MeshStandardMaterial({ color: 0x11151c, roughness: 0.5, metalness: 0.25 });
     const aluMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.25, metalness: 0.85 });
-    const chromMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.12, metalness: 0.95 });
+    const chromMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.10, metalness: 0.95 });
     const rotAkzentMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35, metalness: 0.2 });
+    const blinkerMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 1.2 });
+    const getoentesGlasMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.78 });
 
     // ========================================================================
-    // 1. KAROSSERIE AUSSEN & KONTURIERTE MOTORHAUBE (Sichtbar aus Cockpit!)
+    // 1. MERCEDES G-KLASSE (AMG G 63) KAROSSERIE & KANTIGE MOTORHAUBE
     // ========================================================================
-    // Unterboden / Chassis-Wanne
-    const boden = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.20, 4.35), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
-    boden.position.set(0, 0.32, 0);
+    // Hohes Geländewagen-Chassis & Unterboden
+    const boden = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.22, 4.42), schwarzMattMat);
+    boden.position.set(0, 0.35, 0);
     boden.castShadow = true;
     root.add(boden);
 
-    // Seitenschweller & Türen links/rechts (damit das Cockpit seitlich geschlossen ist)
-    [-0.89, 0.89].forEach(xSide => {
-      const tuer = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.58, 2.25), lackMat);
-      tuer.position.set(xSide, 0.68, 0.05);
+    // G-Klasse Trittbretter (Running Boards) & AMG Sidepipes + Kotflügelverbreiterungen
+    [-1, 1].forEach(side => {
+      const xSide = side * 0.89;
+
+      // Kantige G-Klasse Türen & Seitenwand in Wagenfarbe (Türkis oder Weiß)
+      const tuer = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.66, 2.55), lackMat);
+      tuer.position.set(xSide, 0.72, 0.22);
       tuer.castShadow = true;
       root.add(tuer);
 
-      const innenVerkleidung = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.52, 1.95), dunkelLederMat);
-      innenVerkleidung.position.set(xSide * 0.92, 0.68, 0.05);
+      // Charakteristische schwarze G-Klasse-Schutzleiste (Rub Strip) über die gesamte Fahrzeugflanke
+      const schutzLeiste = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.045, 3.85), schwarzMattMat);
+      schutzLeiste.position.set(side * 0.90, 0.84, -0.05);
+      root.add(schutzLeiste);
+
+      // Seitliches Trittbrett (Running Board) zwischen den Kotflügeln
+      const trittbrett = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 1.92), aluMat);
+      trittbrett.position.set(side * 0.96, 0.34, 0.02);
+      root.add(trittbrett);
+
+      // Doppelte verchromte AMG-Sidepipes (Seitliche Auspuffendrohre vor dem Hinterrad!)
+      [-0.68, -0.54].forEach(zPipe => {
+        const sidepipe = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.22, 12), chromMat);
+        sidepipe.rotation.z = Math.PI / 2;
+        sidepipe.position.set(side * 0.95, 0.29, -zPipe);
+        root.add(sidepipe);
+      });
+
+      // Markante schwarze G-Klasse Kotflügelverbreiterungen (vorn & hinten)
+      [-1.32, 1.32].forEach(zArch => {
+        const radlauf = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.38, 0.92), schwarzMattMat);
+        radlauf.position.set(side * 0.95, 0.56, zArch);
+        radlauf.castShadow = true;
+        root.add(radlauf);
+      });
+
+      // Innenverkleidung & Armlehne
+      const innenVerkleidung = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.54, 1.95), dunkelLederMat);
+      innenVerkleidung.position.set(xSide * 0.92, 0.70, 0.05);
       root.add(innenVerkleidung);
 
-      // Armlehne + Chrom-Türgriff innen
       const armlehne = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.65), aluMat);
-      armlehne.position.set(xSide * 0.89, 0.78, -0.05);
+      armlehne.position.set(xSide * 0.89, 0.80, -0.05);
       root.add(armlehne);
     });
 
-    // Lange Sport-Motorhaube vorne (z: -0.68 bis -2.16)
-    const haube = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.16, 1.48), lackMat);
-    haube.position.set(0, 0.91, -1.42);
-    haube.rotation.x = THREE.MathUtils.degToRad(-2.5); // Sanft abfallend, damit man Haube + Streifen aus dem Cockpit sieht!
+    // Kantige, hohe G-Klasse-Motorhaube vorne (z: -0.68 bis -2.14)
+    const haube = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.18, 1.48), lackMat);
+    haube.position.set(0, 0.92, -1.42);
+    haube.rotation.x = THREE.MathUtils.degToRad(-1.5);
     haube.castShadow = true;
     haube.receiveShadow = true;
     root.add(haube);
 
-    // Ausgeformte Kotflügel-Kanten links & rechts auf der Motorhaube (Fahrzeugbreiten-Peilung!)
+    // Markanter aufgesetzter AMG Powerdome in der Mitte der G-Klasse-Motorhaube (aus dem Cockpit sichtbar!)
+    const powerDome = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.065, 1.18), lackMat);
+    powerDome.position.set(0, 1.01, -1.38);
+    powerDome.rotation.x = THREE.MathUtils.degToRad(-1.5);
+    powerDome.castShadow = true;
+    root.add(powerDome);
+
+    // Schwarze Lufteinlass-Akzente links & rechts am Powerdome
+    [-0.53, 0.53].forEach(xVent => {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.85), schwarzMattMat);
+      vent.position.set(xVent, 1.01, -1.38);
+      vent.rotation.x = THREE.MathUtils.degToRad(-1.5);
+      root.add(vent);
+    });
+
+    // Ausgeformte kantige G-Klasse Kotflügel-Oberseiten links & rechts
     [-0.78, 0.78].forEach(xFender => {
-      const kotfluegel = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.19, 1.44), lackMat);
-      kotfluegel.position.set(xFender, 0.94, -1.40);
-      kotfluegel.rotation.x = THREE.MathUtils.degToRad(-2.5);
+      const kotfluegel = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.20, 1.46), lackMat);
+      kotfluegel.position.set(xFender, 0.94, -1.41);
+      kotfluegel.rotation.x = THREE.MathUtils.degToRad(-1.5);
       root.add(kotfluegel);
+
+      // IKONISCHE AUFGESETZTE G-KLASSE-BLINKER oben auf den vorderen Kotflügel-Ecken!
+      const blinkerSockel = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.05, 0.20), schwarzMattMat);
+      blinkerSockel.position.set(xFender, 1.05, -1.92);
+      root.add(blinkerSockel);
+
+      const blinkerGlas = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.045, 0.16), blinkerMat);
+      blinkerGlas.position.set(xFender, 1.075, -1.93);
+      root.add(blinkerGlas);
     });
 
-    // Zwei weiße Sport-Rallyestreifen auf der Motorhaube (machen jede Lenkbewegung sofort spürbar!)
-    [-0.24, 0.24].forEach(xStripe => {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.018, 1.44), streifenMat);
-      stripe.position.set(xStripe, 0.995, -1.42);
-      stripe.rotation.x = THREE.MathUtils.degToRad(-2.5);
-      root.add(stripe);
-    });
-
-    // Edle Chrom-Kühlerfigur vorne auf der Haubenspitze (als Zielvisier für die Straße)
+    // Edler Chrom-Stern vorne auf der G-Klasse-Haubenspitze
     const sockel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.03, 16), chromMat);
-    sockel.position.set(0, 0.96, -2.06);
+    sockel.position.set(0, 0.99, -2.06);
     root.add(sockel);
     const sternRing = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.009, 12, 24), chromMat);
-    sternRing.position.set(0, 1.03, -2.06);
+    sternRing.position.set(0, 1.06, -2.06);
     root.add(sternRing);
 
-    // Frontschürze & Kühlergrill
-    const front = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.44, 0.25), lackMat);
-    front.position.set(0, 0.56, -2.08);
-    root.add(front);
+    // ========================================================================
+    // 1b. G-KLASSE FRONTPARTIE (Panamericana-Grill, Rundscheinwerfer & Frontbügel)
+    // ========================================================================
+    const frontMaske = new THREE.Mesh(new THREE.BoxGeometry(1.84, 0.56, 0.22), lackMat);
+    frontMaske.position.set(0, 0.68, -2.08);
+    frontMaske.castShadow = true;
+    root.add(frontMaske);
 
-    // Heckpartie / Kofferraum
-    const heck = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.56, 1.05), lackMat);
-    heck.position.set(0, 0.68, 1.62);
-    heck.castShadow = true;
-    root.add(heck);
+    // Schwarzer Kühlergrill-Einsatz mit vertikalen Chrom-Streben & großem Zentralstern
+    const grillKasten = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.36, 0.06), schwarzMattMat);
+    grillKasten.position.set(0, 0.72, -2.18);
+    root.add(grillKasten);
 
-    // Scheinwerfer vorne & Brems-/Rückfahrlichter hinten
-    const scheinwerferMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 2.5 });
+    for (let g = -4; g <= 4; g++) {
+      const strebe = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.32, 0.07), chromMat);
+      strebe.position.set(g * 0.105, 0.72, -2.185);
+      root.add(strebe);
+    }
+
+    const frontSternRing = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.016, 12, 24), chromMat);
+    frontSternRing.position.set(0, 0.72, -2.21);
+    root.add(frontSternRing);
+
+    // Massiver Offroad-Frontstoßfänger & verchromter G-Klasse Frontbügel (Bullbar)
+    const frontStossstange = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.24, 0.28), schwarzMattMat);
+    frontStossstange.position.set(0, 0.38, -2.16);
+    root.add(frontStossstange);
+
+    const buegelOben = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 1.08, 12), chromMat);
+    buegelOben.rotation.z = Math.PI / 2;
+    buegelOben.position.set(0, 0.88, -2.27);
+    root.add(buegelOben);
+    [-0.50, 0.50].forEach(xBar => {
+      const buegelStuetze = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.50, 12), chromMat);
+      buegelStuetze.position.set(xBar, 0.63, -2.27);
+      root.add(buegelStuetze);
+    });
+
+    // ========================================================================
+    // 1c. KANTIGER G-KLASSE KASTENAUFBAU HINTEN & ERSATZRAD AN DER HECKTÜR
+    // ========================================================================
+    // Untere Heckpartie & Stoßstange
+    const heckKasten = new THREE.Mesh(new THREE.BoxGeometry(1.84, 0.68, 1.35), lackMat);
+    heckKasten.position.set(0, 0.72, 1.48);
+    heckKasten.castShadow = true;
+    root.add(heckKasten);
+
+    const heckStossstange = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.22, 0.26), schwarzMattMat);
+    heckStossstange.position.set(0, 0.36, 2.16);
+    root.add(heckStossstange);
+
+    // B-, C- und D-Säulen sowie hinteres Kasten-Dach (hinter dem Fahrer ab z = +0.35, sodass das Cockpit nach vorne/oben 100% frei bleibt!)
+    [-0.86, 0.86].forEach(xPil => {
+      // B-Säule (neben/hinter der Fahrer-Kopfstütze)
+      const bSaeule = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.72, 0.12), lackMat);
+      bSaeule.position.set(xPil, 1.40, 0.38);
+      root.add(bSaeule);
+
+      // C-Säule
+      const cSaeule = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.72, 0.14), lackMat);
+      cSaeule.position.set(xPil, 1.40, 1.24);
+      root.add(cSaeule);
+
+      // D-Säule (Heckkante)
+      const dSaeule = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.72, 0.16), lackMat);
+      dSaeule.position.set(xPil, 1.40, 2.04);
+      root.add(dSaeule);
+
+      // Dunkel getönte G-Klasse Fond- & Kofferraumfenster
+      const seitenFenster = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.56, 1.62), getoentesGlasMat);
+      seitenFenster.position.set(xPil, 1.38, 1.22);
+      root.add(seitenFenster);
+
+      // Durchgehender oberer G-Klasse Dachholm (Regenrinne) von der A-Säule bis zum Heck
+      const dachHolm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 2.48), lackMat);
+      dachHolm.position.set(xPil, 1.74, 0.90);
+      root.add(dachHolm);
+    });
+
+    // Hinteres G-Klasse Flachdach (ab B-Säule z = 0.36 bis z = 2.12)
+    const hinterDach = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.08, 1.76), lackMat);
+    hinterDach.position.set(0, 1.76, 1.24);
+    hinterDach.castShadow = true;
+    root.add(hinterDach);
+
+    // Getönte Heckscheibe
+    const heckScheibe = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.56, 0.05), getoentesGlasMat);
+    heckScheibe.position.set(0, 1.38, 2.08);
+    root.add(heckScheibe);
+
+    // IKONISCHES G-KLASSE ERSATZRAD-COVER AN DER HECKTÜR (mit Chromring & Wagenfarben-Platte!)
+    const ersatzradReifen = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.24, 24), chromMat);
+    ersatzradReifen.rotation.x = Math.PI / 2;
+    ersatzradReifen.position.set(0.12, 0.96, 2.24);
+    ersatzradReifen.castShadow = true;
+    root.add(ersatzradReifen);
+
+    const ersatzradDeckel = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.26, 24), lackMat);
+    ersatzradDeckel.rotation.x = Math.PI / 2;
+    ersatzradDeckel.position.set(0.12, 0.96, 2.245);
+    root.add(ersatzradDeckel);
+
+    const heckSternRing = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.012, 10, 24), chromMat);
+    heckSternRing.position.set(0.12, 0.96, 2.38);
+    root.add(heckSternRing);
+
+    // Runde G-Klasse LED-Scheinwerfer vorne & Brems-/Rückfahrlichter hinten
+    const scheinwerferMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 2.8 });
     this.bremsLichtMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, emissive: 0xff1744, emissiveIntensity: 0.4 });
     this.rueckfahrLichtMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, emissive: 0xffffff, emissiveIntensity: 0.0 });
 
-    [-0.64, 0.64].forEach(xL => {
-      const sw = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.08), scheinwerferMat);
-      sw.position.set(xL, 0.72, -2.19);
+    [-0.68, 0.68].forEach(xL => {
+      // Runde G-Klasse Scheinwerfer + LED-Tagfahrlicht-Ring
+      const sw = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 20), scheinwerferMat);
+      sw.rotation.x = Math.PI / 2;
+      sw.position.set(xL, 0.74, -2.18);
       root.add(sw);
 
-      const bl = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), this.bremsLichtMat);
-      bl.position.set(xL, 0.76, 2.16);
+      const ledRing = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.015, 10, 24), scheinwerferMat);
+      ledRing.position.set(xL, 0.74, -2.21);
+      root.add(ledRing);
+
+      const bl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.08), this.bremsLichtMat);
+      bl.position.set(xL, 0.64, 2.16);
       root.add(bl);
 
-      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.08), this.rueckfahrLichtMat);
-      rl.position.set(xL * 0.72, 0.64, 2.16);
+      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 0.08), this.rueckfahrLichtMat);
+      rl.position.set(xL * 0.72, 0.52, 2.16);
       root.add(rl);
     });
 
@@ -3421,9 +3585,9 @@ AFRAME.registerComponent('ki-auto', {
       : (1400 + inGearFrac * (this.gang === 'S' ? 4800 : 3600) + this.gasStellung * 750);
     this.rpm += (zielRpm - this.rpm) * Math.min(1, deltaSec * 10);
 
-    // Kombiinstrument & Navi NUR im Auto-Cockpit [8] und nur bei Wertänderung (max 15 Hz) auf die GPU laden!
+    // Kombiinstrument & Navi NUR im aktiven Auto-Cockpit [8] und nur bei Wertänderung (max 15 Hz) auf die GPU laden!
     // Das verhindert teure CPU->GPU CanvasTexture-Stalls (glTexImage2D) in jedem Frame!
-    if (window.EEP.aktiveKamera === 8) {
+    if (window.EEP.aktiveKamera === 8 && window.EEP.autoComp === this) {
       const kmhInt = Math.round(kmh);
       const rpmStep = Math.round(this.rpm / 80);
       const blinkState = this.lenkWinkel > 0.08 ? 1 : (this.lenkWinkel < -0.08 ? -1 : 0);
@@ -3441,26 +3605,48 @@ AFRAME.registerComponent('ki-auto', {
     }
 
     // ------------------------------------------------------------------------
-    // 5. ZERO-LAG KAMERA-SYNC (Verhindert jegliches Cockpit-Zittern!)
+    // 5. ZERO-LAG KAMERA-SYNC (Cockpit-Ansicht & 3rd-Person-Außenansicht!)
     // ------------------------------------------------------------------------
-    if (window.EEP.aktiveKamera === 8 && this.camAnchorEl) {
+    if (window.EEP.aktiveKamera === 8 && window.EEP.autoComp === this && this.camAnchorEl) {
       this.el.object3D.updateMatrixWorld(true);
       const rig = document.querySelector('#kamera-rig');
       const cam = document.querySelector('#haupt-kamera');
-      if (rig) {
-        const worldPos = new THREE.Vector3();
-        const worldQuat = new THREE.Quaternion();
-        this.camAnchorEl.object3D.getWorldPosition(worldPos);
-        this.camAnchorEl.object3D.getWorldQuaternion(worldQuat);
-        rig.object3D.position.copy(worldPos);
-        rig.object3D.quaternion.copy(worldQuat);
-      }
-      if (cam) {
-        // Sicherstellen, dass wasd-controls niemals die Kamera im Auto verschiebt!
-        cam.object3D.position.set(0, 0, 0);
-        const ls = window.EEP.lookState;
-        if (ls) {
-          cam.object3D.rotation.set(ls.pitch, ls.yaw, 0, 'YXZ');
+      const ls = window.EEP.lookState;
+
+      if (window.EEP.autoAussenAnsicht) {
+        // 3rd-Person-Verfolgeransicht von außen hinter der G-Klasse (zeigt Kastenform, Ersatzrad & Lackfarbe!)
+        const carPos = this.el.object3D.position;
+        const carYaw = this.el.object3D.rotation.y;
+        const totalYaw = carYaw + (ls ? ls.yaw : 0);
+        const totalPitch = -0.22 + (ls ? ls.pitch : 0);
+        const dist = 6.8;
+        if (rig) {
+          rig.object3D.position.set(
+            carPos.x + Math.sin(totalYaw) * Math.cos(totalPitch) * dist,
+            Math.max(0.8, carPos.y + 1.35 - Math.sin(totalPitch) * dist),
+            carPos.z + Math.cos(totalYaw) * Math.cos(totalPitch) * dist
+          );
+          rig.object3D.rotation.set(totalPitch, totalYaw, 0, 'YXZ');
+        }
+        if (cam) {
+          cam.object3D.position.set(0, 0, 0);
+          cam.object3D.rotation.set(0, 0, 0);
+        }
+      } else {
+        // 3D-Cockpit-Ansicht auf dem Fahrersitz (Lenkrad, Gangwahlhebel, Tacho, G-Klasse-Haube & Blinker!)
+        if (rig) {
+          const worldPos = new THREE.Vector3();
+          const worldQuat = new THREE.Quaternion();
+          this.camAnchorEl.object3D.getWorldPosition(worldPos);
+          this.camAnchorEl.object3D.getWorldQuaternion(worldQuat);
+          rig.object3D.position.copy(worldPos);
+          rig.object3D.quaternion.copy(worldQuat);
+        }
+        if (cam) {
+          cam.object3D.position.set(0, 0, 0);
+          if (ls) {
+            cam.object3D.rotation.set(ls.pitch, ls.yaw, 0, 'YXZ');
+          }
         }
       }
     }
@@ -4178,8 +4364,28 @@ AFRAME.registerComponent('ki-steuerung', {
     const gefahreneDistanz = ac.el.object3D.position.distanceTo(startPos);
     const kmh = Math.round(ac.geschwindigkeit * 3.6);
 
+    // Zweite G-Klasse (Weiß) direkt schräg rechts vor die türkise G-Klasse auf die Straße stellen,
+    // sodass im Cockpit-Screenshot BEIDE G-Klassen (Türkis & Weiß) gleichzeitig perfekt sichtbar sind!
+    if (window.EEP.autos.length >= 2) {
+      const ac2 = window.EEP.autos[1];
+      const pos1 = ac.el.object3D.position;
+      const yaw1 = ac.el.object3D.rotation.y;
+      const fwdX = -Math.sin(yaw1);
+      const fwdZ = -Math.cos(yaw1);
+      const rightX = Math.cos(yaw1);
+      const rightZ = -Math.sin(yaw1);
+      ac2.teleportiereZu(
+        pos1.x + fwdX * 8.2 + rightX * 1.35,
+        pos1.y,
+        pos1.z + fwdZ * 8.2 + rightZ * 1.35,
+        THREE.MathUtils.radToDeg(yaw1) - 14
+      );
+    }
+
     console.log('AUTO_TEST_RESULT:', JSON.stringify({
       kameraModus: window.EEP.aktiveKamera,
+      gKlassenAnzahl: window.EEP.autos.length,
+      farben: window.EEP.autos.map(a => a.data.farbe),
       keinDrehenImStand: standYawDiff < 0.0001,
       lenkradDreht: Math.abs(lenkradRotStand) > 0.5,
       schalthebelBewegtSich: Math.abs(hebelZ_D - hebelZ_R) > 0.01,
@@ -4845,7 +5051,7 @@ AFRAME.registerComponent('ki-steuerung', {
           <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug 3D [5]</button>
           <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Mein Schiff [6]</button>
           <button class="eep-btn eep-cam-btn" data-cam="7">🦅 Übersicht [7]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="8" style="border-color:#f87171;">🚗 Auto-Cockpit [8]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="8" style="border-color:#06b6d4;">🚙 G-Klassen [8]</button>
           <button class="eep-btn eep-cam-btn" data-cam="9" style="border-color:#facc15;">🇪🇬 Lara Ägypten [9]</button>
         </div>
       </div>
@@ -4867,20 +5073,26 @@ AFRAME.registerComponent('ki-steuerung', {
     `;
     document.body.appendChild(ui);
 
-    // Interaktives Auto-Gangwahl- & Teleport-Panel unten rechts (nur in Kamera [8] sichtbar)
+    // Interaktives Auto-Gangwahl-, G-Klassen-Wechsel- & Teleport-Panel unten links (nur in Kamera [8] sichtbar)
     const autoHud = document.createElement('div');
     autoHud.id = 'eep-auto-hud';
     autoHud.innerHTML = `
-      <div class="eep-title">🕹️ Gangwahlhebel [G] & Pfeiltasten (⬆️ Gas | ⬇️ Bremse/R | ⬅️➡️ Lenken)</div>
+      <div class="eep-title">🚙 Mercedes G-Klasse wählen [V] & Kameraperspektive [C]</div>
+      <div class="eep-btn-row">
+        <button class="eep-btn eep-gclass-btn active" data-car-idx="0" style="border-color:#06b6d4;">🚙 G-Klasse Türkis</button>
+        <button class="eep-btn eep-gclass-btn" data-car-idx="1" style="border-color:#f8fafc;">🚙 G-Klasse Weiß</button>
+        <button class="eep-btn" id="eep-auto-view-btn">🎥 Ansicht: Cockpit [C]</button>
+      </div>
+      <div class="eep-title" style="margin-top:2px;">🕹️ Gangwahlhebel [G] & Pfeiltasten (⬆️ Gas | ⬇️ Bremse/R | ⬅️➡️ Lenken)</div>
       <div class="eep-btn-row" id="eep-gear-row">
         <button class="eep-gear-btn" data-gear="P">P</button>
         <button class="eep-gear-btn" data-gear="R">R</button>
         <button class="eep-gear-btn" data-gear="N">N</button>
         <button class="eep-gear-btn active" data-gear="D">D</button>
-        <button class="eep-gear-btn" data-gear="S">S (Sport)</button>
+        <button class="eep-gear-btn" data-gear="S">S (AMG)</button>
         <button class="eep-btn sound-btn" id="eep-auto-hupe-btn" style="margin-left:6px;">📣 Hupe [H]</button>
       </div>
-      <div class="eep-title" style="margin-top:2px;">📍 Auto umsetzen (Schnellreise)</div>
+      <div class="eep-title" style="margin-top:2px;">📍 Beide G-Klassen umsetzen (Schnellreise)</div>
       <div class="eep-btn-row">
         <button class="eep-btn eep-car-tp" data-tp="-243,0.28,-51,138">🇩🇪 Mein Haus DE</button>
         <button class="eep-btn eep-car-tp" data-tp="-246,0.28,38,85">🇩🇪 Hafen Ostsee</button>
@@ -4890,6 +5102,28 @@ AFRAME.registerComponent('ki-steuerung', {
       </div>
     `;
     document.body.appendChild(autoHud);
+
+    window.EEP.wechsleAuto = (zielIdx) => {
+      if (!window.EEP.autos || window.EEP.autos.length === 0) return;
+      const curIdx = Math.max(0, window.EEP.autos.indexOf(window.EEP.autoComp));
+      const nextIdx = typeof zielIdx === 'number' ? zielIdx : (curIdx + 1) % window.EEP.autos.length;
+      window.EEP.autoComp = window.EEP.autos[nextIdx] || window.EEP.autos[0];
+      window.EEP.autoComp.zeichneKombiinstrument();
+      window.EEP.autoComp.zeichneSchaltkulisse();
+      window.EEP.autoComp.zeichneNaviDisplay();
+      if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+    };
+
+    autoHud.querySelectorAll('.eep-gclass-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.EEP.wechsleAuto(Number(btn.dataset.carIdx));
+      });
+    });
+
+    document.getElementById('eep-auto-view-btn').addEventListener('click', () => {
+      window.EEP.autoAussenAnsicht = !window.EEP.autoAussenAnsicht;
+      if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+    });
 
     autoHud.querySelectorAll('.eep-gear-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -4904,6 +5138,21 @@ AFRAME.registerComponent('ki-steuerung', {
         if (!window.EEP.autoComp) return;
         const p = btn.dataset.tp.split(',').map(Number);
         window.EEP.autoComp.teleportiereZu(p[0], p[1], p[2], p[3]);
+        // Zweite G-Klasse direkt daneben/davor parken, damit beide immer zusammen reisen!
+        const anderesAuto = window.EEP.autos.find(a => a !== window.EEP.autoComp);
+        if (anderesAuto) {
+          const rad = THREE.MathUtils.degToRad(p[3]);
+          const fwdX = -Math.sin(rad);
+          const fwdZ = -Math.cos(rad);
+          const rightX = Math.cos(rad);
+          const rightZ = -Math.sin(rad);
+          anderesAuto.teleportiereZu(
+            p[0] + fwdX * 8.0 + rightX * 1.4,
+            p[1],
+            p[2] + fwdZ * 8.0 + rightZ * 1.4,
+            p[3] - 12
+          );
+        }
       });
     });
 
@@ -4916,6 +5165,14 @@ AFRAME.registerComponent('ki-steuerung', {
           b.classList.add(g === 'R' ? 'active-r' : 'active');
         }
       });
+      const curIdx = window.EEP.autos.indexOf(window.EEP.autoComp);
+      autoHud.querySelectorAll('.eep-gclass-btn').forEach(b => {
+        b.classList.toggle('active', Number(b.dataset.carIdx) === curIdx);
+      });
+      const viewBtn = document.getElementById('eep-auto-view-btn');
+      if (viewBtn) {
+        viewBtn.textContent = window.EEP.autoAussenAnsicht ? '🎥 Ansicht: 3rd-Person [C]' : '🎥 Ansicht: Cockpit [C]';
+      }
     };
 
     // Interaktives Tomb-Raider-Steuerungs- & Aktions-Panel unten rechts (in Kamera [1] und [4] sichtbar)
