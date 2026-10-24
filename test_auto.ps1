@@ -38,5 +38,5 @@ if (Test-Path $shot) {
 
 Write-Host "=== AUTO-COCKPIT TEST & CONSOLE LOGS ==="
 if (Test-Path $err) {
-  Get-Content $err | Select-String -Pattern "AUTO_TEST|LARA_TEST|GPU_HARDWARE_INFO|Uncaught|ReferenceError|TypeError|SyntaxError" | ForEach-Object { $_.Line }
+  Get-Content $err | Select-String -Pattern "AUTO_TEST|LARA_TEST|VEHICLE_TEST|GPU_HARDWARE_INFO|Uncaught|ReferenceError|TypeError|SyntaxError" | ForEach-Object { $_.Line }
 }

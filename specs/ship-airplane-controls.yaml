@@ -1,0 +1,95 @@
+schema_version: 1
+area: ship-airplane-controls
+title: Manuelle 3D-Steuerung für Flugzeug (Kamera 5) und Mein Schiff (Kamera 6) mit HUD, Physik und Tomb-Raider-Kamera
+
+specs:
+  - id: s-ship-airplane-001
+    title: Manuelle 3D-Flugsteuerung für das Flugzeug in Kamera 5
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+      - Kamera 5 (Flugzeug 3D) ist aktiv und die Shift-Taste ist nicht gedrückt.
+    when: Der Nutzer steuert das Flugzeug mit den Pfeiltasten (oder WASD) sowie den Schubtasten (+/-, E/Q, Bild-Auf/Ab) oder dem HUD.
+    then:
+      - Pfeil-Links und Pfeil-Rechts (A/D) legen das Flugzeug sichtbar in die Kurve (Rollwinkel/Bank bis +-38 Grad) und drehen kontinuierlich den Flugkurs (Yaw/Heading).
+      - Pfeil-Hoch und Pfeil-Runter (W/S) steuern das Höhenruder (Nickwinkel/Pitch bis +-25 Grad) für Steig- und Sinkflug, wobei die Minimalhöhe von 0.90 m (Startbahn/Boden) niemals unterschritten wird.
+      - Ohne Steuereingabe zentrieren sich Roll- und Nickwinkel sanft wieder in die Waagerechte.
+      - Ein kompaktes Flugzeug-HUD (#eep-flugzeug-hud) oben zeigt Live-Flugdaten (Tempo km/h, Höhe m, Kurs Grad, Schub %), Schnellreise-Startpunkte (Startbahn DE, Startbahn USA, Grand Canyon, Ozean) und einen Autopilot-Umschalter [P].
+    why: Der Nutzer möchte das Flugzeug selbst frei durch die Welt (Deutschland, Ozean, Alpen, New York, Grand Canyon) fliegen, starten und landen können.
+
+  - id: s-ship-airplane-002
+    title: Manuelle 3D-Schiffssteuerung für Mein Schiff in Kamera 6 mit Nebelhorn
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+      - Kamera 6 (Mein Schiff) ist aktiv und die Shift-Taste ist nicht gedrückt.
+    when: Der Nutzer steuert Mein Schiff mit den Pfeiltasten (oder WASD) und betätigt optional das Nebelhorn [H] oder das Schiffs-HUD.
+    then:
+      - Pfeil-Hoch (W) beschleunigt Mein Schiff vorwärts entlang seines Kurses (bis 18 m/s ca. 35 Knoten); Pfeil-Runter (S) bremst mit Wasserträgheit ab und fährt rückwärts (bis -6 m/s).
+      - Pfeil-Links und Pfeil-Rechts (A/D) schlagen das Ruder nach Backbord bzw. Steuerbord ein und drehen den Schiffskurs geschmeidig mit sanfter Kurvenkrängung.
+      - Während Shift gehalten wird, sind Ruder- und Maschinenbefehle blockiert und die Pfeiltasten steuern stattdessen die 3rd-Person-Umsichtkamera mit automatischem Spring-Back beim Loslassen.
+      - Ein kompaktes Schiffs-HUD (#eep-schiff-hud) oben bietet Schnellreise-Anlegestellen (Hafen Ostsee, Ozean-Inseln, US-Hafen), Autopilot-Umschalter [P], Nebelhorn [H] und Live-Nautik-Anzeige (Knoten, Kurs, Ruderlage).
+    why: Der Nutzer möchte Mein Schiff frei über die Ostsee, den großen Ozean, rund um die Inseln und in die Häfen steuern können.
+
+decisions:
+  - id: d-ship-airplane-001
+    title: Nahtlose Übernahme aus dem Autopilot-Pfad in die freie Vektor-Physik
+    status: accepted
+    specs: [s-ship-airplane-001, s-ship-airplane-002]
+    decision: Sowohl ki-flugzeug als auch ki-faehre (hauptschiff) besitzen einen Modus manuell, der beim Wechsel in Kamera 5 bzw. 6 oder bei Tastendruck die aktuelle Weltposition und den aktuellen Kurs (yaw) direkt aus dem 3D-Objekt übernimmt und per [P] oder HUD-Button jederzeit zwischen Manuell und Autopilot umschaltbar ist.
+    why: Wenn der Spieler als Lara Croft oder im Zug unterwegs ist, beleben Flugzeug und Schiff die Welt auf ihren Routen; in Kamera 5 und 6 hat der Spieler sofort die direkte Kontrolle ohne Positions-Sprünge.
+    how:
+      - Methode aktiviereManuell() liest aktuelle Position und Forward-Vektor aus object3D und berechnet daraus den exakten Start-Gierwinkel yaw.
+      - Im manuellen Modus aktualisiert tick() die Position anhand von yaw, pitch, roll und Geschwindigkeit statt über die feste Kurve.
+
+  - id: d-ship-airplane-002
+    title: Einheitliche Euler-Ordnung YXZ für freie 3D-Flug- und Schiffsrotation und 3rd-Person-Kameraverfolgung
+    status: accepted
+    specs: [s-ship-airplane-001, s-ship-airplane-002]
+    decision: Flugzeug und Hauptschiff verwalten ihren Kurs als expliziten Winkel yaw um die Welt-Y-Achse, kombiniert mit pitch und roll in der Euler-Ordnung YXZ, und übergeben yaw direkt an die 3rd-Person-Verfolgerkamera in ki-steuerung.
+    why: Verhindert Gimbal-Lock bei kombinierten Kurven- und Steigflügen und garantiert eine absolut ruhige 3rd-Person-Kamera inklusive Shift+Pfeiltasten-Orbit.
+    how:
+      - In ki-flugzeug ist lokales -Z die Flugrichtung; rotation.set(pitch, yaw, roll, 'YXZ') bewegt das Flugzeug entlang (-sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch)).
+      - In ki-faehre (Mein Schiff) zeigen die Kind-Boxen durch ihre 90-Grad-Drehung entlang lokalem -Z/X; über einen normierten Kursvektor yaw bewegt und dreht sich das Schiff konsistent zur Verfolgerkamera.
+
+tests:
+  - id: t-ship-airplane-001
+    title: Manuelle Flugzeugsteuerung (Steigflug, Kurvenflug mit Rollwinkel & Selbstzentrierung) prüfen
+    specs: [s-ship-airplane-001]
+    suites: [smoke, regression]
+    areas: [ship-airplane-controls]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: http://localhost:8080/welt.html?vehicletest=1 im Headless-Browser starten, Kamera 5 aktivieren und für 15 Simulationsschritte Pfeil-Hoch (Steigen) sowie Pfeil-Links (Kurve) simulieren.
+        expected:
+          - VEHICLE_TEST_RESULT bestätigt flugzeugManuell === true.
+          - Die Flughöhe steigt deutlich an (flugzeugHoeheDiff > 1.5).
+          - Während des Kurvenflugs liegt ein deutlicher Rollwinkel (Math.abs(flugzeugRollPeak) > 0.2) und eine Kursänderung (Math.abs(flugzeugYawDiff) > 0.1) an.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: vehicletest=1
+
+  - id: t-ship-airplane-002
+    title: Manuelle Schiffssteuerung (Maschine voraus, Ruder-Kurve & Shift-Look) prüfen
+    specs: [s-ship-airplane-002]
+    suites: [smoke, regression]
+    areas: [ship-airplane-controls]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: Im Selbsttest (?vehicletest=1) Kamera 6 (Mein Schiff) aktivieren, Pfeil-Hoch und Pfeil-Rechts für 15 Schritte simulieren und anschließend Shift + Pfeil-Links testen.
+        expected:
+          - VEHICLE_TEST_RESULT bestätigt schiffManuell === true.
+          - Mein Schiff nimmt Fahrt auf und legt Strecke zurück (schiffDistanz > 2.0).
+          - Der Schiffskurs ändert sich durch den Rudereinschlag (Math.abs(schiffYawDiff) > 0.08).
+          - Der erzeugte Screenshot zeigt die 3rd-Person-Ansicht mit aktivem Steuerungs-HUD.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: vehicletest=1

@@ -164,6 +164,36 @@ window.EEP.schaltKlick = function () {
   osc.stop(now + 0.065);
 };
 
+// Tiefes Zweiklang-Schiffsnebelhorn (Typhon) für "MEIN SCHIFF" [6]
+window.EEP.schiffsHorn = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+  [98, 123.5, 196].forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc.type = idx === 2 ? 'triangle' : 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(290, now);
+
+    const peak = idx === 2 ? 0.07 : 0.14;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(peak, now + 0.08);
+    gain.gain.setValueAtTime(peak, now + 0.65);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.05);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 1.08);
+  });
+};
+
 // ============================================================================
 // TOMB RAIDER (1-5) SOUND-EFFEKTE (WebAudio Formant-Stimme & Stiefel-Foley)
 // ============================================================================
@@ -1800,14 +1830,20 @@ AFRAME.registerComponent('ki-flughafen', {
 
 AFRAME.registerComponent('ki-flugzeug', {
   schema: {
-    schub: { type: 'number', default: 1.0 } // 0 = Stopp, bis 3.0 = Turbo
+    schub: { type: 'number', default: 1.0 } // 0 = Stopp, bis 2.5 = Turbo
   },
   init: function () {
     window.EEP.flugzeugComp = this;
     this.schub = this.data.schub;
     this.progress = 0;
+    this.manuell = false;
+    this.yaw = 0;      // Kurs um Welt-Y (0 = Richtung -Z Nord)
+    this.pitch = 0;    // Nickwinkel (+ = Steigflug, - = Sinkflug)
+    this.roll = 0;     // Querneigung / Bank (+ = Linkskurve, - = Rechtskurve)
 
-    // Transatlantik-Rundflug: Start Flughafen DE (-162, Z=0) -> Alpen -> Über den Ozean & Inseln ->
+    this.tasten = { hoch: false, runter: false, links: false, rechts: false, schubPlus: false, schubMinus: false };
+
+    // Transatlantik-Rundflug (Autopilot): Start Flughafen DE (-162, Z=0) -> Alpen -> Ozean ->
     // Touch-and-Go auf dem US-Flughafen (+156, Z=+15) -> Kurve über den Grand Canyon (+118, Z=+58) ->
     // Über die Ostsee zurück zur Landung auf dem Flughafen DE!
     const points = [
@@ -1826,10 +1862,184 @@ AFRAME.registerComponent('ki-flugzeug', {
     ];
     this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.45);
     this.totalLen = this.curve.getLength();
+
+    // Startposition auf der Piste DE initialisieren
+    this.el.object3D.position.set(-162, 0.9, 18);
+    this.el.object3D.rotation.set(0, 0, 0, 'YXZ');
+
+    window.addEventListener('keydown', (e) => {
+      if (window.EEP.aktiveKamera !== 5) return;
+      if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
+        this.tasten.hoch = false;
+        this.tasten.runter = false;
+        this.tasten.links = false;
+        this.tasten.rechts = false;
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (e.key === 'ArrowUp' || k === 'w') {
+        this.aktiviereManuell();
+        this.tasten.hoch = true;
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowDown' || k === 's') {
+        this.aktiviereManuell();
+        this.tasten.runter = true;
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft' || k === 'a') {
+        this.aktiviereManuell();
+        this.tasten.links = true;
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowRight' || k === 'd') {
+        this.aktiviereManuell();
+        this.tasten.rechts = true;
+        e.preventDefault();
+      }
+      if (e.key === '+' || e.key === 'PageUp' || k === 'e') {
+        this.aktiviereManuell();
+        this.tasten.schubPlus = true;
+        e.preventDefault();
+      }
+      if (e.key === '-' || e.key === 'PageDown' || k === 'q') {
+        this.aktiviereManuell();
+        this.tasten.schubMinus = true;
+        e.preventDefault();
+      }
+      if (k === 'p') {
+        this.umschaltenAutopilot();
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const k = e.key.toLowerCase();
+      if (e.key === 'ArrowUp' || k === 'w') this.tasten.hoch = false;
+      if (e.key === 'ArrowDown' || k === 's') this.tasten.runter = false;
+      if (e.key === 'ArrowLeft' || k === 'a') this.tasten.links = false;
+      if (e.key === 'ArrowRight' || k === 'd') this.tasten.rechts = false;
+      if (e.key === '+' || e.key === 'PageUp' || k === 'e') this.tasten.schubPlus = false;
+      if (e.key === '-' || e.key === 'PageDown' || k === 'q') this.tasten.schubMinus = false;
+    });
   },
+
+  aktiviereManuell: function () {
+    if (this.manuell) return;
+    this.el.object3D.updateMatrixWorld(true);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
+    this.yaw = Math.atan2(-forward.x, -forward.z);
+    this.pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(forward.y, -0.9, 0.9)), -0.35, 0.35);
+    this.roll = 0;
+    if (this.schub <= 0.1) this.schub = 1.0;
+    this.manuell = true;
+    this.aktualisiereFlugHUD();
+  },
+
+  umschaltenAutopilot: function () {
+    if (this.manuell) {
+      this.manuell = false;
+      this.pitch = 0;
+      this.roll = 0;
+      if (this.schub <= 0.1) this.schub = 1.0;
+    } else {
+      this.aktiviereManuell();
+    }
+    this.aktualisiereFlugHUD();
+  },
+
+  teleportiereZu: function (x, y, z, yawGrad, startSchub) {
+    this.manuell = true;
+    this.el.object3D.position.set(x, y, z);
+    this.yaw = THREE.MathUtils.degToRad(yawGrad);
+    this.pitch = 0;
+    this.roll = 0;
+    if (startSchub !== undefined) this.schub = startSchub;
+    this.el.object3D.rotation.set(0, this.yaw, 0, 'YXZ');
+    this.el.object3D.updateMatrixWorld(true);
+    this.aktualisiereFlugHUD();
+  },
+
+  aktualisiereFlugHUD: function () {
+    const statusEl = document.getElementById('eep-flugzeug-status');
+    const apBtn = document.getElementById('eep-flugzeug-ap-btn');
+    if (apBtn) {
+      apBtn.textContent = this.manuell ? '🤖 Autopilot: AUS [P]' : '🤖 Autopilot: EIN [P]';
+      apBtn.classList.toggle('active', !this.manuell);
+    }
+    if (statusEl) {
+      const pos = this.el.object3D.position;
+      const kmh = Math.round(this.schub * 24.0 * 3.6);
+      const hoehe = Math.max(0, Math.round(pos.y - 0.9));
+      const kurs = ((Math.round(THREE.MathUtils.radToDeg(-this.yaw)) % 360) + 360) % 360;
+      const modusTxt = this.manuell ? '🕹️ MANUELL (Pfeiltasten)' : '🤖 AUTOPILOT-RUNDFLUG';
+      statusEl.textContent = `✈️ ${modusTxt}  |  Tempo: ${kmh} km/h  |  Höhe: ${hoehe} m  |  Kurs: ${kurs}°  |  Schub: ${Math.round(this.schub * 100)}%`;
+    }
+  },
+
   tick: function (time, dt) {
-    if (!dt || this.schub <= 0) return;
-    const deltaSec = Math.min(dt / 1000, 0.1);
+    if (!dt) return;
+    const deltaSec = Math.min(dt / 1000, 0.08);
+
+    // 1. MANUELLER 3D-FREIFLUG (Pfeiltasten / WASD)
+    if (this.manuell) {
+      if (this.tasten.schubPlus) {
+        this.schub = Math.min(2.5, this.schub + 0.85 * deltaSec);
+      }
+      if (this.tasten.schubMinus) {
+        this.schub = Math.max(0.0, this.schub - 0.85 * deltaSec);
+      }
+
+      // Querruder (Rollwinkel/Bank bis +-38 Grad = 0.66 rad)
+      let zielRoll = 0;
+      if (this.tasten.links) zielRoll = 0.65;
+      else if (this.tasten.rechts) zielRoll = -0.65;
+      this.roll += (zielRoll - this.roll) * Math.min(1, deltaSec * 5.5);
+      if (Math.abs(this.roll) < 0.002 && zielRoll === 0) this.roll = 0;
+
+      // Höhenruder (Nickwinkel/Pitch bis +-25 Grad = 0.44 rad)
+      let zielPitch = 0;
+      if (this.tasten.hoch) zielPitch = 0.42;
+      else if (this.tasten.runter) zielPitch = -0.42;
+      this.pitch += (zielPitch - this.pitch) * Math.min(1, deltaSec * 5.0);
+      if (Math.abs(this.pitch) < 0.002 && zielPitch === 0) this.pitch = 0;
+
+      // Kurvenflug durch Querneigung (Bank-Turn) + Seitenruder am Boden
+      const speed = 24.0 * this.schub;
+      if (speed > 0.2) {
+        const turnRate = this.roll * 1.45 + (this.tasten.links ? 0.35 : (this.tasten.rechts ? -0.35 : 0));
+        this.yaw += turnRate * deltaSec;
+      }
+
+      // 3D-Vektor-Fortbewegung entlang der Flugzeug-Längsachse (-Z)
+      const pos = this.el.object3D.position;
+      pos.x += -Math.sin(this.yaw) * Math.cos(this.pitch) * speed * deltaSec;
+      pos.y += Math.sin(this.pitch) * speed * deltaSec;
+      pos.z += -Math.cos(this.yaw) * Math.cos(this.pitch) * speed * deltaSec;
+
+      // Boden-/Startbahn-Kontakt (Minimalhöhe 0.90 m)
+      if (pos.y <= 0.90) {
+        pos.y = 0.90;
+        if (this.pitch < 0) this.pitch = 0;
+        this.roll *= 0.82; // Auf der Piste richten sich die Tragflächen waagerecht aus
+      } else if (pos.y > 140) {
+        pos.y = 140;
+      }
+
+      // Sanfte Weltbegrenzung (-230..+230, -125..+125)
+      pos.x = THREE.MathUtils.clamp(pos.x, -230, 230);
+      pos.z = THREE.MathUtils.clamp(pos.z, -125, 125);
+
+      this.el.object3D.rotation.set(this.pitch, this.yaw, this.roll, 'YXZ');
+
+      if (window.EEP.aktiveKamera === 5) {
+        this.aktualisiereFlugHUD();
+      }
+      return;
+    }
+
+    // 2. AUTOPILOT-RUNDFLUG (Transatlantik-Schleife)
+    if (this.schub <= 0) return;
     const distDelta = (24.0 * this.schub) * deltaSec;
     this.progress = (this.progress + (distDelta / this.totalLen)) % 1.0;
 
@@ -1840,6 +2050,14 @@ AFRAME.registerComponent('ki-flugzeug', {
     this.el.object3D.position.copy(currentPos);
     this.el.object3D.lookAt(nextPos);
     this.el.object3D.rotateY(Math.PI);
+
+    // Aktuellen Kurs für das HUD mitführen
+    const dx = nextPos.x - currentPos.x;
+    const dz = nextPos.z - currentPos.z;
+    this.yaw = Math.atan2(-dx, -dz);
+    if (window.EEP.aktiveKamera === 5) {
+      this.aktualisiereFlugHUD();
+    }
   }
 });
 
@@ -1858,17 +2076,186 @@ AFRAME.registerComponent('ki-faehre', {
     window.EEP.alleSchiffe.push(this);
 
     this.tempo = this.data.tempo;
-    this.progress = Math.random() * 0.3;
+    this.progress = this.data.hauptschiff ? 0.15 : Math.random() * 0.3;
     this.richtung = 1;
     this.pStart = new THREE.Vector3(this.data.von.x, this.data.von.y, this.data.von.z);
     this.pEnd = new THREE.Vector3(this.data.nach.x, this.data.nach.y, this.data.nach.z);
     this.distanz = Math.max(1, this.pStart.distanceTo(this.pEnd));
+
+    // Manuelle Steuerung für "MEIN SCHIFF" (hauptschiff: true, Kamera [6])
+    this.manuell = false;
+    this.geschwindigkeit = 6.5; // m/s (-6 rückwärts bis +18 volle Kraft voraus)
+    this.ruderWinkel = 0;       // Radiant (-0.55 Steuerbord bis +0.55 Backbord)
+    this.yaw = -Math.PI / 2;    // Kurs (-90° = Richtung Osten +X)
+    this.kraengung = 0;         // Kurvenneigung des Schiffsrumpfs
+    this.tasten = { hoch: false, runter: false, links: false, rechts: false };
+
+    if (this.data.hauptschiff) {
+      const startPos = new THREE.Vector3().lerpVectors(this.pStart, this.pEnd, this.progress);
+      this.el.object3D.position.copy(startPos);
+      this.el.object3D.rotation.set(0, this.yaw + Math.PI / 2, 0, 'YXZ');
+
+      window.addEventListener('keydown', (e) => {
+        if (window.EEP.aktiveKamera !== 6) return;
+        if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
+          this.tasten.hoch = false;
+          this.tasten.runter = false;
+          this.tasten.links = false;
+          this.tasten.rechts = false;
+          return;
+        }
+        const k = e.key.toLowerCase();
+        if (e.key === 'ArrowUp' || k === 'w') {
+          this.aktiviereManuell();
+          this.tasten.hoch = true;
+          e.preventDefault();
+        }
+        if (e.key === 'ArrowDown' || k === 's') {
+          this.aktiviereManuell();
+          this.tasten.runter = true;
+          e.preventDefault();
+        }
+        if (e.key === 'ArrowLeft' || k === 'a') {
+          this.aktiviereManuell();
+          this.tasten.links = true;
+          e.preventDefault();
+        }
+        if (e.key === 'ArrowRight' || k === 'd') {
+          this.aktiviereManuell();
+          this.tasten.rechts = true;
+          e.preventDefault();
+        }
+        if (k === 'p') {
+          this.umschaltenAutopilot();
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        const k = e.key.toLowerCase();
+        if (e.key === 'ArrowUp' || k === 'w') this.tasten.hoch = false;
+        if (e.key === 'ArrowDown' || k === 's') this.tasten.runter = false;
+        if (e.key === 'ArrowLeft' || k === 'a') this.tasten.links = false;
+        if (e.key === 'ArrowRight' || k === 'd') this.tasten.rechts = false;
+      });
+    }
   },
+
+  aktiviereManuell: function () {
+    if (!this.data.hauptschiff || this.manuell) return;
+    this.el.object3D.updateMatrixWorld(true);
+    const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(this.el.object3D.quaternion);
+    this.yaw = Math.atan2(-forward.x, -forward.z);
+    this.geschwindigkeit = 6.5 * this.tempo;
+    this.ruderWinkel = 0;
+    this.manuell = true;
+    this.aktualisiereSchiffHUD();
+  },
+
+  umschaltenAutopilot: function () {
+    if (!this.data.hauptschiff) return;
+    if (this.manuell) {
+      this.manuell = false;
+      this.ruderWinkel = 0;
+      if (this.tempo <= 0.1) this.tempo = 1.0;
+    } else {
+      this.aktiviereManuell();
+    }
+    this.aktualisiereSchiffHUD();
+  },
+
+  teleportiereZu: function (x, y, z, yawGrad) {
+    if (!this.data.hauptschiff) return;
+    this.manuell = true;
+    this.geschwindigkeit = 0;
+    this.ruderWinkel = 0;
+    this.yaw = THREE.MathUtils.degToRad(yawGrad);
+    this.el.object3D.position.set(x, y, z);
+    this.el.object3D.rotation.set(0, this.yaw + Math.PI / 2, 0, 'YXZ');
+    this.el.object3D.updateMatrixWorld(true);
+    this.aktualisiereSchiffHUD();
+  },
+
+  aktualisiereSchiffHUD: function () {
+    const statusEl = document.getElementById('eep-schiff-status');
+    const apBtn = document.getElementById('eep-schiff-ap-btn');
+    if (apBtn) {
+      apBtn.textContent = this.manuell ? '🤖 Autopilot: AUS [P]' : '🤖 Autopilot: EIN [P]';
+      apBtn.classList.toggle('active', !this.manuell);
+    }
+    if (statusEl) {
+      const v = this.manuell ? this.geschwindigkeit : (6.5 * this.tempo * this.richtung);
+      const knoten = (v * 1.94384).toFixed(1);
+      const kmh = Math.round(Math.abs(v) * 3.6);
+      const kurs = ((Math.round(THREE.MathUtils.radToDeg(-this.yaw)) % 360) + 360) % 360;
+      const ruderGrad = Math.round(THREE.MathUtils.radToDeg(this.ruderWinkel));
+      const ruderTxt = ruderGrad > 2 ? `Backbord ${ruderGrad}°` : (ruderGrad < -2 ? `Steuerbord ${Math.abs(ruderGrad)}°` : 'Mittschiffs 0°');
+      const modusTxt = this.manuell ? '🕹️ MANUELL (Pfeiltasten)' : '🤖 FÄHR-AUTOPILOT';
+      statusEl.textContent = `🚢 ${modusTxt}  |  Fahrt: ${knoten} kn (${kmh} km/h)  |  Kurs: ${kurs}°  |  Ruder: ${ruderTxt}`;
+    }
+  },
+
   tick: function (time, dt) {
-    const globalFactor = window.EEP.faehreComp ? window.EEP.faehreComp.tempo : this.tempo;
-    if (!dt || globalFactor <= 0) return;
-    const deltaSec = Math.min(dt / 1000, 0.1);
-    const speed = 6.5 * globalFactor;
+    if (!dt) return;
+    const deltaSec = Math.min(dt / 1000, 0.08);
+
+    // 1. MANUELLE SCHIFFSSTEUERUNG FÜR "MEIN SCHIFF" (Kamera [6])
+    if (this.data.hauptschiff && this.manuell) {
+      // Ruderlage (Pfeil Links = Backbord +, Pfeil Rechts = Steuerbord -)
+      const ruderRate = 1.35;
+      if (this.tasten.links) {
+        this.ruderWinkel = Math.min(0.55, this.ruderWinkel + ruderRate * deltaSec);
+      } else if (this.tasten.rechts) {
+        this.ruderWinkel = Math.max(-0.55, this.ruderWinkel - ruderRate * deltaSec);
+      } else {
+        // Sanfte Rückstellung des Ruders auf Mittschiffs
+        const back = 1.5 * deltaSec;
+        if (Math.abs(this.ruderWinkel) <= back) this.ruderWinkel = 0;
+        else this.ruderWinkel -= Math.sign(this.ruderWinkel) * back;
+      }
+
+      // Maschinentelegraph (Pfeil Hoch = Voraus, Pfeil Runter = Stopp/Rückwärts)
+      if (this.tasten.hoch) {
+        this.geschwindigkeit = Math.min(18.0, this.geschwindigkeit + 8.5 * deltaSec);
+      } else if (this.tasten.runter) {
+        this.geschwindigkeit = Math.max(-6.0, this.geschwindigkeit - 9.5 * deltaSec);
+      } else {
+        // Sanfter Wasserwiderstand beim Ausgleiten
+        const waterDrag = 1.15 * deltaSec;
+        if (Math.abs(this.geschwindigkeit) <= waterDrag) this.geschwindigkeit = 0;
+        else this.geschwindigkeit -= Math.sign(this.geschwindigkeit) * waterDrag;
+      }
+
+      // Kursänderung durch Ruderwirkung (auch bei kleiner Fahrt manövrierfähig durch Bugstrahlruder!)
+      const fahrtrichtung = this.geschwindigkeit >= -0.2 ? 1 : -1;
+      const drehEffekt = (0.38 + Math.min(1.0, Math.abs(this.geschwindigkeit) * 0.08)) * fahrtrichtung;
+      this.yaw += this.ruderWinkel * drehEffekt * deltaSec;
+
+      // Vorwärtsbewegung entlang (-sin(yaw), 0, -cos(yaw))
+      const pos = this.el.object3D.position;
+      pos.x += -Math.sin(this.yaw) * this.geschwindigkeit * deltaSec;
+      pos.z += -Math.cos(this.yaw) * this.geschwindigkeit * deltaSec;
+      pos.y = 0.40 + Math.sin(time * 0.0022) * 0.04; // Sanftes Schaukeln auf den Meereswellen
+
+      // Weltbegrenzung auf Meer/Ostsee/Ozean
+      pos.x = THREE.MathUtils.clamp(pos.x, -185, 115);
+      pos.z = THREE.MathUtils.clamp(pos.z, -110, 110);
+
+      // Leichte Kurvenkrängung + lokale +X-Bug-Ausrichtung (yaw + PI/2)
+      const zielKraengung = -this.ruderWinkel * (Math.abs(this.geschwindigkeit) / 18.0) * 0.14;
+      this.kraengung += (zielKraengung - this.kraengung) * Math.min(1, deltaSec * 4.5);
+      this.el.object3D.rotation.set(this.kraengung, this.yaw + Math.PI / 2, Math.sin(time * 0.0018) * 0.015, 'YXZ');
+
+      if (window.EEP.aktiveKamera === 6) {
+        this.aktualisiereSchiffHUD();
+      }
+      return;
+    }
+
+    // 2. AUTOMATISCHER FÄHRBETRIEB
+    const factor = this.data.hauptschiff ? this.tempo : (this.tempo || 1.0);
+    if (factor <= 0) return;
+    const speed = 6.5 * factor;
     this.progress += this.richtung * (speed * deltaSec) / this.distanz;
 
     if (this.progress >= 1.0) {
@@ -1884,6 +2271,15 @@ AFRAME.registerComponent('ki-faehre', {
     const ziel = this.richtung > 0 ? this.pEnd : this.pStart;
     this.el.object3D.lookAt(ziel);
     this.el.object3D.rotateY(-Math.PI / 2);
+
+    if (this.data.hauptschiff) {
+      const dx = ziel.x - pos.x;
+      const dz = ziel.z - pos.z;
+      this.yaw = Math.atan2(-dx, -dz);
+      if (window.EEP.aktiveKamera === 6) {
+        this.aktualisiereSchiffHUD();
+      }
+    }
   }
 });
 
@@ -3424,6 +3820,9 @@ AFRAME.registerComponent('ki-steuerung', {
         if (window.EEP.aktiveKamera === 8) {
           window.EEP.autoHupe();
           e.preventDefault();
+        } else if (window.EEP.aktiveKamera === 6) {
+          window.EEP.schiffsHorn();
+          e.preventDefault();
         } else {
           window.EEP.dampfPfeife();
         }
@@ -3454,6 +3853,9 @@ AFRAME.registerComponent('ki-steuerung', {
       }
       if (window.location.search.includes('laratest=1')) {
         this.starteLaraSelbsttest();
+      }
+      if (window.location.search.includes('vehicletest=1')) {
+        this.starteFahrzeugSelbsttest();
       }
       const camMatch = window.location.search.match(/cam=(\d)/);
       if (camMatch) {
@@ -3616,6 +4018,73 @@ AFRAME.registerComponent('ki-steuerung', {
     }));
   },
 
+  // Automatisierter Selbsttest für t-ship-airplane-001 & t-ship-airplane-002 (?vehicletest=1)
+  starteFahrzeugSelbsttest: function () {
+    const fc = window.EEP.flugzeugComp;
+    const sh = window.EEP.faehreComp;
+    const ls = window.EEP.lookState;
+    if (!fc || !sh || !ls) {
+      console.error('VEHICLE_TEST_FAILED: ki-flugzeug oder ki-faehre fehlt');
+      return;
+    }
+
+    // 1. Test t-ship-airplane-001: Manuelle Flugzeugsteuerung in Kamera [5] (Steigflug + Linkskurve)
+    this.setzeKamera(5);
+    fc.teleportiereZu(-162, 0.9, 18, 0, 1.2);
+    const startPlaneY = fc.el.object3D.position.y;
+    const startPlaneYaw = fc.yaw;
+    fc.tasten.hoch = true;
+    fc.tasten.links = true;
+    let flugzeugRollPeak = 0;
+    for (let i = 0; i < 15; i++) {
+      fc.tick(100 + i * 50, 50);
+      this.tick(100 + i * 50, 50);
+      if (Math.abs(fc.roll) > Math.abs(flugzeugRollPeak)) flugzeugRollPeak = fc.roll;
+    }
+    const flugzeugHoeheDiff = fc.el.object3D.position.y - startPlaneY;
+    const flugzeugYawDiff = fc.yaw - startPlaneYaw;
+    fc.tasten.hoch = false;
+    fc.tasten.links = false;
+
+    // 2. Test t-ship-airplane-002: Manuelle Schiffssteuerung in Kamera [6] (Maschine voraus + Ruder Steuerbord)
+    this.setzeKamera(6);
+    const startShipPos = sh.el.object3D.position.clone();
+    const startShipYaw = sh.yaw;
+    sh.tasten.hoch = true;
+    sh.tasten.rechts = true;
+    for (let i = 0; i < 15; i++) {
+      sh.tick(1000 + i * 50, 50);
+      this.tick(1000 + i * 50, 50);
+    }
+    const schiffDistanz = sh.el.object3D.position.distanceTo(startShipPos);
+    const schiffYawDiff = sh.yaw - startShipYaw;
+    sh.tasten.hoch = false;
+    sh.tasten.rechts = false;
+
+    // Shift + Pfeil-Links auf dem Schiff testen (Umsichtkamera dreht sich, federt danach zurück)
+    ls.shift = true;
+    ls.aktiv = true;
+    ls.left = true;
+    for (let i = 0; i < 8; i++) this.tick(1900 + i * 50, 50);
+    const schiffLookYawPeak = ls.yaw;
+    ls.shift = false;
+    ls.aktiv = false;
+    ls.left = false;
+    for (let i = 0; i < 30; i++) this.tick(2400 + i * 50, 50);
+    const schiffLookYawAfter = ls.yaw;
+
+    console.log('VEHICLE_TEST_RESULT:', JSON.stringify({
+      flugzeugManuell: fc.manuell,
+      flugzeugHoeheDiff: Number(flugzeugHoeheDiff.toFixed(2)),
+      flugzeugRollPeak: Number(flugzeugRollPeak.toFixed(2)),
+      flugzeugYawDiff: Number(flugzeugYawDiff.toFixed(2)),
+      schiffManuell: sh.manuell,
+      schiffDistanz: Number(schiffDistanz.toFixed(2)),
+      schiffYawDiff: Number(schiffYawDiff.toFixed(2)),
+      schiffLookSpringBack: schiffLookYawPeak > 0.4 && Math.abs(schiffLookYawAfter) < 0.02
+    }));
+  },
+
   setzeKamera: function (modus) {
     window.EEP.aktiveKamera = modus;
     if (window.EEP.lookState) {
@@ -3629,6 +4098,8 @@ AFRAME.registerComponent('ki-steuerung', {
     const cockpitUI = document.getElementById('eep-cockpit');
     const autoHUD = document.getElementById('eep-auto-hud');
     const laraHUD = document.getElementById('eep-lara-hud');
+    const flugzeugHUD = document.getElementById('eep-flugzeug-hud');
+    const schiffHUD = document.getElementById('eep-schiff-hud');
     if (cockpitUI) {
       cockpitUI.classList.toggle('auto-modus-oben', modus === 8);
     }
@@ -3637,6 +4108,22 @@ AFRAME.registerComponent('ki-steuerung', {
     }
     if (laraHUD) {
       laraHUD.style.display = (modus === 1 || modus === 4) ? 'flex' : 'none';
+    }
+    if (flugzeugHUD) {
+      flugzeugHUD.style.display = modus === 5 ? 'flex' : 'none';
+    }
+    if (schiffHUD) {
+      schiffHUD.style.display = modus === 6 ? 'flex' : 'none';
+    }
+
+    // Beim Wechsel ins Flugzeug [5] oder auf Mein Schiff [6] sofort manuelle Steuerung bereitstellen
+    if (modus === 5 && window.EEP.flugzeugComp) {
+      window.EEP.flugzeugComp.aktiviereManuell();
+      window.EEP.flugzeugComp.aktualisiereFlugHUD();
+    }
+    if (modus === 6 && window.EEP.faehreComp) {
+      window.EEP.faehreComp.aktiviereManuell();
+      window.EEP.faehreComp.aktualisiereSchiffHUD();
     }
 
     const lara = window.EEP.laraComp;
@@ -3822,12 +4309,15 @@ AFRAME.registerComponent('ki-steuerung', {
 
     // MODUS 5: 3rd-Person Verfolger-Kamera hinter dem FLUGZEUG (Default 3rd-Person + Shift+Pfeiltasten Orbit!)
     if (modus === 5 && window.EEP.flugzeugComp && this.kameraRig) {
-      const planeObj = window.EEP.flugzeugComp.el.object3D;
+      const fc = window.EEP.flugzeugComp;
+      const planeObj = fc.el.object3D;
       planeObj.updateMatrixWorld(true);
       const planePos = planeObj.position;
-      // Vorwärtsvektor des Flugzeugs bestimmen
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(planeObj.quaternion);
-      const baseYaw = Math.atan2(-forward.x, -forward.z);
+      let baseYaw = fc.yaw;
+      if (!fc.manuell) {
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(planeObj.quaternion);
+        baseYaw = Math.atan2(-forward.x, -forward.z);
+      }
 
       const totalYaw = baseYaw + (ls ? ls.yaw : 0);
       const totalPitch = -0.20 + (ls ? ls.pitch : 0);
@@ -3844,12 +4334,15 @@ AFRAME.registerComponent('ki-steuerung', {
 
     // MODUS 6: 3rd-Person Verfolger-Kamera hinter MEIN SCHIFF (+ Shift+Pfeiltasten Orbit!)
     if (modus === 6 && window.EEP.faehreComp && this.kameraRig) {
-      const shipObj = window.EEP.faehreComp.el.object3D;
+      const sh = window.EEP.faehreComp;
+      const shipObj = sh.el.object3D;
       shipObj.updateMatrixWorld(true);
       const shipPos = shipObj.position;
-      // Vorwärtsrichtung des Schiffs ist lokales +X
-      const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(shipObj.quaternion);
-      const baseYaw = Math.atan2(-forward.x, -forward.z);
+      let baseYaw = sh.yaw;
+      if (!sh.manuell) {
+        const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(shipObj.quaternion);
+        baseYaw = Math.atan2(-forward.x, -forward.z);
+      }
 
       const totalYaw = baseYaw + (ls ? ls.yaw : 0);
       const totalPitch = -0.22 + (ls ? ls.pitch : 0);
@@ -3920,7 +4413,7 @@ AFRAME.registerComponent('ki-steuerung', {
       #eep-cockpit.auto-modus-oben .eep-section:nth-child(2) {
         display: none;
       }
-      #eep-lara-hud {
+      #eep-lara-hud, #eep-flugzeug-hud, #eep-schiff-hud {
         position: fixed;
         top: 12px;
         left: 50%;
@@ -3938,6 +4431,10 @@ AFRAME.registerComponent('ki-steuerung', {
         gap: 6px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.55);
         max-width: 95vw;
+      }
+      #eep-flugzeug-hud, #eep-schiff-hud {
+        display: none;
+        border-color: rgba(56, 189, 248, 0.55);
       }
       #eep-auto-hud {
         position: fixed;
@@ -4162,6 +4659,76 @@ AFRAME.registerComponent('ki-steuerung', {
         else if (act === 'flipB') lara.starteSprung('back', 0, -1);
         else if (act === 'roll') lara.starteRolle();
         else if (act === 'aha') window.EEP.laraAha();
+      });
+    });
+
+    // Interaktives Flugzeug-Steuerungs-HUD oben (in Kamera [5] sichtbar)
+    const flugzeugHud = document.createElement('div');
+    flugzeugHud.id = 'eep-flugzeug-hud';
+    flugzeugHud.innerHTML = `
+      <div class="eep-title" id="eep-flugzeug-status">✈️ MANUELLE FLUGSTEUERUNG | Tempo: 86 km/h | Höhe: 0 m</div>
+      <div style="font-size:11px; color:#cbd5e1;">⬆️/⬇️ (W/S) Steigen/Sinken  |  ⬅️/➡️ (A/D) Kurvenflug  |  +/- (E/Q) Schub  |  Shift+Pfeiltasten = 360°-Umsehen</div>
+      <div class="eep-btn-row">
+        <button class="eep-btn" id="eep-flugzeug-ap-btn">🤖 Autopilot: AUS [P]</button>
+        <button class="eep-btn" data-plane-act="schubPlus">➕ Schub + [E]</button>
+        <button class="eep-btn" data-plane-act="schubMinus">➖ Schub - [Q]</button>
+        <button class="eep-btn" data-plane-tp="-162,0.9,18,0,1.0">🇩🇪 Startbahn DE</button>
+        <button class="eep-btn" data-plane-tp="156,0.9,-14,180,1.0">🇺🇸 Startbahn USA</button>
+        <button class="eep-btn" data-plane-tp="118,28,72,0,1.2">🏜️ Grand Canyon</button>
+        <button class="eep-btn" data-plane-tp="-15,32,0,-90,1.2">🌊 Über Ozean</button>
+      </div>
+    `;
+    document.body.appendChild(flugzeugHud);
+
+    document.getElementById('eep-flugzeug-ap-btn').addEventListener('click', () => {
+      if (window.EEP.flugzeugComp) window.EEP.flugzeugComp.umschaltenAutopilot();
+    });
+    flugzeugHud.querySelectorAll('[data-plane-act]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fc = window.EEP.flugzeugComp;
+        if (!fc) return;
+        fc.aktiviereManuell();
+        if (btn.dataset.planeAct === 'schubPlus') fc.schub = Math.min(2.5, fc.schub + 0.25);
+        if (btn.dataset.planeAct === 'schubMinus') fc.schub = Math.max(0.0, fc.schub - 0.25);
+        fc.aktualisiereFlugHUD();
+      });
+    });
+    flugzeugHud.querySelectorAll('[data-plane-tp]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fc = window.EEP.flugzeugComp;
+        if (!fc) return;
+        const p = btn.dataset.planeTp.split(',').map(Number);
+        fc.teleportiereZu(p[0], p[1], p[2], p[3], p[4]);
+      });
+    });
+
+    // Interaktives Schiffs-Steuerungs-HUD oben (in Kamera [6] sichtbar)
+    const schiffHud = document.createElement('div');
+    schiffHud.id = 'eep-schiff-hud';
+    schiffHud.innerHTML = `
+      <div class="eep-title" id="eep-schiff-status">🚢 MANUELLE SCHIFFSSTEUERUNG | Fahrt: 12.6 kn | Kurs: 90°</div>
+      <div style="font-size:11px; color:#cbd5e1;">⬆️ (W) Maschine Voraus  |  ⬇️ (S) Bremsen/Rückwärts  |  ⬅️/➡️ (A/D) Ruder Backbord/Steuerbord  |  Shift+Pfeiltasten = Umsehen</div>
+      <div class="eep-btn-row">
+        <button class="eep-btn sound-btn" id="eep-schiff-horn-btn">📣 Nebelhorn [H]</button>
+        <button class="eep-btn" id="eep-schiff-ap-btn">🤖 Autopilot: AUS [P]</button>
+        <button class="eep-btn" data-ship-tp="-112,0.40,56,-90">🇩🇪 Hafen Ostsee</button>
+        <button class="eep-btn" data-ship-tp="22,0.40,2,-90">🏝️ Ozean-Inseln</button>
+        <button class="eep-btn" data-ship-tp="52,0.40,-36,-90">🇺🇸 US-Hafen</button>
+        <button class="eep-btn" data-ship-tp="-15,0.40,-42,90">🌊 Nord-Atlantik</button>
+      </div>
+    `;
+    document.body.appendChild(schiffHud);
+
+    document.getElementById('eep-schiff-horn-btn').addEventListener('click', () => window.EEP.schiffsHorn());
+    document.getElementById('eep-schiff-ap-btn').addEventListener('click', () => {
+      if (window.EEP.faehreComp) window.EEP.faehreComp.umschaltenAutopilot();
+    });
+    schiffHud.querySelectorAll('[data-ship-tp]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sh = window.EEP.faehreComp;
+        if (!sh) return;
+        const p = btn.dataset.shipTp.split(',').map(Number);
+        sh.teleportiereZu(p[0], p[1], p[2], p[3]);
       });
     });
 
