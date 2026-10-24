@@ -91,6 +91,9 @@
     <a-entity ki-haus="farbe: #fef08a; dachFarbe: #dc2626; etagen: 2" position="-92 0.25 -58" rotation="0 -20 0"></a-entity>
     <a-text value="MEIN HAUS" color="#fef08a" width="24" align="center" position="-92 6.8 -56"></a-text>
 
+    <!-- SPIELERFIGUR: LARA CROFT (Originalgetreues 15-Mesh Low-Poly-Modell, 3rd-Person-Ansicht in [1] DE & [4] USA) -->
+    <a-entity id="lara-spieler" ki-lara position="-102 0.25 -36" rotation="0 165 0"></a-entity>
+
     <!-- STEUERBARES AUTO MIT 3D-COCKPIT, LENKRAD & GANGWAHLHEBEL (Kamera [8], Pfeiltasten-Steuerung) -->
     <a-entity id="spieler-auto" ki-auto="farbe: #dc2626" position="-93 0.28 -51" rotation="0 138 0"></a-entity>
 
@@ -152,8 +155,8 @@
       <a-cylinder color="#dc2626" radius="0.45" height="1.6" position="0 2.8 0"></a-cylinder>
       <a-text value="MEIN SCHIFF" color="#38bdf8" width="16" align="center" position="0 2.9 1.7"></a-text>
       <a-text value="MEIN SCHIFF" color="#38bdf8" width="16" align="center" position="0 2.9 -1.7" rotation="0 180 0"></a-text>
-      <!-- Kamera-Anker für Taste [6] (Blick von der Kommandobrücke nach vorn über den Bug) -->
-      <a-entity class="schiff-cam-anchor" position="5.2 2.8 0" rotation="-6 -90 0"></a-entity>
+      <!-- Kamera-Anker für Taste [6] (3rd-Person Verfolgeransicht hinter Mein Schiff, wie in Tomb Raider) -->
+      <a-entity class="schiff-cam-anchor" position="-20 6.5 0" rotation="-12 -90 0"></a-entity>
     </a-entity>
 
 
@@ -236,8 +239,8 @@
       <a-sphere color="#ff1744" radius="0.28" material="emissive: #ff1744; emissiveIntensity: 3" position="-10.0 0 -0.8"></a-sphere>
       <a-sphere color="#ff1744" radius="0.32" position="0 -1.25 0" material="emissive: #ff1744; emissiveIntensity: 4"
                 animation="property: opacity; from: 1; to: 0.1; dur: 500; loop: true; dir: alternate"></a-sphere>
-      <!-- Cockpit-Kamera für Taste [5] (Blick über die Flugzeugnase in Flugrichtung -Z) -->
-      <a-entity class="flugzeug-cam-anchor" position="0 1.45 -6.5" rotation="-8 0 0"></a-entity>
+      <!-- 3rd-Person Verfolger-Kamera für Taste [5] (Hinter & über dem Flugzeug; mit Shift+Pfeiltasten frei schwenkbar!) -->
+      <a-entity class="flugzeug-cam-anchor" position="0 5.2 22.0" rotation="-11 0 0"></a-entity>
     </a-entity>
 
   </a-scene>

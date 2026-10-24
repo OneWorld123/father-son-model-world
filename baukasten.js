@@ -165,6 +165,171 @@ window.EEP.schaltKlick = function () {
 };
 
 // ============================================================================
+// TOMB RAIDER (1-5) SOUND-EFFEKTE (WebAudio Formant-Stimme & Stiefel-Foley)
+// ============================================================================
+// Weiblicher Sprung-Laut ("Hup!") über 3 parallele Vokal-Formantfilter
+window.EEP.laraSprung = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(255, now);
+  osc.frequency.exponentialRampToValueAtTime(345, now + 0.14);
+  osc.frequency.exponentialRampToValueAtTime(295, now + 0.22);
+
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(0.001, now);
+  masterGain.gain.linearRampToValueAtTime(0.18, now + 0.025);
+  masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+  masterGain.connect(ctx.destination);
+
+  // 3 weibliche Vokal-Formanten (F1=780 Hz, F2=1350 Hz, F3=2750 Hz)
+  [[780, 5, 1.0], [1350, 7, 0.65], [2750, 9, 0.3]].forEach(([freq, q, amp]) => {
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(freq, now);
+    bp.Q.setValueAtTime(q, now);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(amp, now);
+    osc.connect(bp);
+    bp.connect(g);
+    g.connect(masterGain);
+  });
+
+  osc.start(now);
+  osc.stop(now + 0.24);
+};
+
+// Akrobatischer Seitwärtssalto / Rückwärtssalto ("Yah!" + Luft-Whoosh)
+window.EEP.laraSalto = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(280, now);
+  osc.frequency.exponentialRampToValueAtTime(415, now + 0.16);
+  osc.frequency.exponentialRampToValueAtTime(330, now + 0.28);
+
+  const vGain = ctx.createGain();
+  vGain.gain.setValueAtTime(0.001, now);
+  vGain.gain.linearRampToValueAtTime(0.20, now + 0.02);
+  vGain.gain.exponentialRampToValueAtTime(0.001, now + 0.29);
+  vGain.connect(ctx.destination);
+
+  [[820, 5, 1.0], [1480, 6, 0.7], [2900, 8, 0.35]].forEach(([freq, q, amp]) => {
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(freq, now);
+    bp.Q.setValueAtTime(q, now);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(amp, now);
+    osc.connect(bp);
+    bp.connect(g);
+    g.connect(vGain);
+  });
+  osc.start(now);
+  osc.stop(now + 0.30);
+
+  // Rotations-Luft-Whoosh während des 360°-Saltos
+  const bufSize = Math.floor(ctx.sampleRate * 0.42);
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufSize) * Math.PI);
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(320, now);
+  filter.frequency.exponentialRampToValueAtTime(880, now + 0.22);
+  filter.frequency.exponentialRampToValueAtTime(380, now + 0.42);
+  const nGain = ctx.createGain();
+  nGain.gain.setValueAtTime(0.14, now);
+  nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.42);
+  noise.connect(filter);
+  filter.connect(nGain);
+  nGain.connect(ctx.destination);
+  noise.start(now);
+};
+
+// Doppelter Stiefel-Aufprall bei der Landung + kurzer Atemstoß
+window.EEP.laraLandung = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+
+  [0, 0.055].forEach(delay => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(135, now + delay);
+    osc.frequency.exponentialRampToValueAtTime(48, now + delay + 0.085);
+    gain.gain.setValueAtTime(0.22, now + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.09);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now + delay);
+    osc.stop(now + delay + 0.095);
+  });
+};
+
+// Markanter Tomb-Raider-Stiefelschritt (Absatz-Sohle)
+window.EEP.laraSchritt = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(165 + Math.random() * 25, now);
+  osc.frequency.exponentialRampToValueAtTime(65, now + 0.055);
+  gain.gain.setValueAtTime(0.11, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.065);
+};
+
+// Klassischer "A-ha!" Entdecker-Ruf
+window.EEP.laraAha = function () {
+  if (!this.soundAktiv) return;
+  this.initAudio();
+  const ctx = this.audioCtx;
+  const now = ctx.currentTime;
+
+  [[0, 265, 285, 0.14], [0.16, 355, 295, 0.24]].forEach(([tOff, fStart, fEnd, dur]) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(fStart, now + tOff);
+    osc.frequency.exponentialRampToValueAtTime(fEnd, now + tOff + dur);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(920, now + tOff);
+    bp.Q.setValueAtTime(4.5, now + tOff);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, now + tOff);
+    g.gain.linearRampToValueAtTime(0.16, now + tOff + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + tOff + dur);
+    osc.connect(bp);
+    bp.connect(g);
+    g.connect(ctx.destination);
+    osc.start(now + tOff);
+    osc.stop(now + tOff + dur + 0.01);
+  });
+};
+
+// ============================================================================
 // 2. GLEIS- & SCHWELLEN-GENERATOR ('ki-gleis')
 // Baut Schotterbett, 3D-Holzschwellen und glänzende Stahlschienen entlang einer Kurve
 // ============================================================================
@@ -1751,6 +1916,13 @@ AFRAME.registerComponent('ki-auto', {
 
     window.addEventListener('keydown', (e) => {
       if (window.EEP.aktiveKamera !== 8) return;
+      if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
+        this.tasten.hoch = false;
+        this.tasten.runter = false;
+        this.tasten.links = false;
+        this.tasten.rechts = false;
+        return;
+      }
       if (e.key === 'ArrowUp') { this.tasten.hoch = true; e.preventDefault(); }
       if (e.key === 'ArrowDown') { this.tasten.runter = true; e.preventDefault(); }
       if (e.key === 'ArrowLeft') { this.tasten.links = true; e.preventDefault(); }
@@ -2652,8 +2824,557 @@ AFRAME.registerComponent('ki-auto', {
       if (cam) {
         // Sicherstellen, dass wasd-controls niemals die Kamera im Auto verschiebt!
         cam.object3D.position.set(0, 0, 0);
+        const ls = window.EEP.lookState;
+        if (ls) {
+          cam.object3D.rotation.set(ls.pitch, ls.yaw, 0, 'YXZ');
+        }
       }
     }
+  }
+});
+
+// ============================================================================
+// 10. LARA CROFT (TOMB RAIDER 1-5) - 15-MESH LOW-POLY SPIELERIN ('ki-lara')
+// Originalgetreuer Core-Design-Gelenkbaum (ohne Waffen): Türkises Top,
+// braune Shorts, Rucksack, 5-gliedriger Zopf, Rennen, Gehen, Sprung,
+// 360°-Seitwärtssalto, 360°-Rückwärtssalto, 180°-Rolle & Look-Kopfdrehung!
+// ============================================================================
+AFRAME.registerComponent('ki-lara', {
+  init: function () {
+    window.EEP.laraComp = this;
+    this.meshCount = 0;
+    this.braidSegments = [];
+
+    // Bewegungs- & Akrobatik-Zustand
+    this.zustand = 'stand'; // 'stand', 'lauf', 'gehen', 'rueck', 'seitschritt', 'sprung', 'seitwaertssalto', 'rueckwaertssalto', 'rolle'
+    this.gehenModus = false; // Umschaltbar mit [.] oder [C]
+    this.bodenY = 0.25;
+    this.posY = 0.25;
+    this.velY = 0;
+    this.sprungVx = 0;
+    this.sprungVz = 0;
+    this.saltoZeit = 0;
+    this.saltoDauer = 0.72;
+    this.saltoRichtung = 1; // +1 = links, -1 = rechts
+    this.animPhase = 0;
+    this.letzterSchritt = 0;
+    this.beinWinkel = 0;
+
+    this.tasten = {
+      hoch: false,
+      runter: false,
+      links: false,
+      rechts: false,
+      alt: false,
+      seiteLinks: false,
+      seiteRechts: false
+    };
+
+    window.addEventListener('keydown', (e) => {
+      const modus = window.EEP.aktiveKamera;
+      if (modus !== 1 && modus !== 4) return;
+
+      // Wenn Shift oder Numpad 0 (Look-Modus) gehalten wird -> Pfeiltasten steuern NUR die Kamera!
+      if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
+        this.tasten.hoch = false;
+        this.tasten.runter = false;
+        this.tasten.links = false;
+        this.tasten.rechts = false;
+        return;
+      }
+
+      if (e.key === 'ArrowUp') { this.tasten.hoch = true; e.preventDefault(); }
+      if (e.key === 'ArrowDown') { this.tasten.runter = true; e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { this.tasten.links = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { this.tasten.rechts = true; e.preventDefault(); }
+      if (e.key === 'Delete' || e.key.toLowerCase() === 'q') { this.tasten.seiteLinks = true; e.preventDefault(); }
+      if (e.key === 'PageDown' || e.key.toLowerCase() === 'e') { this.tasten.seiteRechts = true; e.preventDefault(); }
+
+      // Gehen-Modus Toggle (Klassisch Punkt '.' oder 'c')
+      if (e.key === '.' || e.key.toLowerCase() === 'c') {
+        this.gehenModus = !this.gehenModus;
+      }
+
+      // Entdecker-Ruf "A-ha!" (Strg oder 'f')
+      if (e.key === 'Control' || e.key.toLowerCase() === 'f') {
+        window.EEP.laraAha();
+      }
+
+      // 180°-Bodenrolle (Klassisch 'End', 'r' oder Hoch+Runter gleichzeitig)
+      if ((e.key === 'End' || e.key.toLowerCase() === 'r' || (this.tasten.hoch && this.tasten.runter)) && this.posY <= this.bodenY + 0.02 && this.zustand !== 'rolle') {
+        this.starteRolle();
+        e.preventDefault();
+      }
+
+      // Sprung & Akrobatik-Saltos (Klassisch 'Alt' oder Leertaste ' ')
+      if (e.key === 'Alt' || e.key === ' ') {
+        this.tasten.alt = true;
+        e.preventDefault();
+        if (this.posY <= this.bodenY + 0.02 && this.zustand !== 'rolle') {
+          if (this.tasten.links || this.tasten.seiteLinks) {
+            this.starteSeitwaertssalto(1); // 360°-Seitwärtssalto nach links!
+          } else if (this.tasten.rechts || this.tasten.seiteRechts) {
+            this.starteSeitwaertssalto(-1); // 360°-Seitwärtssalto nach rechts!
+          } else if (this.tasten.runter) {
+            this.starteRueckwaertssalto(); // 360°-Rückwärtssalto!
+          } else {
+            this.starteSprung(this.tasten.hoch ? 8.5 : 0);
+          }
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp') this.tasten.hoch = false;
+      if (e.key === 'ArrowDown') this.tasten.runter = false;
+      if (e.key === 'ArrowLeft') this.tasten.links = false;
+      if (e.key === 'ArrowRight') this.tasten.rechts = false;
+      if (e.key === 'Alt' || e.key === ' ') this.tasten.alt = false;
+      if (e.key === 'Delete' || e.key.toLowerCase() === 'q') this.tasten.seiteLinks = false;
+      if (e.key === 'PageDown' || e.key.toLowerCase() === 'e') this.tasten.seiteRechts = false;
+    });
+
+    this.baueLara15Meshes();
+  },
+
+  starteSprung: function (vorwaertsTempo) {
+    this.zustand = 'sprung';
+    this.velY = 7.2;
+    const yaw = this.el.object3D.rotation.y;
+    this.sprungVx = -Math.sin(yaw) * vorwaertsTempo;
+    this.sprungVz = -Math.cos(yaw) * vorwaertsTempo;
+    window.EEP.laraSprung();
+  },
+
+  starteSeitwaertssalto: function (richtungLinksRechts) {
+    this.zustand = 'seitwaertssalto';
+    this.saltoRichtung = richtungLinksRechts; // +1 = Links, -1 = Rechts
+    this.saltoZeit = 0;
+    this.saltoDauer = 0.68;
+    this.velY = 6.8;
+    const yaw = this.el.object3D.rotation.y;
+    // Seitlicher Bewegungsvektor (links = -cos(yaw), +sin(yaw))
+    const sideSpeed = 7.4 * richtungLinksRechts;
+    this.sprungVx = -Math.cos(yaw) * sideSpeed;
+    this.sprungVz = Math.sin(yaw) * sideSpeed;
+    window.EEP.laraSalto();
+  },
+
+  starteRueckwaertssalto: function () {
+    this.zustand = 'rueckwaertssalto';
+    this.saltoZeit = 0;
+    this.saltoDauer = 0.68;
+    this.velY = 6.8;
+    const yaw = this.el.object3D.rotation.y;
+    this.sprungVx = Math.sin(yaw) * 6.5;
+    this.sprungVz = Math.cos(yaw) * 6.5;
+    window.EEP.laraSalto();
+  },
+
+  starteRolle: function () {
+    this.zustand = 'rolle';
+    this.saltoZeit = 0;
+    this.saltoDauer = 0.55;
+    window.EEP.laraSprung();
+  },
+
+  // Baut den originalgetreuen 15-teiligen Core-Design Low-Poly-Gelenkbaum (ohne Waffen)
+  baueLara15Meshes: function () {
+    const root = new THREE.Group();
+    this.el.setObject3D('mesh', root);
+
+    const topMat = new THREE.MeshStandardMaterial({ color: 0x26a69a, roughness: 0.55, flatShading: true }); // Klassisches Tomb-Raider Türkis
+    const shortsMat = new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.7, flatShading: true }); // Braune Shorts
+    const hautMat = new THREE.MeshStandardMaterial({ color: 0xe0a378, roughness: 0.6, flatShading: true });   // Hautton
+    const haarMat = new THREE.MeshStandardMaterial({ color: 0x3b2212, roughness: 0.65, flatShading: true });  // Dunkelbraunes Haar & Zopf
+    const lederMat = new THREE.MeshStandardMaterial({ color: 0x361f10, roughness: 0.6, flatShading: true });  // Rucksack, Gürtel, Stiefel, Handschuhe
+    const sockenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.8, flatShading: true }); // Weiße Socken
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.75, flatShading: true }); // Gürtelschnalle
+
+    const regMesh = (geo, mat, parent) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      parent.add(m);
+      this.meshCount++;
+      return m;
+    };
+
+    // --- MESH 1: PELVIS / HÜFTE (Root des Bone-Trees bei y = 0.94) ---
+    this.pelvisGroup = new THREE.Group();
+    this.pelvisGroup.position.set(0, 0.94, 0);
+    root.add(this.pelvisGroup);
+
+    const pelvisMesh = regMesh(new THREE.CylinderGeometry(0.145, 0.155, 0.18, 6), shortsMat, this.pelvisGroup);
+    pelvisMesh.scale.set(1.15, 1, 0.82);
+
+    // Gürtel mit Messingschnalle (ohne Waffenholster!)
+    const guertel = new THREE.Mesh(new THREE.CylinderGeometry(0.150, 0.150, 0.045, 6), lederMat);
+    guertel.scale.set(1.16, 1, 0.84);
+    guertel.position.set(0, 0.06, 0);
+    this.pelvisGroup.add(guertel);
+
+    const schnalle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.048, 0.02), goldMat);
+    schnalle.position.set(0, 0.06, -0.128);
+    this.pelvisGroup.add(schnalle);
+
+    // Hilfsfunktion für linkes (-1) und rechtes (+1) Bein (je 3 Gelenk-Meshes: Oberschenkel, Unterschenkel, Stiefel)
+    const baueBein = (side) => {
+      const hip = new THREE.Group();
+      hip.position.set(side * 0.105, -0.06, 0);
+      this.pelvisGroup.add(hip);
+
+      // Shorts-Beinansatz + kantiger Oberschenkel (Mesh 2 bzw. 5)
+      const shortsBein = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.078, 0.11, 6), shortsMat);
+      shortsBein.position.set(0, -0.05, 0);
+      hip.add(shortsBein);
+
+      const thighMesh = regMesh(new THREE.CylinderGeometry(0.076, 0.060, 0.34, 6), hautMat, hip);
+      thighMesh.position.set(0, -0.20, 0);
+
+      // Kniegelenk + Unterschenkel (Mesh 3 bzw. 6)
+      const knee = new THREE.Group();
+      knee.position.set(0, -0.37, 0);
+      hip.add(knee);
+
+      const calfMesh = regMesh(new THREE.CylinderGeometry(0.058, 0.046, 0.22, 6), hautMat, knee);
+      calfMesh.position.set(0, -0.11, 0);
+
+      // Weiße Socke + brauner Stiefelschaft
+      const socke = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.048, 0.08, 6), sockenMat);
+      socke.position.set(0, -0.24, 0);
+      knee.add(socke);
+
+      const schaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.050, 0.14, 6), lederMat);
+      schaft.position.set(0, -0.33, 0);
+      knee.add(schaft);
+
+      // Fußgelenk + Schnürstiefel (Mesh 4 bzw. 7)
+      const ankle = new THREE.Group();
+      ankle.position.set(0, -0.41, 0);
+      knee.add(ankle);
+
+      const bootMesh = regMesh(new THREE.BoxGeometry(0.095, 0.085, 0.22), lederMat, ankle);
+      bootMesh.position.set(0, -0.04, -0.04);
+
+      return { hip, knee, ankle };
+    };
+
+    this.beinL = baueBein(-1);
+    this.beinR = baueBein(1);
+
+    // --- MESH 8: TORSO / OBERKÖRPER (Türkisfarbenes Tank-Top + Entdecker-Rucksack) ---
+    this.torsoGroup = new THREE.Group();
+    this.torsoGroup.position.set(0, 0.08, 0);
+    this.pelvisGroup.add(this.torsoGroup);
+
+    // Schmale Taille
+    const taille = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.125, 0.12, 6), hautMat);
+    taille.scale.set(1.1, 1, 0.78);
+    taille.position.set(0, 0.06, 0);
+    this.torsoGroup.add(taille);
+
+    // Haupt-Oberkörper im typischen PS1-Türkis
+    const torsoMesh = regMesh(new THREE.CylinderGeometry(0.165, 0.115, 0.34, 6), topMat, this.torsoGroup);
+    torsoMesh.scale.set(1.15, 1, 0.78);
+    torsoMesh.position.set(0, 0.27, 0);
+
+    // Charakteristisches facettiertes PS1-Low-Poly-Brustprisma (Vorne -Z)
+    const brustPrisma = new THREE.Mesh(new THREE.ConeGeometry(0.145, 0.16, 4), topMat);
+    brustPrisma.rotation.y = Math.PI / 4;
+    brustPrisma.rotation.x = -Math.PI / 2;
+    brustPrisma.scale.set(1.25, 0.85, 0.75);
+    brustPrisma.position.set(0, 0.30, -0.11);
+    this.torsoGroup.add(brustPrisma);
+
+    // Brauner Entdecker-Rucksack auf dem Rücken (+Z)
+    const rucksack = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.11), lederMat);
+    rucksack.position.set(0, 0.28, 0.13);
+    rucksack.castShadow = true;
+    this.torsoGroup.add(rucksack);
+
+    // --- MESHES 9..14: LINKE & RECHTE ARMKETTEN (Oberarm, Unterarm, behandschuhte Hand) ---
+    const baueArm = (side) => {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(side * 0.205, 0.40, 0);
+      this.torsoGroup.add(shoulder);
+
+      const upperArmMesh = regMesh(new THREE.CylinderGeometry(0.046, 0.038, 0.25, 6), hautMat, shoulder);
+      upperArmMesh.position.set(0, -0.12, 0);
+
+      const elbow = new THREE.Group();
+      elbow.position.set(0, -0.25, 0);
+      shoulder.add(elbow);
+
+      const forearmMesh = regMesh(new THREE.CylinderGeometry(0.038, 0.032, 0.22, 6), hautMat, elbow);
+      forearmMesh.position.set(0, -0.11, 0);
+
+      const wrist = new THREE.Group();
+      wrist.position.set(0, -0.22, 0);
+      elbow.add(wrist);
+
+      const handMesh = regMesh(new THREE.BoxGeometry(0.048, 0.075, 0.055), lederMat, wrist);
+      handMesh.position.set(0, -0.035, 0);
+
+      return { shoulder, elbow, wrist };
+    };
+
+    this.armL = baueArm(-1);
+    this.armR = baueArm(1);
+
+    // --- MESH 15: KOPF + 5-GLIEDRIGER SCHWINGENDER ZOPF (BRAID) ---
+    this.headGroup = new THREE.Group();
+    this.headGroup.position.set(0, 0.45, 0);
+    this.torsoGroup.add(this.headGroup);
+
+    const hals = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.054, 0.07, 6), hautMat);
+    hals.position.set(0, 0.03, 0);
+    this.headGroup.add(hals);
+
+    const headMesh = regMesh(new THREE.CylinderGeometry(0.092, 0.076, 0.20, 7), hautMat, this.headGroup);
+    headMesh.position.set(0, 0.14, 0);
+
+    // Braune Haarkappe + seitliche Pony-Strähnen
+    const haarKappe = new THREE.Mesh(new THREE.SphereGeometry(0.098, 7, 6), haarMat);
+    haarKappe.scale.set(1.0, 0.92, 1.08);
+    haarKappe.position.set(0, 0.18, 0.015);
+    this.headGroup.add(haarKappe);
+
+    // Augen & Lippen auf der Vorderseite (-Z)
+    const augenMat = new THREE.MeshBasicMaterial({ color: 0x1e1b18 });
+    [-0.032, 0.032].forEach(xEye => {
+      const auge = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.014, 0.01), augenMat);
+      auge.position.set(xEye, 0.155, -0.088);
+      this.headGroup.add(auge);
+    });
+    const lippen = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.012, 0.01), new THREE.MeshBasicMaterial({ color: 0xa13d2d }));
+    lippen.position.set(0, 0.105, -0.084);
+    this.headGroup.add(lippen);
+
+    // 5-gliedriger beweglicher Zopf (Braid) am Hinterkopf (+Z)
+    let parentBraid = this.headGroup;
+    for (let i = 0; i < 5; i++) {
+      const bJoint = new THREE.Group();
+      if (i === 0) bJoint.position.set(0, 0.12, 0.095);
+      else bJoint.position.set(0, -0.075, 0.01);
+      parentBraid.add(bJoint);
+
+      const radius = 0.034 - i * 0.004;
+      const segMat = i === 4 ? topMat : haarMat; // Türkises Haargummi am Zopfende!
+      const bSeg = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.85, 0.085, 6), segMat);
+      bSeg.position.set(0, -0.04, 0);
+      bSeg.castShadow = true;
+      bJoint.add(bSeg);
+
+      this.braidSegments.push(bJoint);
+      parentBraid = bJoint;
+    }
+  },
+
+  teleportiereZu: function (x, y, z, rotYGrad) {
+    this.bodenY = y;
+    this.posY = y;
+    this.velY = 0;
+    this.zustand = 'stand';
+    this.el.object3D.position.set(x, y, z);
+    this.el.object3D.rotation.set(0, THREE.MathUtils.degToRad(rotYGrad), 0);
+    this.pelvisGroup.rotation.set(0, 0, 0);
+    this.el.object3D.updateMatrixWorld(true);
+  },
+
+  tick: function (time, dt) {
+    if (!dt) return;
+    const deltaSec = Math.min(dt / 1000, 0.08);
+    const lookAktiv = window.EEP.lookState && window.EEP.lookState.aktiv;
+
+    // ------------------------------------------------------------------------
+    // 1. TANK-CONTROLS & AKROBATIK-PHYSIK (Rennen, Gehen, Sprung, 360°-Saltos)
+    // ------------------------------------------------------------------------
+    if (this.zustand === 'seitwaertssalto' || this.zustand === 'rueckwaertssalto') {
+      // Vollständiger 360°-Salto in der Luft!
+      this.saltoZeit += deltaSec;
+      const progress = Math.min(1, this.saltoZeit / this.saltoDauer);
+
+      this.velY -= 19.5 * deltaSec;
+      this.posY += this.velY * deltaSec;
+      this.el.object3D.position.x += this.sprungVx * deltaSec;
+      this.el.object3D.position.z += this.sprungVz * deltaSec;
+
+      if (this.zustand === 'seitwaertssalto') {
+        // 360°-Drehung um die Z-Achse (Sideflip!)
+        this.pelvisGroup.rotation.z = this.saltoRichtung * progress * Math.PI * 2;
+        this.pelvisGroup.rotation.x = 0;
+      } else {
+        // 360°-Drehung um die X-Achse (Backflip!)
+        this.pelvisGroup.rotation.x = progress * Math.PI * 2;
+        this.pelvisGroup.rotation.z = 0;
+      }
+
+      // Angezogene Salto-Haltung der Gliedmaßen
+      this.beinL.hip.rotation.x = -0.85;
+      this.beinR.hip.rotation.x = -0.85;
+      this.beinL.knee.rotation.x = -1.35;
+      this.beinR.knee.rotation.x = -1.35;
+      this.armL.shoulder.rotation.x = -1.2;
+      this.armR.shoulder.rotation.x = -1.2;
+
+      if (this.posY <= this.bodenY || progress >= 1) {
+        this.posY = this.bodenY;
+        this.velY = 0;
+        this.pelvisGroup.rotation.set(0, 0, 0);
+        this.zustand = 'stand';
+        window.EEP.laraLandung();
+      }
+    } else if (this.zustand === 'sprung') {
+      this.velY -= 18.5 * deltaSec;
+      this.posY += this.velY * deltaSec;
+      this.el.object3D.position.x += this.sprungVx * deltaSec;
+      this.el.object3D.position.z += this.sprungVz * deltaSec;
+
+      // Heroische Tomb-Raider-Sprunghaltung
+      this.beinL.hip.rotation.x = -0.55;
+      this.beinR.hip.rotation.x = 0.25;
+      this.beinL.knee.rotation.x = -0.9;
+      this.beinR.knee.rotation.x = -0.45;
+      this.armL.shoulder.rotation.x = -2.2;
+      this.armR.shoulder.rotation.x = -2.2;
+      this.armL.shoulder.rotation.z = 0.25;
+      this.armR.shoulder.rotation.z = -0.25;
+
+      if (this.posY <= this.bodenY) {
+        this.posY = this.bodenY;
+        this.velY = 0;
+        this.armL.shoulder.rotation.z = 0;
+        this.armR.shoulder.rotation.z = 0;
+        this.zustand = 'stand';
+        window.EEP.laraLandung();
+      }
+    } else if (this.zustand === 'rolle') {
+      // Klassische 180°-Bodenrolle mit sofortiger Kehrtwende
+      this.saltoZeit += deltaSec;
+      const progress = Math.min(1, this.saltoZeit / this.saltoDauer);
+      const yaw = this.el.object3D.rotation.y;
+      this.el.object3D.position.x -= Math.sin(yaw) * 6.5 * deltaSec;
+      this.el.object3D.position.z -= Math.cos(yaw) * 6.5 * deltaSec;
+      this.pelvisGroup.rotation.x = -progress * Math.PI * 2;
+      this.pelvisGroup.position.y = 0.65;
+
+      if (progress >= 1) {
+        this.pelvisGroup.rotation.set(0, 0, 0);
+        this.pelvisGroup.position.y = 0.94;
+        this.el.object3D.rotation.y += Math.PI; // 180° Wende!
+        this.zustand = 'stand';
+        window.EEP.laraLandung();
+      }
+    } else if (!lookAktiv) {
+      // Normale Boden-Steuerung (Drehen, Rennen, Gehen, Seitwärtsschritt)
+      const turnRate = 2.55;
+      if (this.tasten.links) this.el.object3D.rotation.y += turnRate * deltaSec;
+      if (this.tasten.rechts) this.el.object3D.rotation.y -= turnRate * deltaSec;
+
+      const yaw = this.el.object3D.rotation.y;
+      let moveSpeed = 0;
+      let sideSpeed = 0;
+
+      if (this.tasten.hoch) {
+        moveSpeed = this.gehenModus ? 4.2 : 9.2;
+        this.zustand = this.gehenModus ? 'gehen' : 'lauf';
+      } else if (this.tasten.runter) {
+        moveSpeed = -4.5;
+        this.zustand = 'rueck';
+      } else if (this.tasten.seiteLinks) {
+        sideSpeed = 5.2;
+        this.zustand = 'seitschritt';
+      } else if (this.tasten.seiteRechts) {
+        sideSpeed = -5.2;
+        this.zustand = 'seitschritt';
+      } else {
+        this.zustand = 'stand';
+      }
+
+      if (moveSpeed !== 0) {
+        this.el.object3D.position.x -= Math.sin(yaw) * moveSpeed * deltaSec;
+        this.el.object3D.position.z -= Math.cos(yaw) * moveSpeed * deltaSec;
+      }
+      if (sideSpeed !== 0) {
+        this.el.object3D.position.x -= Math.cos(yaw) * sideSpeed * deltaSec;
+        this.el.object3D.position.z += Math.sin(yaw) * sideSpeed * deltaSec;
+      }
+
+      // Gelenk-Animationen für Lauf-, Geh- und Standzyklus
+      if (this.zustand === 'lauf' || this.zustand === 'gehen' || this.zustand === 'rueck') {
+        const freq = this.zustand === 'lauf' ? 12.5 : 8.0;
+        const amp = this.zustand === 'lauf' ? 0.78 : 0.42;
+        this.animPhase += freq * deltaSec;
+        const s = Math.sin(this.animPhase);
+        const c = Math.cos(this.animPhase);
+        this.beinWinkel = Math.abs(s) * amp;
+
+        this.beinL.hip.rotation.x = s * amp;
+        this.beinR.hip.rotation.x = -s * amp;
+        this.beinL.knee.rotation.x = -Math.max(0, -c) * amp * 1.1;
+        this.beinR.knee.rotation.x = -Math.max(0, c) * amp * 1.1;
+
+        this.armL.shoulder.rotation.x = -s * amp * 0.85;
+        this.armR.shoulder.rotation.x = s * amp * 0.85;
+        this.armL.elbow.rotation.x = 0.45 + Math.max(0, s) * 0.35;
+        this.armR.elbow.rotation.x = 0.45 + Math.max(0, -s) * 0.35;
+
+        this.torsoGroup.rotation.x = this.zustand === 'lauf' ? -0.14 : -0.05;
+        this.torsoGroup.rotation.y = s * 0.12;
+        this.pelvisGroup.position.y = 0.94 + Math.abs(Math.sin(this.animPhase)) * 0.06;
+
+        // Stiefel-Schrittgeräusch im Takt der Fußaufsetzer
+        const schrittIntervall = this.zustand === 'lauf' ? 250 : 390;
+        if (time - this.letzterSchritt > schrittIntervall) {
+          this.letzterSchritt = time;
+          window.EEP.laraSchritt();
+        }
+      } else if (this.zustand === 'seitschritt') {
+        this.animPhase += 10.5 * deltaSec;
+        const s = Math.sin(this.animPhase);
+        this.beinL.hip.rotation.z = Math.max(0, s) * 0.45;
+        this.beinR.hip.rotation.z = -Math.max(0, -s) * 0.45;
+        this.beinL.hip.rotation.x = s * 0.2;
+        this.beinR.hip.rotation.x = -s * 0.2;
+        if (time - this.letzterSchritt > 300) {
+          this.letzterSchritt = time;
+          window.EEP.laraSchritt();
+        }
+      } else {
+        // Ruhiger Atem-Rhythmus im Stand
+        this.animPhase += 2.2 * deltaSec;
+        this.beinWinkel = 0;
+        this.beinL.hip.rotation.set(0, 0, 0);
+        this.beinR.hip.rotation.set(0, 0, 0);
+        this.beinL.knee.rotation.set(0, 0, 0);
+        this.beinR.knee.rotation.set(0, 0, 0);
+        this.armL.shoulder.rotation.set(0, 0, 0.06);
+        this.armR.shoulder.rotation.set(0, 0, -0.06);
+        this.armL.elbow.rotation.set(0.18, 0, 0);
+        this.armR.elbow.rotation.set(0.18, 0, 0);
+        this.torsoGroup.rotation.set(Math.sin(this.animPhase) * 0.02, 0, 0);
+        this.pelvisGroup.position.y = 0.94;
+      }
+    }
+
+    this.el.object3D.position.y = this.posY;
+
+    // ------------------------------------------------------------------------
+    // 2. KOPFDREHUNG IM LOOK-MODUS & DYNAMISCHE ZOPF-PHYSIK (5 Segmente)
+    // ------------------------------------------------------------------------
+    const ls = window.EEP.lookState;
+    if (ls && this.headGroup) {
+      this.headGroup.rotation.y = THREE.MathUtils.clamp(ls.yaw * 0.55, -0.95, 0.95);
+      this.headGroup.rotation.x = THREE.MathUtils.clamp(ls.pitch * 0.55, -0.55, 0.55);
+    }
+
+    const istBewegt = this.zustand !== 'stand';
+    this.braidSegments.forEach((seg, idx) => {
+      const wave = Math.sin(this.animPhase * 1.4 - idx * 0.55);
+      seg.rotation.x = (istBewegt ? 0.28 : 0.08) + Math.abs(wave) * (istBewegt ? 0.14 : 0.02);
+      seg.rotation.z = wave * (istBewegt ? 0.16 : 0.03);
+    });
   }
 });
 
@@ -2663,8 +3384,33 @@ AFRAME.registerComponent('ki-steuerung', {
     this.hauptKamera = document.querySelector('#haupt-kamera');
     this.umwelt = document.querySelector('#umwelt');
 
-    // Tastatur-Steuerung ([1] DE, [2] Ludmilla, [3] US-Zug, [4] USA/NY, [5] Flugzeug, [6] Schiff, [7] Vogelperspektive, [8] Auto-Cockpit)
+    // Globaler Tomb-Raider Look-Zustand (Shift + Pfeiltasten oder Numpad 0 / Insert + Pfeiltasten)
+    window.EEP.lookState = {
+      shift: false,
+      num0: false,
+      aktiv: false,
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      yaw: 0,
+      pitch: 0
+    };
+    const ls = window.EEP.lookState;
+
+    // Tastatur-Steuerung ([1] Lara DE, [2] Ludmilla, [3] US-Zug, [4] Lara USA, [5] Flugzeug 3rd-P, [6] Schiff 3rd-P, [7] Vogelperspektive, [8] Auto-Cockpit)
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'Shift') ls.shift = true;
+      if (e.code === 'Numpad0' || e.key === 'Insert') ls.num0 = true;
+      ls.aktiv = ls.shift || ls.num0;
+
+      if (ls.aktiv) {
+        if (e.key === 'ArrowUp') { ls.up = true; e.preventDefault(); }
+        if (e.key === 'ArrowDown') { ls.down = true; e.preventDefault(); }
+        if (e.key === 'ArrowLeft') { ls.left = true; e.preventDefault(); }
+        if (e.key === 'ArrowRight') { ls.right = true; e.preventDefault(); }
+      }
+
       if (e.key === '1') this.setzeKamera(1);
       if (e.key === '2') this.setzeKamera(2);
       if (e.key === '3') this.setzeKamera(3);
@@ -2674,7 +3420,7 @@ AFRAME.registerComponent('ki-steuerung', {
       if (e.key === '7') this.setzeKamera(7);
       if (e.key === '8') this.setzeKamera(8);
       if (e.key.toLowerCase() === 'l') this.wechselWetter();
-      if (e.key.toLowerCase() === 'h' || e.key === ' ') {
+      if (e.key.toLowerCase() === 'h') {
         if (window.EEP.aktiveKamera === 8) {
           window.EEP.autoHupe();
           e.preventDefault();
@@ -2684,13 +3430,30 @@ AFRAME.registerComponent('ki-steuerung', {
       }
     });
 
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Shift') ls.shift = false;
+      if (e.code === 'Numpad0' || e.key === 'Insert') ls.num0 = false;
+      ls.aktiv = ls.shift || ls.num0;
+      if (e.key === 'ArrowUp') ls.up = false;
+      if (e.key === 'ArrowDown') ls.down = false;
+      if (e.key === 'ArrowLeft') ls.left = false;
+      if (e.key === 'ArrowRight') ls.right = false;
+      if (!ls.aktiv) {
+        ls.up = false; ls.down = false; ls.left = false; ls.right = false;
+      }
+    });
+
     this.baueSteuerpultUI();
     this.aktiviereHardwareBeschleunigung();
     window.EEP.updateUI = () => this.aktualisiereZugRegler();
     setTimeout(() => {
+      this.setzeKamera(1); // Startet im 3rd-Person Tomb-Raider-Modus hinter Lara Croft in Deutschland!
       this.aktualisiereZugRegler();
       if (window.location.search.includes('autotest=1')) {
         this.starteAutoSelbsttest();
+      }
+      if (window.location.search.includes('laratest=1')) {
+        this.starteLaraSelbsttest();
       }
       const camMatch = window.location.search.match(/cam=(\d)/);
       if (camMatch) {
@@ -2783,37 +3546,113 @@ AFRAME.registerComponent('ki-steuerung', {
     }));
   },
 
+  // Automatisierter Selbsttest für t-lara-croft-001 & t-lara-croft-002 (?laratest=1)
+  starteLaraSelbsttest: function () {
+    const lara = window.EEP.laraComp;
+    const ls = window.EEP.lookState;
+    if (!lara || !ls) {
+      console.error('LARA_TEST_FAILED: ki-lara oder lookState fehlt');
+      return;
+    }
+
+    // 1. Test t-lara-croft-002 im Flugzeug (Kamera 5): Shift+Pfeiltasten Look & Spring-Back
+    this.setzeKamera(5);
+    ls.shift = true;
+    ls.aktiv = true;
+    ls.right = true;
+    ls.up = true;
+    for (let i = 0; i < 10; i++) this.tick(100 + i * 50, 50);
+    const flugzeugLookYawPeak = ls.yaw;
+    const flugzeugLookPitchPeak = ls.pitch;
+
+    // Shift loslassen -> Kamera muss automatisch auf (0, 0) zurückfedern!
+    ls.shift = false;
+    ls.aktiv = false;
+    ls.right = false;
+    ls.up = false;
+    for (let i = 0; i < 35; i++) this.tick(700 + i * 50, 50);
+    const flugzeugLookYawAfter = ls.yaw;
+
+    // 2. Test t-lara-croft-001: Lara Croft in Deutschland (Kamera 1) - Rennen & 360°-Seitwärtssalto
+    this.setzeKamera(1);
+    const startPos = lara.el.object3D.position.clone();
+    lara.tasten.hoch = true;
+    let maxBeinWinkel = 0;
+    for (let i = 0; i < 10; i++) {
+      lara.tick(2500 + i * 50, 50);
+      this.tick(2500 + i * 50, 50);
+      if (lara.beinWinkel > maxBeinWinkel) maxBeinWinkel = lara.beinWinkel;
+    }
+    const laufDistanz = lara.el.object3D.position.distanceTo(startPos);
+    lara.tasten.hoch = false;
+
+    // Jetzt 360°-Seitwärtssalto nach links auslösen und Höhe/Rollwinkel messen
+    lara.starteSeitwaertssalto(1);
+    for (let i = 0; i < 6; i++) {
+      lara.tick(3100 + i * 45, 45);
+      this.tick(3100 + i * 45, 45);
+    }
+    const saltoPosY = lara.posY;
+    const saltoRollGrad = Math.round(THREE.MathUtils.radToDeg(lara.pelvisGroup.rotation.z));
+
+    // Salto sauber zu Ende landen lassen und Lara an den malerischen Startpunkt vor dem Bahnhof setzen
+    for (let i = 0; i < 15; i++) {
+      lara.tick(3500 + i * 45, 45);
+      this.tick(3500 + i * 45, 45);
+    }
+    lara.teleportiereZu(-102, 0.25, -36, 165);
+    this.tick(4300, 50);
+
+    console.log('LARA_TEST_RESULT:', JSON.stringify({
+      meshCount: lara.meshCount,
+      braidSegments: lara.braidSegments.length,
+      laufDistanz: Number(laufDistanz.toFixed(2)),
+      beinWinkelAktiv: maxBeinWinkel > 0.4,
+      saltoAbgehoben: saltoPosY > 0.8,
+      saltoRotationGrad: saltoRollGrad,
+      lookYawPeak: Number(flugzeugLookYawPeak.toFixed(2)),
+      lookPitchPeak: Number(flugzeugLookPitchPeak.toFixed(2)),
+      springBackErfolgreich: Math.abs(flugzeugLookYawAfter) < 0.02
+    }));
+  },
+
   setzeKamera: function (modus) {
     window.EEP.aktiveKamera = modus;
+    if (window.EEP.lookState) {
+      window.EEP.lookState.yaw = 0;
+      window.EEP.lookState.pitch = 0;
+    }
     document.querySelectorAll('.eep-cam-btn').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.cam) === modus);
     });
 
-    // Im Auto-Cockpit [8] das Hauptsteuerpult nach oben andocken, damit Lenkrad & Gangwahlhebel unten 100% frei sichtbar sind!
     const cockpitUI = document.getElementById('eep-cockpit');
     const autoHUD = document.getElementById('eep-auto-hud');
+    const laraHUD = document.getElementById('eep-lara-hud');
     if (cockpitUI) {
       cockpitUI.classList.toggle('auto-modus-oben', modus === 8);
     }
     if (autoHUD) {
       autoHUD.style.display = modus === 8 ? 'flex' : 'none';
     }
+    if (laraHUD) {
+      laraHUD.style.display = (modus === 1 || modus === 4) ? 'flex' : 'none';
+    }
 
-    if (modus === 1) {
-      // Panorama-Blick Deutschland (bei Mein Haus mit Blick auf Ludmilla, Bahnhof, Fluss & Ostsee)
-      if (this.hauptKamera) {
-        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
+    const lara = window.EEP.laraComp;
+    if (modus === 1 && lara) {
+      // Wenn Lara in Amerika stand, nach Deutschland vor den Bahnhof holen
+      if (lara.el.object3D.position.x > 0) {
+        lara.teleportiereZu(-102, 0.25, -36, 165);
       }
-      this.kameraRig.object3D.position.set(-94, 7.5, -50);
-      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-10), THREE.MathUtils.degToRad(142), 0);
-    } else if (modus === 4) {
-      // Panorama-Blick Amerika (bei New York / Mein Haus mit Blick auf US-Bahn & Grand Canyon)
-      if (this.hauptKamera) {
-        this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 35; fly: false');
+    } else if (modus === 4 && lara) {
+      // Wenn Lara in Deutschland stand, nach Amerika (New York / Mein Haus) holen
+      if (lara.el.object3D.position.x < 0) {
+        lara.teleportiereZu(144, 0.25, -34, 152);
       }
-      this.kameraRig.object3D.position.set(146, 8.5, -34);
-      this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-10), THREE.MathUtils.degToRad(152), 0);
-    } else if (modus === 7) {
+    }
+
+    if (modus === 7) {
       // Freie Vogelperspektive über dem Ozean (Übersicht über alle 3 Blätter!)
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: true; acceleration: 85; fly: true');
@@ -2821,7 +3660,7 @@ AFRAME.registerComponent('ki-steuerung', {
       this.kameraRig.object3D.position.set(0, 75, 95);
       this.kameraRig.object3D.rotation.set(THREE.MathUtils.degToRad(-35), 0, 0);
     } else {
-      // Zug-/Flugzeug-/Schiffs-/Auto-Cockpit: WASD deaktivieren & Kamera-Offset/Blickwinkel zentrieren!
+      // In allen Lara- (1, 4) und Fahrzeug-Modi (2, 3, 5, 6, 8) A-Frame wasd-controls deaktivieren!
       if (this.hauptKamera) {
         this.hauptKamera.setAttribute('wasd-controls', 'enabled: false');
         this.hauptKamera.object3D.position.set(0, 0, 0);
@@ -2908,7 +3747,9 @@ AFRAME.registerComponent('ki-steuerung', {
     }
   },
 
-  tick: function () {
+  tick: function (time, dt) {
+    const deltaSec = Math.min((dt || 16) / 1000, 0.08);
+
     // Hardware-Shadow-Map alle 3 Frames aktualisieren (spart 66% Shadow-Pass-Last bei voller Polygonanzahl!)
     this._frameCount = (this._frameCount || 0) + 1;
     if (this._frameCount % 3 === 0 && this.el.renderer && this.el.renderer.shadowMap) {
@@ -2930,14 +3771,103 @@ AFRAME.registerComponent('ki-steuerung', {
       }
     }
 
-    const modus = window.EEP.aktiveKamera;
-    if (modus === 1 || modus === 4 || modus === 7 || modus === 8) return; // Modus 8 wird für Zero-Lag direkt in ki-auto.tick() synchronisiert!
+    // ------------------------------------------------------------------------
+    // TOMB RAIDER (1-5) LOOK-MODUS (Shift + Pfeiltasten / Numpad 0 + Pfeiltasten)
+    // Mit automatischem Spring-Back in die optimale Position nach dem Loslassen!
+    // ------------------------------------------------------------------------
+    const ls = window.EEP.lookState;
+    if (ls) {
+      if (ls.aktiv) {
+        const yawSpeed = 2.3;
+        const pitchSpeed = 1.65;
+        if (ls.left) ls.yaw = Math.min(2.6, ls.yaw + yawSpeed * deltaSec);
+        if (ls.right) ls.yaw = Math.max(-2.6, ls.yaw - yawSpeed * deltaSec);
+        if (ls.up) ls.pitch = Math.min(0.85, ls.pitch + pitchSpeed * deltaSec);
+        if (ls.down) ls.pitch = Math.max(-0.75, ls.pitch - pitchSpeed * deltaSec);
+      } else {
+        // Automatische geschmeidige Rückkehr in die optimale Standardansicht (Offset 0)
+        const decay = Math.exp(-9.5 * deltaSec);
+        ls.yaw *= decay;
+        ls.pitch *= decay;
+        if (Math.abs(ls.yaw) < 0.002) ls.yaw = 0;
+        if (Math.abs(ls.pitch) < 0.002) ls.pitch = 0;
+      }
+    }
 
+    const modus = window.EEP.aktiveKamera;
+    if (modus === 7 || modus === 8) return; // Modus 7 = freie Übersicht, Modus 8 = Auto-Cockpit (in ki-auto.tick synchronisiert)
+
+    // MODUS 1 & 4: 3rd-Person Verfolger-Kamera hinter LARA CROFT (wie in Tomb Raider 1-5!)
+    if ((modus === 1 || modus === 4) && window.EEP.laraComp && this.kameraRig) {
+      const laraObj = window.EEP.laraComp.el.object3D;
+      const laraPos = laraObj.position;
+      const laraYaw = laraObj.rotation.y;
+
+      const totalYaw = laraYaw + (ls ? ls.yaw : 0);
+      const totalPitch = -0.24 + (ls ? ls.pitch : 0); // Klassischer Tomb-Raider-Winkel: Kamera blickt auf Knie/Hüfthöhe -> komplette Figur inkl. Stiefel über dem unteren Pult sichtbar!
+      const dist = 3.1;
+
+      const targetX = laraPos.x;
+      const targetY = laraPos.y + 0.58;
+      const targetZ = laraPos.z;
+
+      const camX = targetX + Math.sin(totalYaw) * Math.cos(totalPitch) * dist;
+      const camY = Math.max(0.45, targetY - Math.sin(totalPitch) * dist);
+      const camZ = targetZ + Math.cos(totalYaw) * Math.cos(totalPitch) * dist;
+
+      this.kameraRig.object3D.position.set(camX, camY, camZ);
+      this.kameraRig.object3D.rotation.set(totalPitch, totalYaw, 0, 'YXZ');
+      return;
+    }
+
+    // MODUS 5: 3rd-Person Verfolger-Kamera hinter dem FLUGZEUG (Default 3rd-Person + Shift+Pfeiltasten Orbit!)
+    if (modus === 5 && window.EEP.flugzeugComp && this.kameraRig) {
+      const planeObj = window.EEP.flugzeugComp.el.object3D;
+      planeObj.updateMatrixWorld(true);
+      const planePos = planeObj.position;
+      // Vorwärtsvektor des Flugzeugs bestimmen
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(planeObj.quaternion);
+      const baseYaw = Math.atan2(-forward.x, -forward.z);
+
+      const totalYaw = baseYaw + (ls ? ls.yaw : 0);
+      const totalPitch = -0.20 + (ls ? ls.pitch : 0);
+      const dist = 21.0;
+
+      const camX = planePos.x + Math.sin(totalYaw) * Math.cos(totalPitch) * dist;
+      const camY = Math.max(1.2, planePos.y + 1.5 - Math.sin(totalPitch) * dist);
+      const camZ = planePos.z + Math.cos(totalYaw) * Math.cos(totalPitch) * dist;
+
+      this.kameraRig.object3D.position.set(camX, camY, camZ);
+      this.kameraRig.object3D.rotation.set(totalPitch, totalYaw, 0, 'YXZ');
+      return;
+    }
+
+    // MODUS 6: 3rd-Person Verfolger-Kamera hinter MEIN SCHIFF (+ Shift+Pfeiltasten Orbit!)
+    if (modus === 6 && window.EEP.faehreComp && this.kameraRig) {
+      const shipObj = window.EEP.faehreComp.el.object3D;
+      shipObj.updateMatrixWorld(true);
+      const shipPos = shipObj.position;
+      // Vorwärtsrichtung des Schiffs ist lokales +X
+      const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(shipObj.quaternion);
+      const baseYaw = Math.atan2(-forward.x, -forward.z);
+
+      const totalYaw = baseYaw + (ls ? ls.yaw : 0);
+      const totalPitch = -0.22 + (ls ? ls.pitch : 0);
+      const dist = 20.0;
+
+      const camX = shipPos.x + Math.sin(totalYaw) * Math.cos(totalPitch) * dist;
+      const camY = Math.max(1.2, shipPos.y + 2.2 - Math.sin(totalPitch) * dist);
+      const camZ = shipPos.z + Math.cos(totalYaw) * Math.cos(totalPitch) * dist;
+
+      this.kameraRig.object3D.position.set(camX, camY, camZ);
+      this.kameraRig.object3D.rotation.set(totalPitch, totalYaw, 0, 'YXZ');
+      return;
+    }
+
+    // MODUS 2 & 3: Zug-Führerstände (+ Shift+Pfeiltasten Umsehen mit Spring-Back!)
     let targetSelector = null;
     if (modus === 2) targetSelector = '.ludmilla-cam-anchor, .dampflok-cam-anchor';
     if (modus === 3) targetSelector = '.ice-cam-anchor';
-    if (modus === 5) targetSelector = '.flugzeug-cam-anchor';
-    if (modus === 6) targetSelector = '.schiff-cam-anchor';
 
     const anchor = targetSelector ? document.querySelector(targetSelector) : null;
     if (anchor && this.kameraRig) {
@@ -2948,6 +3878,9 @@ AFRAME.registerComponent('ki-steuerung', {
 
       this.kameraRig.object3D.position.copy(worldPos);
       this.kameraRig.object3D.quaternion.copy(worldQuat);
+      if (this.hauptKamera && ls) {
+        this.hauptKamera.object3D.rotation.set(ls.pitch, ls.yaw, 0, 'YXZ');
+      }
     }
   },
 
@@ -2956,20 +3889,21 @@ AFRAME.registerComponent('ki-steuerung', {
     style.textContent = `
       #eep-cockpit {
         position: fixed;
-        bottom: 16px;
+        bottom: 10px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) scale(0.86);
+        transform-origin: bottom center;
         z-index: 9999;
-        background: rgba(18, 24, 34, 0.88);
+        background: rgba(18, 24, 34, 0.86);
         backdrop-filter: blur(10px);
         border: 2px solid rgba(255, 255, 255, 0.18);
         border-radius: 16px;
-        padding: 12px 18px;
+        padding: 9px 15px;
         color: #fff;
         font-family: 'Segoe UI', system-ui, sans-serif;
         display: flex;
         flex-wrap: wrap;
-        gap: 16px;
+        gap: 12px;
         align-items: center;
         box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         max-width: 96vw;
@@ -2985,6 +3919,25 @@ AFRAME.registerComponent('ki-steuerung', {
       }
       #eep-cockpit.auto-modus-oben .eep-section:nth-child(2) {
         display: none;
+      }
+      #eep-lara-hud {
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(8px);
+        border: 2px solid rgba(45, 212, 191, 0.45);
+        border-radius: 14px;
+        padding: 8px 14px;
+        color: #fff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+        max-width: 95vw;
       }
       #eep-auto-hud {
         position: fixed;
@@ -3104,11 +4057,11 @@ AFRAME.registerComponent('ki-steuerung', {
       <div class="eep-section">
         <div class="eep-title">🎥 Weltreise & Cockpits</div>
         <div class="eep-btn-row">
-          <button class="eep-btn eep-cam-btn active" data-cam="1">🇩🇪 Deutschland [1]</button>
+          <button class="eep-btn eep-cam-btn active" data-cam="1">🏃‍♀️ Lara DE [1]</button>
           <button class="eep-btn eep-cam-btn" data-cam="2">🚂 Ludmilla DE [2]</button>
           <button class="eep-btn eep-cam-btn" data-cam="3">🚄 US-Train [3]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="4">🇺🇸 Amerika / NY [4]</button>
-          <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug [5]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="4">🏃‍♀️ Lara USA [4]</button>
+          <button class="eep-btn eep-cam-btn" data-cam="5">✈️ Flugzeug 3D [5]</button>
           <button class="eep-btn eep-cam-btn" data-cam="6">🚢 Mein Schiff [6]</button>
           <button class="eep-btn eep-cam-btn" data-cam="7">🦅 Übersicht [7]</button>
           <button class="eep-btn eep-cam-btn" data-cam="8" style="border-color:#f87171;">🚗 Auto-Cockpit [8]</button>
@@ -3181,6 +4134,36 @@ AFRAME.registerComponent('ki-steuerung', {
         }
       });
     };
+
+    // Interaktives Tomb-Raider-Steuerungs- & Aktions-Panel unten rechts (in Kamera [1] und [4] sichtbar)
+    const laraHud = document.createElement('div');
+    laraHud.id = 'eep-lara-hud';
+    laraHud.innerHTML = `
+      <div class="eep-title">🏃‍♀️ Tomb Raider 1–5 Steuerung (ohne Waffen) | Shift + Pfeiltasten = Umsehen</div>
+      <div class="eep-btn-row">
+        <button class="eep-btn" data-lara-act="jump">⬆️ Sprung [Alt/Leertaste]</button>
+        <button class="eep-btn" data-lara-act="flipL">🤸‍♀️ Salto Links [Alt+⬅️]</button>
+        <button class="eep-btn" data-lara-act="flipR">🤸‍♀️ Salto Rechts [Alt+➡️]</button>
+        <button class="eep-btn" data-lara-act="flipB">🔄 Rückwärtssalto [Alt+⬇️]</button>
+        <button class="eep-btn" data-lara-act="roll">🔃 180°-Rolle [Ende/R]</button>
+        <button class="eep-btn sound-btn" data-lara-act="aha">💎 "A-ha!" [F]</button>
+      </div>
+    `;
+    document.body.appendChild(laraHud);
+
+    laraHud.querySelectorAll('[data-lara-act]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lara = window.EEP.laraComp;
+        if (!lara) return;
+        const act = btn.dataset.laraAct;
+        if (act === 'jump') lara.starteSprung('up', 0, 1);
+        else if (act === 'flipL') lara.starteSprung('sideL', -1, 0);
+        else if (act === 'flipR') lara.starteSprung('sideR', 1, 0);
+        else if (act === 'flipB') lara.starteSprung('back', 0, -1);
+        else if (act === 'roll') lara.starteRolle();
+        else if (act === 'aha') window.EEP.laraAha();
+      });
+    });
 
     // Event-Listener für Kamera-Buttons
     ui.querySelectorAll('.eep-cam-btn').forEach(btn => {

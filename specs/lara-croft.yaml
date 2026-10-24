@@ -1,0 +1,127 @@
+schema_version: 1
+area: lara-croft
+title: Tomb Raider (1-5) Steuerung, 3rd-Person-Look-Kamera und Lara-Croft-Spielerfigur
+
+specs:
+  - id: s-lara-croft-001
+    title: 3rd-Person-Standardansicht und Shift+Pfeiltasten Look-Kamera mit automatischem Spring-Back
+    given:
+      - Der Spieler befindet sich in der 3rd-Person-Ansicht von Lara Croft (Kamera 1 oder 4), im Flugzeug (Kamera 5), auf dem Schiff (Kamera 6), im Zug (Kamera 2/3) oder im Auto (Kamera 8).
+    when: Der Nutzer hält die Shift-Taste (oder klassisch Numpad 0 / Einfg) gedrückt und betätigt die Pfeiltasten (Hoch, Runter, Links, Rechts) und lässt danach die Shift-Taste wieder los.
+    then:
+      - Während Shift gehalten wird, schwenkt und neigt sich die Kamera um die Spielfigur bzw. das Fahrzeug (z. B. Flugzeug in Kamera 5), ohne dass Lara läuft oder das Fahrzeug lenkt.
+      - Im Lara-Modus dreht Lara Croft während des Umsehens ihren Kopf sichtbar in die gewählte Blickrichtung.
+      - Im Flugzeug-Modus (Kamera 5) ist die Standardansicht eine 3rd-Person-Verfolgerkamera hinter und leicht über dem Flugzeug.
+      - Sobald die Shift-Taste (bzw. Numpad 0) losgelassen wird, kehrt die Kamera geschmeidig und selbstständig in die optimale Standardposition (Offset 0 Grad) zurück.
+    why: Die Kamerasteuerung soll sich exakt wie der Look-Modus aus Tomb Raider 1-5 verhalten und auch bei Fahrzeugen wie dem Flugzeug den freien Rundumblick mit automatischer Rückzentrierung bieten.
+
+  - id: s-lara-croft-002
+    title: Originalgetreues 15-teiliges Low-Poly-Modell von Lara Croft (kinderfreundlich ohne Waffen)
+    given:
+      - Die 3D-Welt in welt.html ist geladen.
+      - Kamera 1 (Deutschland) oder Kamera 4 (Amerika) ist aktiv.
+    when: Die Spielerfigur Lara Croft (ki-lara) wird im 3rd-Person-Blick betrachtet.
+    then:
+      - Lara Croft besteht aus der klassischen 15-teiligen Core-Design-Gliederhierarchie (Hüfte/Shorts mit Gürtelschnalle, kantiger türkisfarbener Oberkörper, Kopf, 5-gliedriger schwingender Zopf, linke/rechte Oberschenkel, Unterschenkel mit weißen Socken, braune Schnürstiefel, Oberarme, Unterarme, Hände mit fingerlosen Handschuhen sowie brauner Entdecker-Rucksack – komplett ohne Waffen).
+      - Alle Körperteile sind als facettierte Low-Poly-Meshes (flatShading) ohne Glitches verbunden und bewegen sich bei Animationen gelenkgesteuert.
+    why: Das optische Erscheinungsbild soll den ikonischen PS1/PC-Look aus Tomb Raider 1-5 originalgetreu und kinderfreundlich ohne Waffen treffen.
+
+  - id: s-lara-croft-003
+    title: Klassische Tomb-Raider-Akrobatik (Rennen, Springen, 360-Grad-Seitwärtssalto, Rückwärtssalto, Rolle)
+    given:
+      - Kamera 1 (Deutschland) oder Kamera 4 (Amerika) ist aktiv und Shift ist nicht gedrückt.
+    when: Der Nutzer steuert Lara Croft mit den Pfeiltasten und Aktions-Shortcuts (Alt/Leertaste für Sprung, Alt+Links/Rechts für Seitwärtssalto, Alt+Runter für Rückwärtssalto, Ende/R für 180-Grad-Rolle, Entf/Q und Bild-Ab/E für Seitwärtsschritte).
+    then:
+      - Pfeil-Hoch lässt Lara vorwärts rennen (mit gegenläufiger Arm-/Beinbewegung und schwingendem Zopf); Pfeil-Links/Rechts dreht Lara um ihre Hochachse.
+      - Alt (oder Leertaste) löst einen Sprung mit parabelförmiger Flugbahn aus.
+      - Alt + Pfeil-Links bzw. Alt + Pfeil-Rechts löst jederzeit direkt einen 360-Grad-Seitwärtssalto (Sideflip) in der Luft nach links bzw. rechts aus.
+      - Alt + Pfeil-Runter löst direkt einen 360-Grad-Rückwärtssalto (Backflip) nach hinten aus.
+      - Ende (oder R bzw. Pfeil-Hoch + Pfeil-Runter) führt eine 180-Grad-Bodenrolle mit sofortigem Richtungswechsel aus.
+    why: Lara Croft muss sich mit denselben akrobatischen Manövern und Tank-Controls wie im Original steuern lassen, wobei Saltos direkt ohne Waffenziehen funktionieren.
+
+  - id: s-lara-croft-004
+    title: Authentische Soundeffekte für Schritte, Sprünge, Saltos, Landung und Entdecker-Ruf
+    given:
+      - Die WebAudio-Engine (window.EEP) ist aktiv.
+    when: Lara Croft rennt, springt, vollführt einen Seitwärtssalto oder landet auf dem Boden.
+    then:
+      - Beim Rennen und Gehen ertönen im Takt der Fußaufsetzer markante Stiefel-Schrittgeräusche.
+      - Beim Absprung und Seitwärtssalto ertönt Laras charakteristischer Sprung-Laut (weibliche Formant-Stimme "Hup!" / "Yah!") kombiniert mit Luft-Whoosh.
+      - Bei der Landung ertönt der doppelte Stiefel-Aufprall mit kurzem Landungs-Laut.
+    why: Akustisches Feedback macht Bewegung, Sprungrhythmus und Akrobatik erst lebendig.
+
+decisions:
+  - id: d-lara-croft-001
+    title: Hierarchischer 15-Mesh-Bone-Tree nach Core-Design-Vorbild ohne Waffen
+    status: accepted
+    specs: [s-lara-croft-002, s-lara-croft-003]
+    decision: Lara Croft wird in ki-lara als hierarchischer Three.js-Gelenkbaum aus 15 facettierten Körpersegmenten plus 5-gliedrigem Zopf und Entdecker-Rucksack komplett ohne Waffen aufgebaut.
+    why: Nur ein echter Gelenkbaum erlaubt originalgetreue PS1-Gelenkrotationen für Rennen, Kopfdrehung beim Umsehen, 360-Grad-Seitwärtssaltos und Rückwärtssaltos; auf Waffen wird für das Vater-Sohn-Projekt bewusst verzichtet.
+    how:
+      - Root-Gruppe pelvisGroup trägt torsoGroup sowie linke und rechte Beinketten (thigh -> calf -> boot).
+      - torsoGroup trägt Rucksack, headGroup (inkl. 5-gliedriger braidGroup) sowie linke und rechte Armketten (upperArm -> forearm -> hand).
+      - Alle Segmente nutzen MeshStandardMaterial mit flatShading=true für den authentischen Polygon-Look.
+
+  - id: d-lara-croft-002
+    title: Shift+Pfeiltasten und Numpad-0 als universeller Tomb-Raider-Look-Modus mit exponentiellem Spring-Back
+    status: accepted
+    specs: [s-lara-croft-001]
+    decision: In ki-steuerung wird ein globaler Look-Offset (lookYaw, lookPitch) geführt, der bei gehaltener Shift-Taste (oder Numpad 0 / Insert) über die Pfeiltasten verändert wird und die normale Pfeiltasten-Fortbewegung währenddessen unterdrückt; beim Loslassen gleitet der Offset per exponentieller Dämpfung auf (0, 0) zurück.
+    why: Der Nutzer wünscht explizit Shift + Pfeiltasten für die Kamerasteuerung mit automatischer Rückkehr in die optimale Position sowie 3rd-Person-Default auch beim Flugzeug.
+    how:
+      - Während e.shiftKey oder lookKeyAktiv aktiv ist, steuern ArrowLeft/Right lookYaw und ArrowUp/Down lookPitch.
+      - Sobald Shift losgelassen wird, reduziert tick() lookYaw und lookPitch mit Faktor Math.exp(-10 * dt) auf 0.
+      - Kamera 5 (Flugzeug) und Kamera 6 (Schiff) erhalten eine 3rd-Person-Verfolgerperspektive als Default, auf die lookYaw/lookPitch als Orbit-Winkel angewendet werden.
+
+  - id: d-lara-croft-003
+    title: WebAudio-Formant-Synthese für Laras Stimme und Stiefel-Foley
+    status: accepted
+    specs: [s-lara-croft-004]
+    decision: Laras Sprung-, Salto- und Landungslaute werden über mehrstimmige glottale Oszillatoren mit drei nachgeschalteten Vokal-Formant-Bandpassfiltern (F1=780 Hz, F2=1350 Hz, F3=2750 Hz) sowie Hauch-/Rausch-Hüllkurven direkt in window.EEP erzeugt.
+    why: Funktioniert sofort offline, ohne CORS-Blockaden oder urheberrechtlich geschützte Original-SFX-Dateien Dritter, und liefert reproduzierbar die typischen kurzen Tomb-Raider-Sprunglaute.
+    how:
+      - Methoden laraSprung(), laraSalto(), laraLandung(), laraSchritt() und laraAha() in window.EEP bereitstellen.
+
+tests:
+  - id: t-lara-croft-001
+    title: Lara Croft 15-Mesh-Hierarchie, Rennen, Sprung und 360-Grad-Seitwärtssalto prüfen
+    specs: [s-lara-croft-002, s-lara-croft-003, s-lara-croft-004]
+    suites: [smoke, regression]
+    areas: [lara-croft]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+      - Kamera 1 (Deutschland, 3rd-Person hinter Lara Croft) ist aktiv.
+    steps:
+      - action: http://localhost:8080/welt.html?laratest=1 im Headless-Browser starten und Selbsttest für Rennen, Sprung und Seitwärtssalto ausführen.
+        expected:
+          - LARA_TEST_RESULT bestätigt meshCount >= 15 und braidSegments >= 5.
+          - Beim Vorwärtsrennen ändert sich Laras Weltposition und die Bein-/Armgelenke sowie der Zopf schwingen (beinWinkel > 0).
+          - Bei Alt + Pfeil-Links (Seitwärtssalto) hebt Lara ab (posY > 0.4) und vollführt eine seitliche 360-Grad-Rotation um die Längsachse.
+          - Der erzeugte Screenshot zeigt Lara Croft in der 3rd-Person-Ansicht von schräg hinten mit türkisfarbenem Top, braunen Shorts, Rucksack, Zopf und Stiefeln.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: laratest=1
+
+  - id: t-lara-croft-002
+    title: Shift+Pfeiltasten Look-Kamera und automatisches Spring-Back bei Lara und Flugzeug [5] prüfen
+    specs: [s-lara-croft-001]
+    suites: [smoke, regression]
+    areas: [lara-croft]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: Im Selbsttest (?laratest=1) in Kamera 5 (Flugzeug 3rd-Person) und Kamera 1 (Lara) Shift + Pfeil-Rechts/Hoch simulieren und anschließend Shift loslassen.
+        expected:
+          - Während Shift gehalten wird, weichen lookYaw und lookPitch deutlich von 0 ab (Math.abs(lookYawPeak) > 0.3), ohne dass Lara ihre Position verlässt.
+          - Nach dem Loslassen von Shift kehren lookYaw und lookPitch automatisch in die optimale Ausgangslage nahe 0 zurück (Math.abs(lookYawAfter) < 0.02).
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: laratest=1
