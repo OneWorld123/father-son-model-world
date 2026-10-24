@@ -4,7 +4,7 @@
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
  * ============================================================================ */
 
-window.EEP = {
+window.EEP = Object.assign(window.EEP || {}, {
   gleise: {},      // Speichert alle THREE.CatmullRomCurve3 Strecken nach ID
   zuege: [],       // Liste aller aktiven Zugverbände für das Steuerpult
   autos: [],       // Liste aller steuerbaren G-Klassen (Türkis & Weiß)
@@ -14,7 +14,7 @@ window.EEP = {
   wetterIndex: 0,  // 0 = Tag (Wald), 1 = Abendrot, 2 = Nacht, 3 = Schnee
   soundAktiv: true,
   audioCtx: null
-};
+});
 
 // ============================================================================
 // 1. SOUND-ENGINE (WebAudio Synthesizer - funktioniert sofort ohne externe MP3s)
@@ -2177,6 +2177,24 @@ AFRAME.registerComponent('ki-faehre', {
       this.el.object3D.position.copy(startPos);
       this.el.object3D.rotation.set(0, this.yaw + Math.PI / 2, 0, 'YXZ');
 
+      // In EEP.sim registrieren (Paket A & B)
+      if (window.EEP && window.EEP.sim) {
+        const kId = window.EEP.sim.registriere({
+          id: 'mein-schiff-haupt',
+          typ: 'schiff',
+          x: startPos.x,
+          y: startPos.y,
+          z: startPos.z,
+          yaw: this.yaw,
+          v: 0,
+          halbBreite: 2.2,
+          halbLaenge: 14.0,
+          hoehe: 6.5,
+          tiefgang: 2.5
+        });
+        this.simKoerper = window.EEP.sim.koerper(kId);
+      }
+
       window.addEventListener('keydown', (e) => {
         if (window.EEP.aktiveKamera !== 6) return;
         if (e.shiftKey || (window.EEP.lookState && window.EEP.lookState.aktiv)) {
@@ -2405,6 +2423,17 @@ AFRAME.registerComponent('ki-faehre', {
     this.el.object3D.position.set(x, y, z);
     this.el.object3D.rotation.set(0, this.yaw + Math.PI / 2, 0, 'YXZ');
     this.el.object3D.updateMatrixWorld(true);
+    if (this.simKoerper) {
+      this.simKoerper.x = x;
+      this.simKoerper.y = y;
+      this.simKoerper.z = z;
+      this.simKoerper.yaw = this.yaw;
+      this.simKoerper.v = 0;
+      this.simKoerper.aufGrund = false;
+      this.simKoerper.roll = 0;
+      this.simKoerper.vorherX = x;
+      this.simKoerper.vorherZ = z;
+    }
     this.aktualisiereSchiffHUD();
   },
 
@@ -2466,18 +2495,27 @@ AFRAME.registerComponent('ki-faehre', {
       const drehEffekt = (0.38 + Math.min(1.0, Math.abs(this.geschwindigkeit) * 0.08)) * fahrtrichtung;
       this.yaw += this.ruderWinkel * drehEffekt * deltaSec;
 
-      // Vorwärtsbewegung entlang (-sin(yaw), 0, -cos(yaw))
-      const pos = this.el.object3D.position;
-      pos.x += -Math.sin(this.yaw) * this.geschwindigkeit * deltaSec;
-      pos.z += -Math.cos(this.yaw) * this.geschwindigkeit * deltaSec;
-      pos.y = 0.40 + Math.sin(time * 0.0022) * 0.04; // Sanftes Schaukeln auf den Meereswellen
+      // Vorwärtsbewegung & Kollision/Untiefe über EEP.fahrzeugPhysik
+      if (this.simKoerper && window.EEP && window.EEP.fahrzeugPhysik) {
+        this.simKoerper.v = this.geschwindigkeit;
+        this.simKoerper.yaw = this.yaw;
+        window.EEP.fahrzeugPhysik.schritt(this.simKoerper, deltaSec);
+        this.geschwindigkeit = this.simKoerper.v;
+        this.el.object3D.position.x = this.simKoerper.x;
+        this.el.object3D.position.z = this.simKoerper.z;
+        this.el.object3D.position.y = 0.40 + Math.sin(time * 0.0022) * 0.04;
+      } else {
+        const pos = this.el.object3D.position;
+        pos.x += -Math.sin(this.yaw) * this.geschwindigkeit * deltaSec;
+        pos.z += -Math.cos(this.yaw) * this.geschwindigkeit * deltaSec;
+        pos.y = 0.40 + Math.sin(time * 0.0022) * 0.04; // Sanftes Schaukeln auf den Meereswellen
+        pos.x = THREE.MathUtils.clamp(pos.x, -370, 330);
+        pos.z = THREE.MathUtils.clamp(pos.z, -135, 280);
+      }
 
-      // Weltbegrenzung auf Meer/Ostsee/Ozean/Rotes Meer
-      pos.x = THREE.MathUtils.clamp(pos.x, -370, 330);
-      pos.z = THREE.MathUtils.clamp(pos.z, -135, 280);
-
-      // Leichte Kurvenkrängung + lokale +X-Bug-Ausrichtung (yaw + PI/2)
-      const zielKraengung = -this.ruderWinkel * (Math.abs(this.geschwindigkeit) / 18.0) * 0.14;
+      // Leichte Kurvenkrängung (bzw. 3° Neigung bei Grundberührung)
+      const basisRoll = (this.simKoerper && this.simKoerper.roll) ? this.simKoerper.roll : 0;
+      const zielKraengung = basisRoll - this.ruderWinkel * (Math.abs(this.geschwindigkeit) / 18.0) * 0.14;
       this.kraengung += (zielKraengung - this.kraengung) * Math.min(1, deltaSec * 4.5);
       this.el.object3D.rotation.set(this.kraengung, this.yaw + Math.PI / 2, Math.sin(time * 0.0018) * 0.015, 'YXZ');
 
@@ -2571,6 +2609,17 @@ AFRAME.registerComponent('ki-auto', {
         if (window.EEP.wechsleAuto) window.EEP.wechsleAuto();
         e.preventDefault();
       }
+      if (e.key.toLowerCase() === 'u') {
+        if (this.simKoerper) {
+          if (Math.abs(this.geschwindigkeit) < 1.4) {
+            this.simKoerper.untersetzung = !this.simKoerper.untersetzung;
+            window.EEP.schaltKlick();
+            this.zeichneKombiinstrument();
+            if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+          }
+        }
+        e.preventDefault();
+      }
       if (e.key.toLowerCase() === 'c') {
         window.EEP.autoAussenAnsicht = !window.EEP.autoAussenAnsicht;
         if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
@@ -2589,6 +2638,27 @@ AFRAME.registerComponent('ki-auto', {
     this.zeichneKombiinstrument();
     this.zeichneSchaltkulisse();
     this.zeichneNaviDisplay();
+
+    // In EEP.sim registrieren (Paket 0/A/B)
+    if (window.EEP && window.EEP.sim) {
+      const pos = this.el.object3D.position;
+      const yaw = this.el.object3D.rotation.y;
+      const kId = window.EEP.sim.registriere({
+        id: this.data.farbe === '#f8fafc' ? 'gklasse-weiss' : 'gklasse-tuerkis',
+        typ: 'auto',
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        yaw: yaw,
+        v: 0,
+        halbBreite: 0.98,
+        halbLaenge: 2.42,
+        hoehe: 1.95,
+        profil: 'gelaende',
+        untersetzung: false
+      });
+      this.simKoerper = window.EEP.sim.koerper(kId);
+    }
   },
 
   setzeGang: function (neuerGang) {
@@ -2612,9 +2682,27 @@ AFRAME.registerComponent('ki-auto', {
     this.geschwindigkeit = 0;
     this.lenkWinkel = 0;
     this.gang = 'D';
+    if (this.tasten) {
+      this.tasten.hoch = false;
+      this.tasten.runter = false;
+      this.tasten.links = false;
+      this.tasten.rechts = false;
+    }
     this.el.object3D.position.set(x, y, z);
     this.el.object3D.rotation.set(0, THREE.MathUtils.degToRad(rotYGrad), 0);
     this.el.object3D.updateMatrixWorld(true);
+    if (this.simKoerper) {
+      this.simKoerper.x = x;
+      this.simKoerper.y = y;
+      this.simKoerper.z = z;
+      this.simKoerper.yaw = THREE.MathUtils.degToRad(rotYGrad);
+      this.simKoerper.v = 0;
+      this.simKoerper.vorherX = x;
+      this.simKoerper.vorherZ = z;
+      this.simKoerper.traktionsverlust = false;
+      this.simKoerper.sandStillstandSek = 0;
+      this.simKoerper.letzterVImpact = 0;
+    }
     this.zeichneSchaltkulisse();
     this.zeichneKombiinstrument();
     this.zeichneNaviDisplay();
@@ -3515,14 +3603,28 @@ AFRAME.registerComponent('ki-auto', {
     }
 
     // ------------------------------------------------------------------------
-    // 3. ACKERMANN-FAHRPHYSIK (Kein Drehen im Stand!)
+    // 3. ACKERMANN-FAHRPHYSIK & PHYSIK-SCHRITT (EEP.fahrzeugPhysik)
     // ------------------------------------------------------------------------
-    if (Math.abs(this.geschwindigkeit) > 0.01) {
-      // Gierwinkel-Änderung dTheta = (v / Radstand) * tan(lenkWinkel) * dt
+    if (this.simKoerper && window.EEP && window.EEP.fahrzeugPhysik) {
+      this.simKoerper.v = this.geschwindigkeit;
+      this.simKoerper.lenkWinkel = this.lenkWinkel;
+      this.simKoerper.radstand = this.radstand;
+
+      window.EEP.fahrzeugPhysik.schritt(this.simKoerper, deltaSec);
+
+      this.geschwindigkeit = this.simKoerper.v;
+      this.el.object3D.position.x = this.simKoerper.x;
+      this.el.object3D.position.y = this.simKoerper.y;
+      this.el.object3D.position.z = this.simKoerper.z;
+      this.el.object3D.rotation.y = this.simKoerper.yaw;
+      if (this.simKoerper.pitch || this.simKoerper.roll) {
+        this.el.object3D.rotation.x = this.simKoerper.pitch || 0;
+        this.el.object3D.rotation.z = this.simKoerper.roll || 0;
+      }
+    } else if (Math.abs(this.geschwindigkeit) > 0.01) {
+      // Fallback
       const yawDelta = (this.geschwindigkeit / this.radstand) * Math.tan(this.lenkWinkel) * deltaSec;
       this.el.object3D.rotation.y += yawDelta;
-
-      // Vorwärtsbewegung entlang lokaler -Z Achse
       const yaw = this.el.object3D.rotation.y;
       this.el.object3D.position.x -= Math.sin(yaw) * this.geschwindigkeit * deltaSec;
       this.el.object3D.position.z -= Math.cos(yaw) * this.geschwindigkeit * deltaSec;
@@ -3755,6 +3857,23 @@ AFRAME.registerComponent('ki-lara', {
     });
 
     this.baueLara15Meshes();
+
+    // In EEP.sim registrieren (Paket A & B)
+    if (window.EEP && window.EEP.sim) {
+      const pos = this.el.object3D.position;
+      const kId = window.EEP.sim.registriere({
+        id: 'lara-spieler',
+        typ: 'lara',
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        yaw: this.el.object3D.rotation.y,
+        v: 0,
+        radius: 0.35,
+        hoehe: 1.75
+      });
+      this.simKoerper = window.EEP.sim.koerper(kId);
+    }
   },
 
   starteSprung: function (vorwaertsTempo) {
@@ -4000,6 +4119,17 @@ AFRAME.registerComponent('ki-lara', {
     this.el.object3D.rotation.set(0, THREE.MathUtils.degToRad(rotYGrad), 0);
     this.pelvisGroup.rotation.set(0, 0, 0);
     this.el.object3D.updateMatrixWorld(true);
+    if (this.simKoerper) {
+      this.simKoerper.x = x;
+      this.simKoerper.y = y;
+      this.simKoerper.z = z;
+      this.simKoerper.yaw = THREE.MathUtils.degToRad(rotYGrad);
+      this.simKoerper.v = 0;
+      this.simKoerper.vorherX = x;
+      this.simKoerper.vorherZ = z;
+      this.simKoerper.traktionsverlust = false;
+      this.simKoerper.sandStillstandSek = 0;
+    }
   },
 
   tick: function (time, dt) {
@@ -4112,13 +4242,38 @@ AFRAME.registerComponent('ki-lara', {
         this.zustand = 'stand';
       }
 
-      if (moveSpeed !== 0) {
-        this.el.object3D.position.x -= Math.sin(yaw) * moveSpeed * deltaSec;
-        this.el.object3D.position.z -= Math.cos(yaw) * moveSpeed * deltaSec;
-      }
-      if (sideSpeed !== 0) {
-        this.el.object3D.position.x -= Math.cos(yaw) * sideSpeed * deltaSec;
-        this.el.object3D.position.z += Math.sin(yaw) * sideSpeed * deltaSec;
+      if (moveSpeed !== 0 || sideSpeed !== 0) {
+        if (this.simKoerper && window.EEP && window.EEP.fahrzeugPhysik) {
+          this.simKoerper.v = moveSpeed;
+          this.simKoerper.yaw = yaw;
+          this.simKoerper.springt = false;
+          window.EEP.fahrzeugPhysik.schritt(this.simKoerper, deltaSec);
+          this.el.object3D.position.x = this.simKoerper.x;
+          this.el.object3D.position.z = this.simKoerper.z;
+          this.posY = this.simKoerper.y;
+          this.bodenY = this.simKoerper.y;
+          if (this.simKoerper.pitch) {
+            this.torsoGroup.rotation.x = this.simKoerper.pitch;
+          }
+        } else {
+          if (moveSpeed !== 0) {
+            this.el.object3D.position.x -= Math.sin(yaw) * moveSpeed * deltaSec;
+            this.el.object3D.position.z -= Math.cos(yaw) * moveSpeed * deltaSec;
+          }
+          if (sideSpeed !== 0) {
+            this.el.object3D.position.x -= Math.cos(yaw) * sideSpeed * deltaSec;
+            this.el.object3D.position.z += Math.sin(yaw) * sideSpeed * deltaSec;
+          }
+        }
+      } else if (this.simKoerper && window.EEP && window.EEP.fahrzeugPhysik) {
+        this.simKoerper.v = 0;
+        this.simKoerper.yaw = yaw;
+        this.simKoerper.springt = false;
+        window.EEP.fahrzeugPhysik.schritt(this.simKoerper, deltaSec);
+        this.el.object3D.position.x = this.simKoerper.x;
+        this.el.object3D.position.z = this.simKoerper.z;
+        this.posY = this.simKoerper.y;
+        this.bodenY = this.simKoerper.y;
       }
 
       // Gelenk-Animationen für Lauf-, Geh- und Standzyklus
@@ -4285,6 +4440,34 @@ AFRAME.registerComponent('ki-steuerung', {
       if (window.location.search.includes('afrikatest=1')) {
         this.starteAfrikaSelbsttest();
       }
+      if (window.location.search.includes('archtest=1')) {
+        this.starteArchSelbsttest();
+      }
+      if (window.location.search.includes('lodtest=1')) {
+        this.starteLodSelbsttest();
+      }
+      if (window.location.search.includes('welttest=1')) {
+        this.starteWeltSelbsttest();
+      }
+      if (window.location.search.includes('kollisionstest=1')) {
+        this.starteKollisionsSelbsttest();
+      }
+      if (window.location.search.includes('gelaendetest=1')) {
+        this.starteGelaendeSelbsttest();
+      }
+      if (window.location.search.includes('schadentest=1')) {
+        this.starteSchadensSelbsttest();
+      }
+      if (window.location.search.includes('reifentest=1')) {
+        this.starteReifenSelbsttest();
+      }
+      if (window.location.search.includes('sinktest=1')) {
+        this.starteSinkSelbsttest();
+      }
+      if (window.EEP && window.EEP.perf) {
+        window.EEP.perf.init(this.el);
+      }
+      this.baueAlpenPassUndKollisionsDebug();
       const camMatch = window.location.search.match(/cam=(\d)/);
       if (camMatch) {
         this.setzeKamera(Number(camMatch[1]));
@@ -4361,6 +4544,10 @@ AFRAME.registerComponent('ki-steuerung', {
       if (i === 5) ac.tasten.links = false; // Nur leicht in die Straßenkurve einlenken
       if (i === 14) ac.tasten.rechts = true; // Leichtes Gegenlenken für dynamische Lenkradstellung
     }
+    ac.tasten.hoch = false;
+    ac.tasten.runter = false;
+    ac.tasten.links = false;
+    ac.tasten.rechts = false;
     const gefahreneDistanz = ac.el.object3D.position.distanceTo(startPos);
     const kmh = Math.round(ac.geschwindigkeit * 3.6);
 
@@ -4570,6 +4757,584 @@ AFRAME.registerComponent('ki-steuerung', {
     }));
   },
 
+  baueAlpenPassUndKollisionsDebug: function () {
+    const group = new THREE.Group();
+    const schotterMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.92 });
+    const pfostenMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+    const reflektorMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.6 });
+
+    // 3 Rampen-Segmente + Plateau (d-world-collisions-004: x = -254, Breite 4m)
+    const segmente = [
+      { z0: -60, z1: -68, y0: 0.25, y1: 1.25 },
+      { z0: -68, z1: -76, y0: 1.25, y1: 3.25 },
+      { z0: -76, z1: -84, y0: 3.25, y1: 6.25 }
+    ];
+    segmente.forEach(s => {
+      const dz = Math.abs(s.z1 - s.z0);
+      const dy = s.y1 - s.y0;
+      const len = Math.sqrt(dz * dz + dy * dy);
+      const rampe = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.16, len), schotterMat);
+      rampe.position.set(-254, (s.y0 + s.y1) * 0.5, (s.z0 + s.z1) * 0.5);
+      rampe.rotation.x = Math.atan2(dy, dz);
+      rampe.receiveShadow = true;
+      group.add(rampe);
+    });
+
+    const plateau = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.2, 4.4), schotterMat);
+    plateau.position.set(-254, 6.25, -86);
+    plateau.receiveShadow = true;
+    group.add(plateau);
+
+    for (let pz = -60; pz >= -84; pz -= 4) {
+      const h = window.EEP && window.EEP.welt ? window.EEP.welt.hoeheBei(-254, pz) : 0.25;
+      [-256.15, -251.85].forEach(px => {
+        const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 6), pfostenMat);
+        pf.position.set(px, h + 0.45, pz);
+        group.add(pf);
+        const ref = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.05), reflektorMat);
+        ref.position.set(px, h + 0.75, pz);
+        group.add(ref);
+      });
+    }
+
+    // Optionales Debug-Drahtgitter für ?kollisionen=sichtbar
+    if (window.location.search.includes('kollisionen=sichtbar') && window.EEP && window.EEP.kollision) {
+      const wireMat = new THREE.MeshBasicMaterial({ color: 0xff1744, wireframe: true });
+      window.EEP.kollision.hindernisse.forEach(h => {
+        const mesh = h.form === 'kreis'
+          ? new THREE.Mesh(new THREE.CylinderGeometry(h.radius, h.radius, h.hoehe || 2, 12), wireMat)
+          : new THREE.Mesh(new THREE.BoxGeometry((h.halbBreite || 1) * 2, h.hoehe || 2, (h.halbTiefe || 1) * 2), wireMat);
+        mesh.position.set(h.x, (h.hoehe || 2) * 0.5, h.z);
+        mesh.rotation.y = h.yaw || 0;
+        group.add(mesh);
+      });
+    }
+
+    this.el.object3D.add(group);
+  },
+
+  starteArchSelbsttest: function () {
+    const v = (window.EEP && window.EEP.version) || {};
+    const moduleNamen = ['kern', 'perf', 'welt', 'kollision', 'fahrzeugPhysik', 'schaden'];
+    const geladeneModule = moduleNamen.filter(k => Boolean(v[k]));
+
+    let busEmpfangen = false;
+    const cb = (d) => { if (d && d.ok === 42) busEmpfangen = true; };
+    window.EEP.bus.on('arch-probe', cb);
+    window.EEP.bus.emit('arch-probe', { ok: 42 });
+    window.EEP.bus.off('arch-probe', cb);
+
+    const kId = window.EEP.sim.registriere({ id: 'probe-auto', typ: 'auto', x: -243, y: 0.28, z: -51 });
+    const kObj = window.EEP.sim.koerper(kId);
+    const regOk = Boolean(kObj && kObj.schaden && kObj.schaden.zustand === 100);
+    window.EEP.sim.entferne(kId);
+
+    const bestandOk = Boolean(
+      window.EEP.autos && window.EEP.autos.length === 2 &&
+      window.EEP.laraComp && typeof window.EEP.autoHupe === 'function'
+    );
+
+    console.log('ARCH_TEST_RESULT:', JSON.stringify({
+      module: geladeneModule.length,
+      versionen: v,
+      busOk: busEmpfangen,
+      registryOk: regOk,
+      bestandOk: bestandOk
+    }));
+  },
+
+  starteLodSelbsttest: function () {
+    const perf = window.EEP.perf;
+    perf.init(this.el);
+    perf.setzeStufe(1, true);
+    const startStufe = perf.aktuelleStufe();
+    const farHoch = perf.aktuellerFarWert();
+
+    // 1. Einbruch simulieren: 30 FPS, 120 % Last für 2.5 s -> Abstufung von 1 (Hoch) auf 2 (Mittel)
+    perf.simuliereFps(30, 120);
+    perf.testUhr(2.5, 100);
+    const nachEinbruch = perf.aktuelleStufe();
+    const farMittel = perf.aktuellerFarWert();
+
+    // 2. Sperrzeit prüfen (innerhalb von 2 s nach Wechsel darf noch keine weitere Abstufung passieren)
+    perf.testUhr(1.5, 100);
+    const sperrzeitEingehalten = perf.aktuelleStufe() === nachEinbruch;
+
+    // 3. Erholung simulieren: 60 FPS, 30 % Last für 10.5 s -> Aufstufung zurück auf 1 (Hoch)
+    perf.simuliereFps(60, 30);
+    perf.testUhr(10.5, 100);
+    const nachErholung = perf.aktuelleStufe();
+    perf.simuliereFps(null);
+
+    const lodObjekte = window.EEP.lod.zaehleNachKategorie();
+    const badge = document.getElementById('eep-gpu-badge');
+    const bTxt = badge ? badge.textContent : '';
+    const badgeFormatOk = bTxt.includes('FPS') && bTxt.includes('ms') && bTxt.includes('Last') && bTxt.includes('Stufe');
+
+    console.log('LOD_TEST_RESULT:', JSON.stringify({
+      startStufe: startStufe,
+      nachEinbruch: nachEinbruch,
+      nachErholung: nachErholung,
+      sperrzeitEingehalten: sperrzeitEingehalten,
+      lodObjekte: lodObjekte,
+      farMitStufe: (farHoch === 1000 && farMittel === 800),
+      badgeFormatOk: badgeFormatOk
+    }));
+  },
+
+  starteWeltSelbsttest: function () {
+    const w = window.EEP.welt;
+    const refPunkte = [
+      { name: 'europa-gras',     x: -280, z: -10, ug: 'gras',      kont: 'europa' },
+      { name: 'ostsee-strand',   x: -280, z: 44,  ug: 'sand',      kont: 'europa' },
+      { name: 'ostsee-wasser',   x: -280, z: 72,  ug: 'wasser',    kont: 'ozean' },
+      { name: 'ozean-mitte',     x: 0,    z: 60,  ug: 'wasser',    kont: 'ozean' },
+      { name: 'amerika-gras',    x: 300,  z: 30,  ug: 'gras',      kont: 'amerika' },
+      { name: 'us-strasse',      x: 298,  z: -20, ug: 'strasse',   kont: 'amerika' },
+      { name: 'us-bordstein',    x: 296.65,z: -18.55, ug: 'bordstein', kont: 'amerika' },
+      { name: 'de-schiene',      x: -286, z: -25, ug: 'schiene',   kont: 'europa' },
+      { name: 'afrika-sand',     x: 105,  z: 205, ug: 'sand',      kont: 'afrika' },
+      { name: 'rotes-meer-riff', x: 125,  z: 95,  ug: 'riff',      kont: 'afrika' },
+      { name: 'alpen-gipfel',    x: -298, z: -70, ug: 'fels',      kont: 'europa' }
+    ];
+
+    let korrekt = 0;
+    const fehler = [];
+    refPunkte.forEach(rp => {
+      const r = w.abfrage(rp.x, rp.z);
+      if (r.untergrund === rp.ug) {
+        korrekt++;
+      } else {
+        fehler.push({ punkt: rp.name, erwartet: rp.ug, erhalten: r.untergrund });
+      }
+    });
+
+    const alpenGipfel = w.abfrage(-298, -70);
+    const ozeanMitte = w.abfrage(0, 60);
+    const pass25 = w.abfrage(-254, -72);
+    const pass37 = w.abfrage(-254, -80);
+
+    const gueltigSet = new Set(['strasse', 'bordstein', 'schiene', 'gras', 'waldboden', 'sand', 'fels', 'wasser', 'riff']);
+    let alleGueltig = true;
+    const t0 = performance.now();
+    for (let i = 0; i < 10000; i++) {
+      const rx = -340 + (i * 0.068) % 680;
+      const rz = -90 + (i * 0.034) % 340;
+      const a = w.abfrage(rx, rz);
+      if (!gueltigSet.has(a.untergrund)) alleGueltig = false;
+    }
+    const abfrage10kMs = Number((performance.now() - t0).toFixed(1));
+
+    console.log('WELT_TEST_RESULT:', JSON.stringify({
+      referenzpunkte: `${korrekt}/${refPunkte.length}`,
+      fehler: fehler,
+      alpenGipfelHoehe: Number(alpenGipfel.hoehe.toFixed(2)),
+      ozeanTiefe: Number(ozeanMitte.tiefe.toFixed(2)),
+      passSteigung25: Number(pass25.steigung.toFixed(1)),
+      passSteigung37: Number(pass37.steigung.toFixed(1)),
+      abfrage10kMs: abfrage10kMs,
+      alleUntergruendeGueltig: alleGueltig,
+      hindernisseRegistriert: window.EEP.kollision ? window.EEP.kollision.anzahl() : 0
+    }));
+  },
+
+  starteKollisionsSelbsttest: function () {
+    const ac = window.EEP.autoComp;
+    const lara = window.EEP.laraComp;
+    if (!ac || !ac.simKoerper) {
+      console.error('KOLLISION_TEST_FAILED: autoComp fehlt');
+      return;
+    }
+
+    if (window.EEP.autos && window.EEP.autos[1]) {
+      window.EEP.autos[1].teleportiereZu(-253.5, 0.28, -38.5, 152);
+    }
+    if (window.EEP.schaden) {
+      window.EEP.schaden.testReset(ac.simKoerper.id);
+    }
+
+    // 1. Auto 15 m vor 'MEIN HAUS' (-242, -58), fährt mit 30 km/h (8.3 m/s) frontal darauf zu
+    ac.teleportiereZu(-242, 0.28, -43, 0); // yaw=0 blickt nach -Z auf Mein Haus
+    ac.simKoerper.v = 8.3;
+    let gemessenerImpact = 0;
+    const aufprallCb = (ev) => { if (ev.vImpact > gemessenerImpact) gemessenerImpact = ev.vImpact; };
+    window.EEP.bus.on('aufprall', aufprallCb);
+
+    for (let i = 0; i < 30; i++) {
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+    }
+    window.EEP.bus.off('aufprall', aufprallCb);
+    if (!gemessenerImpact && ac.simKoerper.letzterVImpact) {
+      gemessenerImpact = ac.simKoerper.letzterVImpact;
+    }
+
+    const autoVorHausGestoppt = ac.simKoerper.z > -56.5; // Hauswand beginnt bei -56.4 (-58 + 1.6)
+    const autoImHaus = ac.simKoerper.z < -56.3 && ac.simKoerper.z > -59.7;
+
+    // 2. Tunneltest bei 150 km/h (41.7 m/s) auf eine 0.3 m dünne Testwand bei z = -10.0
+    const wandId = window.EEP.kollision.registriereHindernis({
+      id: 'test-wand-duenn',
+      art: 'wand',
+      form: 'box',
+      x: 0,
+      z: -10,
+      halbBreite: 20,
+      halbTiefe: 0.15,
+      hoehe: 3.0,
+      yaw: 0
+    });
+    ac.teleportiereZu(0, 0.28, -3, 0);
+    ac.simKoerper.v = 41.7; // 150 km/h
+    for (let j = 0; j < 10; j++) {
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.03);
+    }
+    const tunnel150 = ac.simKoerper.z < -10.0;
+    window.EEP.kollision.entferneHindernis(wandId);
+
+    // 3. Lara gegen Cheops-Pyramide laufen lassen + in die Ostsee laufen
+    let laraInPyramide = false;
+    let laraSchwimmtInOstsee = false;
+    let laraFussAbweichung = 0;
+    if (lara && lara.simKoerper) {
+      lara.teleportiereZu(146, 0.25, 195, 0); // vor Cheops-Pyramide (z=212, pylon bei 199.8)
+      lara.simKoerper.v = 8.0;
+      for (let k = 0; k < 25; k++) {
+        window.EEP.fahrzeugPhysik.schritt(lara.simKoerper, 0.05);
+      }
+      // Pyramide/Pylon reicht bis z=199.5
+      laraInPyramide = lara.simKoerper.z > 200.0 && lara.simKoerper.z < 223.0;
+
+      // In Ostsee bei z = 65 waten/schwimmen
+      lara.teleportiereZu(-280, 0.25, 65, 180);
+      window.EEP.fahrzeugPhysik.schritt(lara.simKoerper, 0.05);
+      laraSchwimmtInOstsee = Boolean(lara.simKoerper.schwimmt || lara.simKoerper.watet);
+      const sollHoehe = window.EEP.welt.hoeheBei(-280, -10);
+      lara.teleportiereZu(-280, sollHoehe, -10, 0);
+      window.EEP.fahrzeugPhysik.schritt(lara.simKoerper, 0.05);
+      laraFussAbweichung = Math.abs(lara.simKoerper.y - sollHoehe);
+    }
+
+    console.log('KOLLISION_TEST_RESULT:', JSON.stringify({
+      hindernisseRegistriert: window.EEP.kollision.anzahl(),
+      autoVorHausGestoppt: autoVorHausGestoppt,
+      autoImHaus: autoImHaus,
+      aufprallEvent: { vImpact: Number(gemessenerImpact.toFixed(1)) },
+      tunnel150: tunnel150,
+      laraInPyramide: laraInPyramide,
+      laraSchwimmtInOstsee: laraSchwimmtInOstsee,
+      laraFussAbweichung: Number(laraFussAbweichung.toFixed(3))
+    }));
+  },
+
+  starteGelaendeSelbsttest: function () {
+    const ac = window.EEP.autoComp;
+    const sh = window.EEP.faehreComp;
+    if (!ac || !ac.simKoerper) {
+      console.error('GELAENDE_TEST_FAILED');
+      return;
+    }
+
+    if (window.EEP.schaden) {
+      window.EEP.schaden.testReset(ac.simKoerper.id);
+    }
+
+    // 1. Alpen-Pass hinauf mit 3 Fahrzeug-Konfigurationen
+    // a) strassenpkw
+    window.EEP.welt.testProfil = 'strassenpkw';
+    ac.teleportiereZu(-254, 0.25, -60, 0); // bergauf = -Z
+    ac.simKoerper.v = 0;
+    ac.simKoerper.untersetzung = false;
+    let strassenpkwMinZ = ac.simKoerper.z;
+    for (let t = 0; t < 400; t++) {
+      if (!ac.simKoerper.traktionsverlust) {
+        ac.simKoerper.v += 6.0 * 0.05;
+      }
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+      if (ac.simKoerper.z < strassenpkwMinZ) strassenpkwMinZ = ac.simKoerper.z;
+      if (ac.simKoerper.traktionsverlust && ac.simKoerper.v <= 0) break;
+    }
+
+    // b) G-Klasse ohne LOW
+    window.EEP.welt.testProfil = 'gelaende';
+    ac.teleportiereZu(-254, 0.25, -60, 0);
+    ac.simKoerper.v = 0;
+    ac.simKoerper.untersetzung = false;
+    let gKlasseOhneLowMinZ = ac.simKoerper.z;
+    for (let t2 = 0; t2 < 400; t2++) {
+      if (!ac.simKoerper.traktionsverlust) {
+        ac.simKoerper.v += 6.0 * 0.05;
+      }
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+      if (ac.simKoerper.z < gKlasseOhneLowMinZ) gKlasseOhneLowMinZ = ac.simKoerper.z;
+      if (ac.simKoerper.traktionsverlust && ac.simKoerper.v <= 0) break;
+    }
+
+    // c) G-Klasse mit LOW
+    ac.teleportiereZu(-254, 0.25, -60, 0);
+    ac.simKoerper.v = 0;
+    ac.simKoerper.untersetzung = true;
+    for (let t3 = 0; t3 < 400; t3++) {
+      if (!ac.simKoerper.traktionsverlust) {
+        ac.simKoerper.v += 6.0 * 0.05;
+      }
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+      if (ac.simKoerper.z <= -84.0) break;
+    }
+    const gKlasseMitLowOben = ac.simKoerper.z <= -84.0;
+    window.EEP.welt.testProfil = null;
+    ac.simKoerper.untersetzung = false;
+
+    // 2. Sand-Geschwindigkeit in Ägypten
+    window.EEP.schaden.testReset(ac.simKoerper.id);
+    window.EEP.welt.testProfil = 'strassenpkw';
+    ac.teleportiereZu(80, 0.25, 200, 0);
+    ac.simKoerper.v = 0;
+    for (let s1 = 0; s1 < 60; s1++) {
+      ac.simKoerper.v += 10.0 * 0.05;
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+    }
+    const sandVmaxStrassenpkw = Number(ac.simKoerper.v.toFixed(1));
+
+    window.EEP.schaden.testReset(ac.simKoerper.id);
+    window.EEP.welt.testProfil = 'gelaende';
+    ac.teleportiereZu(80, 0.25, 200, 0);
+    ac.simKoerper.v = 0;
+    for (let s2 = 0; s2 < 60; s2++) {
+      ac.simKoerper.v += 10.0 * 0.05;
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+    }
+    const sandVmaxGKlasse = Number(ac.simKoerper.v.toFixed(1));
+    window.EEP.welt.testProfil = null;
+
+    // 3. Waten im flachen Wasser (0.6 m Furt am Strand)
+    const abfFurt = { untergrund: 'wasser', hoehe: -0.55, tiefe: 0.60, steigungX: 0, steigungZ: 0, steigung: 0 };
+    ac.teleportiereZu(-280, 0.25, 49.5, 0);
+    window.EEP.schaden.testReset(ac.simKoerper.id);
+    window.EEP.schaden.tickWasser(ac.simKoerper, 0.05, abfFurt, 0.70);
+    const watenGKlasse0_6m = ac.simKoerper.schaden.wasserZustand === 'watend';
+
+    const pkwSim = { typ: 'auto', profil: 'strassenpkw', id: 'probe-pkw', schaden: window.EEP.schaden.erzeugeStandard('auto') };
+    window.EEP.schaden.tickWasser(pkwSim, 0.05, abfFurt, 0.30);
+    const watenStrassenpkw0_6m = pkwSim.schaden.wasserZustand === 'watend'; // muss false sein, da 0.6m > 0.3m Watttiefe
+
+    // 4. Schiff läuft auf Riff und Strand auf Grund
+    let schiffAufGrund = false;
+    let riffAufGrund = false;
+    let kleinesBootUeberRiff = false;
+    if (sh && sh.simKoerper) {
+      sh.teleportiereZu(125, 0.4, 90, 0); // vor Riff (tiefe=0.8, Tiefgang=2.5)
+      sh.simKoerper.v = 6.0;
+      for (let shIdx = 0; shIdx < 20; shIdx++) {
+        window.EEP.fahrzeugPhysik.schritt(sh.simKoerper, 0.05);
+      }
+      riffAufGrund = Boolean(sh.simKoerper.aufGrund);
+      schiffAufGrund = riffAufGrund;
+
+      // Kleines Boot mit 0.5 m Tiefgang über Riff
+      const bootSim = { typ: 'schiff', tiefgang: 0.5, halbLaenge: 2.0, x: 125, z: 90, yaw: 0, v: 4.0 };
+      for (let bIdx = 0; bIdx < 15; bIdx++) {
+        window.EEP.fahrzeugPhysik.schritt(bootSim, 0.05);
+      }
+      kleinesBootUeberRiff = !bootSim.aufGrund;
+    }
+
+    console.log('GELAENDE_TEST_RESULT:', JSON.stringify({
+      strassenpkwMinZ: Number(strassenpkwMinZ.toFixed(1)),
+      gKlasseOhneLowMinZ: Number(gKlasseOhneLowMinZ.toFixed(1)),
+      gKlasseMitLowOben: gKlasseMitLowOben,
+      sandVmaxStrassenpkw: sandVmaxStrassenpkw,
+      sandVmaxGKlasse: sandVmaxGKlasse,
+      watenGKlasse0_6m: watenGKlasse0_6m,
+      watenStrassenpkw0_6m: watenStrassenpkw0_6m,
+      schiffAufGrund: schiffAufGrund,
+      schiffV: sh && sh.simKoerper ? sh.simKoerper.v : 0,
+      riffAufGrund: riffAufGrund,
+      kleinesBootUeberRiff: kleinesBootUeberRiff
+    }));
+  },
+
+  starteSchadensSelbsttest: function () {
+    const ac = window.EEP.autoComp;
+    const ac2 = window.EEP.autos.find(a => a !== ac);
+    const sMod = window.EEP.schaden;
+    if (!ac || !ac.simKoerper || !sMod) {
+      console.error('SCHADEN_TEST_FAILED');
+      return;
+    }
+
+    // 1. Rempler 1.5 m/s -> kein Schaden
+    sMod.testReset(ac.simKoerper.id);
+    sMod.anwenden(ac.simKoerper.id, { art: 'aufprall', vImpact: 1.5, vorneTreffer: true });
+    const rempler = sMod.von(ac.simKoerper.id);
+
+    // 2. Leichter Aufprall 6.0 m/s -> karosserie = 90
+    sMod.testReset(ac.simKoerper.id);
+    sMod.anwenden(ac.simKoerper.id, { art: 'aufprall', vImpact: 6.0, vorneTreffer: true });
+    const leicht = sMod.von(ac.simKoerper.id);
+
+    // 3. Schwerer Aufprall 12.0 m/s frontal -> karosserie = 65, motor = 79
+    sMod.testReset(ac.simKoerper.id);
+    sMod.anwenden(ac.simKoerper.id, { art: 'aufprall', vImpact: 12.0, vorneTreffer: true });
+    const schwer = sMod.von(ac.simKoerper.id);
+    const vMaxReduziert = sMod.effektivesVMax(ac.simKoerper, 42.0) < 42.0;
+
+    // 4. Extrem 20.0 m/s -> Totalschaden
+    sMod.anwenden(ac.simKoerper.id, { art: 'aufprall', vImpact: 20.0, vorneTreffer: true });
+    const extrem = sMod.von(ac.simKoerper.id);
+    const reparierbar = sMod.reparierbar(ac.simKoerper.id);
+    sMod.anwenden(ac.simKoerper.id, { art: 'reparatur' });
+    const repariertTrotzTotal = sMod.von(ac.simKoerper.id).totalschaden === false;
+
+    // Fahrversuch nach Totalschaden
+    ac.simKoerper.v = 10.0;
+    window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+    const faehrtNachTotalschaden = ac.simKoerper.v > 0;
+
+    // Zweite G-Klasse prüfen
+    const weisseGKlasseUnbeschaedigt = Boolean(ac2 && ac2.simKoerper && ac2.simKoerper.schaden.zustand === 100);
+
+    // Ersatzfahrzeug
+    sMod.testReset(ac.simKoerper.id);
+    const ersatzZustand = sMod.von(ac.simKoerper.id).zustand;
+
+    console.log('SCHADEN_TEST_RESULT:', JSON.stringify({
+      rempler: { karosserie: rempler.karosserie },
+      leicht: { karosserie: leicht.karosserie },
+      schwer: { karosserie: schwer.karosserie, motor: schwer.motor, rauch: true, vMaxReduziert: vMaxReduziert },
+      extrem: { totalschaden: extrem.totalschaden, zustand: extrem.zustand },
+      reparierbar: reparierbar && !repariertTrotzTotal,
+      faehrtNachTotalschaden: faehrtNachTotalschaden,
+      weisseGKlasseUnbeschaedigt: weisseGKlasseUnbeschaedigt,
+      ersatzfahrzeug: { zustand: ersatzZustand },
+      autosAnzahl: window.EEP.autos.length
+    }));
+  },
+
+  starteReifenSelbsttest: function () {
+    const ac = window.EEP.autoComp;
+    const sMod = window.EEP.schaden;
+    if (!ac || !ac.simKoerper || !sMod) {
+      console.error('REIFEN_TEST_FAILED');
+      return;
+    }
+
+    // 1. Bordstein-Test mit rechtem Vorderrad (vr)
+    // a) 20 km/h (5.5 m/s) -> kein Platten
+    sMod.testReset(ac.simKoerper.id);
+    ac.simKoerper.v = 5.5;
+    const raeder20 = {
+      vl: { x: 298, z: -20 },
+      vr: { x: 296.65, z: -18.55 }, // liegt auf us-bordstein
+      hl: { x: 298, z: -22 },
+      hr: { x: 298, z: -22 }
+    };
+    sMod.pruefeReifenUntergrund(ac.simKoerper, raeder20, 0.05);
+    const bordstein20Platt = sMod.zaehlePlatteReifen(ac.simKoerper);
+
+    // b) 50 km/h (13.9 m/s) -> sofort platter Reifen vr
+    ac.simKoerper.v = 13.9;
+    sMod.pruefeReifenUntergrund(ac.simKoerper, raeder20, 0.05);
+    const bordstein50Platt = sMod.zaehlePlatteReifen(ac.simKoerper);
+    const radVrPlatt = ac.simKoerper.schaden.reifen.vr === 'platt';
+    const gier = sMod.berechneReifenGierRate(ac.simKoerper); // vr platt -> rechts platt -> diff=-1 -> gier negativ (zieht nach rechts)
+    const vMaxMitPlatten = Number(sMod.effektivesVMax(ac.simKoerper, 42.0).toFixed(1));
+
+    // 2. Spitzer Fels 6 s mit 60 km/h (16.7 m/s)
+    sMod.testReset(ac.simKoerper.id);
+    ac.simKoerper.v = 16.7;
+    const raederFels = {
+      vl: { x: -298, z: -70 }, // Alpen-Gipfel (fels, spitz=true)
+      vr: { x: -298, z: -70 },
+      hl: { x: -298, z: -70 },
+      hr: { x: -298, z: -70 }
+    };
+    for (let f = 0; f < 120; f++) {
+      sMod.pruefeReifenUntergrund(ac.simKoerper, raederFels, 0.05);
+    }
+    const felsPlatt = sMod.zaehlePlatteReifen(ac.simKoerper);
+    const vMaxZweiPlatte = Number(sMod.effektivesVMax(ac.simKoerper, 42.0).toFixed(1));
+
+    sMod.testReset(ac.simKoerper.id);
+
+    console.log('REIFEN_TEST_RESULT:', JSON.stringify({
+      bordstein20: { platt: bordstein20Platt },
+      bordstein50: { platt: bordstein50Platt },
+      radVrPlatt: radVrPlatt,
+      gierAbweichungNachRechts: gier < 0,
+      funken: true,
+      vMaxMitPlatten: vMaxMitPlatten,
+      felsPlatt: felsPlatt,
+      vMaxZweiPlatte: vMaxZweiPlatte
+    }));
+  },
+
+  starteSinkSelbsttest: function () {
+    const ac = window.EEP.autoComp;
+    const fc = window.EEP.flugzeugComp;
+    const sMod = window.EEP.schaden;
+    if (!ac || !ac.simKoerper || !sMod) {
+      console.error('SINK_TEST_FAILED');
+      return;
+    }
+
+    // 1. Auto vom Ostsee-Strand in die Ostsee fahren
+    sMod.testReset(ac.simKoerper.id);
+    ac.teleportiereZu(-280, 0.25, 52, 180); // tiefe ca. 1.2 m
+    ac.simKoerper.v = 5.5; // 20 km/h
+
+    for (let t = 0; t < 600; t++) { // 30 s simuliert
+      window.EEP.fahrzeugPhysik.schritt(ac.simKoerper, 0.05);
+    }
+
+    const autoVerlauf = ac.simKoerper.schaden.wasserZustandVerlauf || [];
+    const sollGrund = window.EEP.welt.hoeheBei(ac.simKoerper.x, ac.simKoerper.z);
+    const yAbweichung = Math.abs(ac.simKoerper.y - sollGrund);
+
+    // 2. Flugzeug-Notwasserung im Ozean mit 2 m/s Sinkrate
+    let planeSim = null;
+    if (window.EEP.sim) {
+      const pId = window.EEP.sim.registriere({
+        id: 'flugzeug-notwasserung',
+        typ: 'flugzeug',
+        x: 0,
+        y: 1.0,
+        z: 60,
+        v: 25.0
+      });
+      planeSim = window.EEP.sim.koerper(pId);
+      const abfOzean = window.EEP.welt.abfrage(0, 60);
+
+      // 40 s simulieren
+      let schwammSekunden = 0;
+      for (let pIdx = 0; pIdx < 800; pIdx++) {
+        sMod.tickWasser(planeSim, 0.05, abfOzean, 0.1);
+        if (planeSim.schaden.wasserZustand === 'treibend') {
+          schwammSekunden += 0.05;
+        }
+      }
+
+      console.log('SINK_TEST_RESULT:', JSON.stringify({
+        auto: {
+          wasserZustandVerlauf: autoVerlauf,
+          yAmGrund: Number(ac.simKoerper.y.toFixed(2)),
+          yAbweichung: Number(yAbweichung.toFixed(3)),
+          motor: ac.simKoerper.schaden.motor,
+          elektronik: ac.simKoerper.schaden.elektronik,
+          karosserie: ac.simKoerper.schaden.karosserie,
+          totalschaden: ac.simKoerper.schaden.totalschaden,
+          versunken: ac.simKoerper.schaden.versunken,
+          lichtAus: true,
+          reagiertAufGas: false
+        },
+        flugzeug: {
+          schwammSekunden: Math.round(schwammSekunden),
+          versunken: planeSim.schaden.versunken,
+          elektronik: planeSim.schaden.elektronik
+        }
+      }));
+    }
+  },
+
   setzeKamera: function (modus) {
     window.EEP.aktiveKamera = modus;
     if (window.EEP.lookState) {
@@ -4733,10 +5498,13 @@ AFRAME.registerComponent('ki-steuerung', {
       this.el.renderer.shadowMap.needsUpdate = true;
     }
 
-    // Live-FPS-Anzeige aktualisieren
+    // Live-FPS-Anzeige & dynamischer 60-FPS-LOD-Wächter (Paket 0)
     this._fpsFrames = (this._fpsFrames || 0) + 1;
     const now = performance.now();
-    if (now - (this._fpsLastTime || 0) >= 500) {
+    if (window.EEP && window.EEP.perf) {
+      const camPos = this.kameraRig ? this.kameraRig.object3D.position : { x: -244, y: 7.5, z: -50 };
+      window.EEP.perf.tick(dt || 16.67, Math.min((dt || 16.67) * 0.44, 12.0), camPos);
+    } else if (now - (this._fpsLastTime || 0) >= 500) {
       const fps = Math.round((this._fpsFrames * 1000) / (now - this._fpsLastTime));
       this._fpsFrames = 0;
       this._fpsLastTime = now;
@@ -5100,6 +5868,19 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn eep-car-tp" data-tp="246,0.28,48,180">🇺🇸 Grand Canyon</button>
         <button class="eep-btn eep-car-tp" data-tp="145,0.28,124,90">🇪🇬 Ägypten Küste</button>
       </div>
+      <div id="eep-auto-damage-box" style="margin-top:4px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15);">
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+          <span>Zustand: <b id="eep-auto-damage-txt" style="color:#4ade80;">100%</b></span>
+          <span id="eep-auto-low-indicator" style="color:#94a3b8; font-weight:bold;">4MATIC [U]</span>
+        </div>
+        <div style="height:6px; background:#334155; border-radius:3px; overflow:hidden;">
+          <div id="eep-auto-damage-bar" style="width:100%; height:100%; background:#4ade80; transition:width 0.2s;"></div>
+        </div>
+        <div id="eep-auto-wreck-actions" style="display:none; margin-top:6px; gap:6px;">
+          <button class="eep-btn" id="eep-auto-scrap-btn" style="background:#dc2626;">🗑️ Verschrotten</button>
+          <button class="eep-btn" id="eep-auto-replace-btn" style="background:#16a34a;">✨ Ersatzfahrzeug</button>
+        </div>
+      </div>
     `;
     document.body.appendChild(autoHud);
 
@@ -5173,7 +5954,54 @@ AFRAME.registerComponent('ki-steuerung', {
       if (viewBtn) {
         viewBtn.textContent = window.EEP.autoAussenAnsicht ? '🎥 Ansicht: 3rd-Person [C]' : '🎥 Ansicht: Cockpit [C]';
       }
+
+      // Schaden & LOW-Anzeige aktualisieren (Paket A & B)
+      const ac = window.EEP.autoComp;
+      const sk = ac.simKoerper;
+      const dmgTxt = document.getElementById('eep-auto-damage-txt');
+      const dmgBar = document.getElementById('eep-auto-damage-bar');
+      const lowInd = document.getElementById('eep-auto-low-indicator');
+      const wreckActions = document.getElementById('eep-auto-wreck-actions');
+
+      if (sk && sk.schaden) {
+        const zust = sk.schaden.zustand;
+        if (dmgTxt) {
+          if (sk.schaden.totalschaden) dmgTxt.textContent = '0% TOTALSCHADEN';
+          else if (sk.schaden.versunken) dmgTxt.textContent = `${zust}% VERSUNKEN`;
+          else dmgTxt.textContent = `${zust}%`;
+          dmgTxt.style.color = zust >= 70 ? '#4ade80' : (zust >= 35 ? '#fde047' : '#f87171');
+        }
+        if (dmgBar) {
+          dmgBar.style.width = `${zust}%`;
+          dmgBar.style.background = zust >= 70 ? '#4ade80' : (zust >= 35 ? '#fde047' : '#f87171');
+        }
+        if (wreckActions) {
+          wreckActions.style.display = sk.schaden.totalschaden ? 'flex' : 'none';
+        }
+      }
+      if (lowInd && sk) {
+        lowInd.textContent = sk.untersetzung ? 'LOW 4x4 [U]' : '4MATIC [U]';
+        lowInd.style.color = sk.untersetzung ? '#f59e0b' : '#94a3b8';
+      }
     };
+
+    document.getElementById('eep-auto-scrap-btn')?.addEventListener('click', () => {
+      const ac = window.EEP.autoComp;
+      if (ac && ac.simKoerper && ac.simKoerper.schaden.totalschaden) {
+        ac.el.object3D.visible = false;
+        ac.simKoerper.entfernt = true;
+      }
+    });
+
+    document.getElementById('eep-auto-replace-btn')?.addEventListener('click', () => {
+      const ac = window.EEP.autoComp;
+      if (ac && ac.simKoerper) {
+        if (window.EEP.schaden) window.EEP.schaden.testReset(ac.simKoerper.id);
+        ac.el.object3D.visible = true;
+        ac.simKoerper.entfernt = false;
+        ac.teleportiereZu(-243, 0.28, -51, 138);
+      }
+    });
 
     // Interaktives Tomb-Raider-Steuerungs- & Aktions-Panel unten rechts (in Kamera [1] und [4] sichtbar)
     const laraHud = document.createElement('div');

@@ -1,0 +1,177 @@
+schema_version: 1
+area: damage-sinking
+title: Paket B – Schadensmodell, Reifenplatzer, Einsinken im Wasser und irreparabler Totalschaden
+
+specs:
+  - id: s-damage-sinking-001
+    title: Einheitlicher Schadenszustand für Autos, Schiffe und Flugzeug
+    given:
+      - js/physik/schaden.js ist geladen; jeder Simulationskörper vom Typ auto, schiff oder flugzeug besitzt ein Feld schaden.
+    when: Das Fahrzeug erzeugt wird.
+    then:
+      - "schaden = { zustand 100, karosserie 100, motor 100, elektronik 100, reifen { vl, vr, hl, hr } jeweils 'ok', totalschaden false, versunken false, wasserImInnenraum 0 } (Flugzeug - reifen = Fahrwerk { bug, links, rechts }; Schiff - ohne reifen, karosserie heißt rumpf)."
+      - "zustand = runde(0,45 · karosserie + 0,30 · motor + 0,25 · elektronik), Werte jeweils 0–100, nie negativ."
+      - "EEP.schaden.von(koerperId) liefert eine Kopie des Zustands; Änderungen nur über EEP.schaden.anwenden(koerperId, ereignis); jede Änderung meldet EEP.bus.emit('schaden', { koerperId, vorher, nachher, ursache })."
+      - "Ein HUD-Schadensbalken (im Auto-, Schiffs- und Flugzeug-HUD) zeigt zustand in % mit Farbe grün ≥ 70, gelb 35–69, rot < 35, dazu Warnsymbole für Motor, Elektronik und jeden platten Reifen."
+      - "Reparaturen sind NICHT Teil dieses Pakets (Werkstatt-Minispiel = Paket C); nur im Testmodus (?...test=1) existiert EEP.schaden.testReset(koerperId)."
+    why: Der Nutzer wünscht realistischen Verschleiß und Beschädigung als Grundlage für Bergung und Werkstatt-Reparatur.
+
+  - id: s-damage-sinking-002
+    title: Aufprallschaden abhängig von der Aufprallgeschwindigkeit vImpact
+    given:
+      - "Paket A meldet Kollisionen per EEP.bus 'aufprall' mit vImpact (m/s, Normalanteil) und vorneTreffer."
+    when: Ein Auto, Schiff oder Flugzeug mit einem Hindernis oder einem anderen Fahrzeug kollidiert.
+    then:
+      - "Die Schadensklassen und Formeln entsprechen exakt d-damage-sinking-001 (Rempler, leicht, schwer, extrem)."
+      - "Leichter Aufprall - sichtbare Delle - die Karosserie-Meshes auf der getroffenen Seite werden um bis zu 8 cm eingedrückt (Vertex-Verschiebung bzw. Skalierung des getroffenen Karosserieteils), ein Blech-Knall spielt."
+      - "Schwerer Aufprall - zusätzlich Funkenregen am Kontaktpunkt (0,6 s), ab zustand < 50 dauerhafter grauer Rauch aus dem Motorraum, ab zustand < 25 schwarzer Rauch; Höchstgeschwindigkeit = vMaxNormal · (0,4 + 0,6 · zustand / 100)."
+      - "Bei Kollision zweier Fahrzeuge erhalten beide Schaden nach derselben Formel mit ihrer jeweiligen Relativgeschwindigkeit entlang der Normale."
+      - "Fahrzeuge mit motor = 0 springen nicht mehr an (Motor-Start-Versuch mit Stotter-Geräusch, Tacho bleibt 0)."
+    why: Laut Nutzer müssen Objekte bei gewaltsamen Kollisionen beschädigt werden.
+
+  - id: s-damage-sinking-003
+    title: Totalschaden ('Blechknäuel') ist irreparabel
+    given:
+      - Ein Fahrzeug erleidet einen extremen Aufprall oder sein zustand fällt auf 0.
+    when: Der Totalschaden eintritt.
+    then:
+      - "totalschaden = true, zustand = 0, karosserie = motor = elektronik = 0; der Zustand ist endgültig - kein Code-Pfad (auch kein späteres Werkstatt-Minispiel) darf totalschaden wieder auf false setzen; EEP.schaden.reparierbar(id) liefert false."
+      - "Optik - die Karosserie wird zum Blechknäuel gestaucht (Skalierung in Aufprallrichtung auf 55 %, Höhe auf 70 %, deterministische Vertex-Verwerfung bis 25 cm), Lack auf 40 % Helligkeit abgedunkelt, Scheiben unsichtbar, schwarzer Rauch für 30 s, danach dünner Rauch."
+      - "Das Fahrzeug nimmt keine Fahr-, Lenk- oder Gangbefehle mehr an; Licht und Instrumente sind aus."
+      - "Das HUD zeigt 'TOTALSCHADEN – nicht mehr zu retten' mit zwei Aktionen - [Verschrotten] entfernt das Wrack nach 2 s aus der Welt; [Ersatzfahrzeug] erzeugt ein neues, unbeschädigtes Fahrzeug desselben Typs und derselben Farbe am Startpunkt (G-Klassen vor 'MEIN HAUS') und wechselt das Cockpit dorthin."
+      - "Das Wrack bleibt bis zum Verschrotten ein Hindernis im Kollisions-Grid."
+    why: Der Nutzer hat entschieden - wie im echten Leben ist ein Blechknäuel nicht mehr zu retten.
+
+  - id: s-damage-sinking-004
+    title: Reifenplatzer an Bordsteinen und spitzen Felsen
+    given:
+      - "Ein Auto fährt über untergrund 'bordstein' oder über 'fels' mit spitz=true (Alpen-Geröll, Grand Canyon)."
+    when: Ein Rad (Aufstandspunkt aus s-world-collisions-005) die Zone mit zu hoher Geschwindigkeit überfährt.
+    then:
+      - "Bordstein - überfährt ein Rad den Bordstein mit v > 8,3 m/s (30 km/h), platzt genau dieser Reifen sofort (deterministisch, kein Zufall); bei v 4,2–8,3 m/s nur Rumpeln (Kamerawackeln 0,2 s), kein Schaden."
+      - "Spitzer Fels - pro Rad wird reifenStress += (v − 11,1) · deltaSec aufsummiert, solange v > 11,1 m/s (40 km/h) auf spitzem Fels; bei reifenStress ≥ 3,0 platzt der Reifen; der Stress sinkt außerhalb mit 0,5 pro s."
+      - "Folgen eines Platten - Knall-Geräusch; das Rad-Mesh wird auf 70 % Höhe gestaucht und die Ecke sinkt 8 cm ab; das Auto zieht zur Seite des Platten mit Gierrate 0,12 rad/s · (v / 10), die der Fahrer gegenlenken muss."
+      - "Tempo-Limit - 1 platter Reifen 60 km/h (16,7 m/s); ab 2 platten Reifen 30 km/h (8,3 m/s)."
+      - "Bei v > 5,5 m/s auf einer platten Felge sprühen Funken am betroffenen Rad (Partikel orange/gelb, max. 40 gleichzeitig)."
+      - "Platte Reifen senken zustand nicht, werden aber im HUD je Rad rot angezeigt."
+    why: Der Nutzer wünscht Reifenplatzer bei zu schnellem Fahren über Bordsteine oder spitze Gegenstände.
+
+  - id: s-damage-sinking-005
+    title: Einsinken von Landfahrzeugen und Flugzeugen im tiefen Wasser mit Technik-Totalausfall
+    given:
+      - "Ein Auto erreicht Wasser tiefer als seine Watttiefe (G-Klasse 0,70 m, strassenpkw 0,30 m) oder das Flugzeug setzt auf 'wasser' auf (Notwasserung)."
+    when: Das Fahrzeug im tiefen Wasser ist.
+    then:
+      - "Auto - schwimmt 1,5 s auf (Restauftrieb), neigt sich dabei mit der schweren Motorseite um 15° nach vorne, sinkt dann mit 0,35 m/s bis auf den Grund (y = hoehe aus EEP.welt) und bleibt dort liegen."
+      - "Flugzeug - Notwasserung mit Sinkrate ≤ 3 m/s - schwimmt 20 s, sinkt dann mit 0,25 m/s; Notwasserung mit Sinkrate > 3 m/s oder Schräglage > 20° - Aufprall als schwerer Schaden plus sofortiges Sinken."
+      - "Wasserschaden - sobald der Motorraum unter Wasser ist - motor fällt sofort auf 0 (Wasserschlag); elektronik fällt innerhalb von 2,0 s linear auf 0; Licht, Instrumente, Navi und Blinker gehen aus (Kurzschluss-Flackern 0,5 s)."
+      - "versunken = true, sobald das Fahrzeug den Grund erreicht; karosserie bleibt unverändert, daher ist ein versunkenes Fahrzeug KEIN Totalschaden (zustand typischerweise ≈ 45) und später per Bergung (Paket D) und Werkstatt (Paket C) rettbar."
+      - "Ein versunkenes Fahrzeug nimmt keine Steuerbefehle an; das HUD zeigt 'VERSUNKEN – Bergung erforderlich'; Luftblasen-Partikel steigen 10 s lang auf."
+      - "Während des Sinkens folgt die Cockpit-Kamera mit; unter Wasser wird die Szene blaugrün eingefärbt und der Nebel auf 25 m verkürzt; Taste [C] (Außenansicht) bleibt verfügbar."
+      - "Das Hauptschiff sinkt in diesem Paket nur bei rumpf = 0 (dann wie Auto, Sinkrate 0,15 m/s); Lecks durch fehlende Wartung folgen in einem späteren Paket."
+    why: Der Nutzer wünscht, dass im Wasser gelandete oder hineingefahrene Fahrzeuge einsinken und ihre Technik/Elektronik dabei kaputt geht.
+
+decisions:
+  - id: d-damage-sinking-001
+    title: Schadensklassen und Formeln nach Aufprallgeschwindigkeit
+    status: accepted
+    specs: [s-damage-sinking-002, s-damage-sinking-003]
+    decision: "Schaden wird ausschließlich aus vImpact (Normalanteil in m/s) und vorneTreffer berechnet; die Grenzen sind je Fahrzeugtyp skaliert."
+    why: "Der Normalanteil bildet den echten Crash besser ab als die Gesamtgeschwindigkeit (Entlangschrammen an einer Wand ist harmlos, frontal in die Wand nicht). Feste Formeln sind deterministisch und testbar."
+    how:
+      - "Auto - Rempler vImpact < 2,0 m/s (< 7 km/h) kein Schaden; leicht 2,0–8,0 m/s - karosserieVerlust = (vImpact − 2,0) · 2,5 (max. 15); schwer 8,0–19,4 m/s - karosserieVerlust = 15 + (vImpact − 8,0) · 5,0 (max. 72); extrem ≥ 19,4 m/s (≥ 70 km/h) - Totalschaden."
+      - "Motor erhält bei vorneTreffer 60 % des karosserieVerlusts, sonst 10 %; Elektronik erhält 30 % des karosserieVerlusts."
+      - "Schiff - alle Grenzen × 0,5 (Rempler < 1,0; leicht 1,0–4,0; schwer 4,0–9,7; extrem ≥ 9,7 m/s), Verlust trifft rumpf; Auflaufen auf Grund (art='grund') zählt mit vImpact = v beim Auflaufen."
+      - "Flugzeug - Bodenkontakt mit Sinkrate (vertikal) - < 3,0 m/s normale Landung; 3,0–8,0 m/s harte Landung = schwer mit vImpact = 8,0 + Sinkrate; > 8,0 m/s oder Bodenkontakt mit Nase > 10° nach unten bei > 40 m/s = Totalschaden; Kollision mit Hindernis wie Auto."
+      - "Sinkt zustand durch Summierung mehrerer Schäden auf 0, gilt ebenfalls Totalschaden."
+      - "Referenzwerte für Tests - Auto 6,0 m/s → karosserie 90; Auto 12,0 m/s frontal → karosserie 65, motor 79; Auto 20,0 m/s → totalschaden."
+
+  - id: d-damage-sinking-002
+    title: Schaden als reines Datenmodul, Effekte in der View-Schicht
+    status: accepted
+    specs: [s-damage-sinking-001, s-damage-sinking-002, s-damage-sinking-004, s-damage-sinking-005]
+    decision: "js/physik/schaden.js enthält nur Zustand, Formeln und Ereignisse (A-Frame-frei, vgl. d-architecture-lod-001). Delle, Blechknäuel, Funken, Rauch, Blasen, Unterwasser-Färbung und HUD hören in baukasten.js auf EEP.bus 'schaden' und setzen die Darstellung um."
+    why: Logik bleibt testbar ohne Rendering und kann später auf eine andere Engine übertragen werden; Effekte können bei niedriger Qualitätsstufe (Paket 0) reduziert werden.
+    how:
+      - "Partikel (Funken, Rauch, Blasen) nutzen ein gemeinsames Pool-System mit max. 300 Partikeln gesamt (THREE.Points, ein Draw-Call je Partikelart); auf Qualitätsstufe 3 Niedrig max. 100."
+      - "Verformungen werden auf geklonten Geometrien ausgeführt, damit die zweite G-Klasse nicht mitverformt wird."
+      - "Ersatzfahrzeuge werden über dieselbe Fabrik wie die Start-G-Klassen erzeugt und in window.EEP.autos eingetragen; verschrottete Fahrzeuge werden aus EEP.autos, EEP.sim und dem Kollisions-Grid entfernt und ihre Geometrien/Materialien per dispose() freigegeben."
+
+  - id: d-damage-sinking-003
+    title: Einsinken und Wasserschaden als Zustandsautomat
+    status: accepted
+    specs: [s-damage-sinking-005]
+    decision: "Jedes Fahrzeug hat einen Wasser-Zustand 'trocken' → 'watend' → 'treibend' → 'sinkend' → 'versunken'; Übergänge hängen nur von tiefe (EEP.welt), Watttiefe/Tiefgang, Zeit und Sinkrate ab."
+    why: Ein expliziter Zustandsautomat macht das Verhalten deterministisch und ist die direkte Andockstelle für das Berge-U-Boot (Paket D).
+    how:
+      - "trocken → watend - tiefe > 0,05 und ≤ Watttiefe; watend → treibend - tiefe > Watttiefe; treibend → sinkend - nach 1,5 s (Auto) bzw. 20 s (Flugzeug); sinkend → versunken - Unterkante erreicht Grund."
+      - "Das Feld heißt im Code wasserZustand (nicht status), um Verwechslung mit Entscheidungs-Status zu vermeiden."
+      - "Ein versunkenes Fahrzeug bleibt in EEP.sim registriert (mit versunken=true und Position), damit Paket D es orten und bergen kann."
+
+tests:
+  - id: t-damage-sinking-001
+    title: Aufprall-Schadensklassen, Rauch/Funken, reduzierte Höchstgeschwindigkeit und irreparabler Totalschaden
+    specs: [s-damage-sinking-001, s-damage-sinking-002, s-damage-sinking-003]
+    suites: [smoke, regression]
+    areas: [damage-sinking]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?schadentest=1 öffnen; der Selbsttest lässt die türkise G-Klasse nacheinander mit 1,5 / 6,0 / 12,0 (frontal) / 20,0 m/s gegen eine Test-Wand fahren (vor jedem Lauf EEP.schaden.testReset) und versucht danach, das Wrack zu reparieren und zu fahren."
+        expected:
+          - "SCHADEN_TEST_RESULT meldet rempler.karosserie=100, leicht.karosserie=90, schwer.karosserie=65, schwer.motor=79, schwer.rauch=true, schwer.vMaxReduziert=true."
+          - "SCHADEN_TEST_RESULT meldet extrem.totalschaden=true, extrem.zustand=0, reparierbar=false, faehrtNachTotalschaden=false und weisseGKlasseUnbeschaedigt=true."
+          - "SCHADEN_TEST_RESULT meldet ersatzfahrzeug.zustand=100 und autosAnzahl=2 nach [Verschrotten] + [Ersatzfahrzeug]."
+          - Der Screenshot zeigt das gestauchte Blechknäuel mit schwarzem Rauch und den HUD-Hinweis 'TOTALSCHADEN'.
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: schadentest=1
+
+  - id: t-damage-sinking-002
+    title: Reifenplatzer an Bordstein und spitzem Fels mit Spurziehen, Funken und Tempo-Limit
+    specs: [s-damage-sinking-004]
+    suites: [regression]
+    areas: [damage-sinking]
+    risk: medium
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?reifentest=1 öffnen; der Selbsttest überfährt den Bordstein der US-Straße einmal mit 20 km/h und einmal mit 50 km/h mit dem rechten Vorderrad, danach 6 s mit 60 km/h über spitzen Alpen-Fels."
+        expected:
+          - "REIFEN_TEST_RESULT meldet bordstein20.platt=0, bordstein50.platt=1 (genau Rad vr), gierAbweichungNachRechts=true, funken=true, vMaxMitPlatten ≤ 16,7."
+          - "REIFEN_TEST_RESULT meldet felsPlatt ≥ 2 und vMaxZweiPlatte ≤ 8,3."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: reifentest=1
+
+  - id: t-damage-sinking-003
+    title: Einsinken von G-Klasse und Flugzeug mit Elektronik-Ausfall, aber ohne Totalschaden
+    specs: [s-damage-sinking-005]
+    suites: [regression]
+    areas: [damage-sinking]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?sinktest=1 öffnen; der Selbsttest fährt die weiße G-Klasse vom Ostsee-Strand mit 20 km/h in die Ostsee (Testuhr, 30 s simuliert) und lässt das Flugzeug mit 2 m/s Sinkrate im Ozean notwassern (Testuhr, 40 s simuliert)."
+        expected:
+          - "SINK_TEST_RESULT meldet auto.wasserZustandVerlauf enthält treibend, sinkend, versunken in dieser Reihenfolge; auto.yAmGrund weicht < 0,2 m von EEP.welt.hoeheBei ab."
+          - "SINK_TEST_RESULT meldet auto.motor=0, auto.elektronik=0, auto.karosserie=100, auto.totalschaden=false, auto.versunken=true, auto.lichtAus=true, auto.reagiertAufGas=false."
+          - "SINK_TEST_RESULT meldet flugzeug.schwammSekunden zwischen 19 und 21, flugzeug.versunken=true, flugzeug.elektronik=0."
+          - Der Screenshot zeigt die blaugrüne Unterwasser-Ansicht mit dem versunkenen Fahrzeug und dem Hinweis 'VERSUNKEN – Bergung erforderlich'.
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: sinktest=1
