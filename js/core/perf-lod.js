@@ -163,13 +163,12 @@
       if (lodObj && definierteStufen) {
         for (var i = 0; i < definierteStufen.length; i++) {
           var st = definierteStufen[i];
-          if (st.object) {
-            lodObj.addLevel(st.object, st.dist * faktor);
-          } else if (typeof THREE !== 'undefined') {
-            var leer = new THREE.Object3D();
-            leer.visible = false;
-            lodObj.addLevel(leer, st.dist * faktor);
-          }
+          // WICHTIG: Niemals das aktive A-Frame object3D selbst an lodObj.addLevel übergeben!
+          // THREE.LOD.addLevel ruft intern this.add(obj) auf und entfernt damit el.object3D
+          // aus dem a-scene.object3D Szenengraphen (wodurch Alpen, Canyon, Häuser & Bäume verschwinden).
+          var levelNode = (st.object && st.object !== object3D && !st.object.parent) ? st.object : new THREE.Object3D();
+          if (!st.object) levelNode.visible = false;
+          lodObj.addLevel(levelNode, st.dist * faktor);
         }
       }
 
@@ -256,9 +255,9 @@
           continue;
         }
 
-        var maxDist = e.basisMaxDist * faktor;
-        if (e.kategorie === 'wolkenkratzer' || e.kategorie === 'landschaft') {
-          maxDist = stufeObj.far;
+        var maxDist = Math.max(e.basisMaxDist * faktor, stufeObj.far * 0.85);
+        if (e.kategorie === 'wolkenkratzer' || e.kategorie === 'landschaft' || (EEP.aktiveKamera === 7)) {
+          maxDist = Math.max(stufeObj.far, 1500);
         }
         var vis = dist <= maxDist;
         obj.visible = vis;
@@ -343,22 +342,23 @@
         renderer.setPixelRatio(Math.min(dpr, stufe.maxDpr));
       }
 
-      // Kamera-Far anpassen
+      // Kamera-Far anpassen (Mindestens 1500m für Großlandschaften wie Alpen/Grand Canyon/Pyramiden)
       var camEl = sceneEl.querySelector('#haupt-kamera');
       if (camEl) {
-        camEl.setAttribute('far', String(stufe.far));
+        var camFar = Math.max(stufe.far, 1500);
+        camEl.setAttribute('far', String(camFar));
         var camObj = camEl.getObject3D && camEl.getObject3D('camera');
         if (camObj) {
-          camObj.far = stufe.far;
+          camObj.far = camFar;
           if (typeof camObj.updateProjectionMatrix === 'function') camObj.updateProjectionMatrix();
         }
       }
 
-      // Nebel an Sichtweite koppeln (Nebel-Ende ≈ 0.95 * far)
+      // Nebel sanft an Sichtweite koppeln (Alpen & Grand Canyon am Horizont sichtbar halten)
       if (sceneEl.object3D && sceneEl.object3D.fog) {
         var fog = sceneEl.object3D.fog;
         if (typeof fog.density === 'number') {
-          fog.density = 3.0 / (0.95 * stufe.far);
+          fog.density = 1.4 / (0.95 * stufe.far);
         }
       }
 
