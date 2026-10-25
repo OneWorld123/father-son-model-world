@@ -301,6 +301,7 @@
 
     tickWasser: function (koerper, deltaSec, abfOptional, wattMaxOptional) {
       if (!koerper || !koerper.schaden) return;
+      if (koerper.verladenAuf || koerper.aufTraeger) return;
       var s = koerper.schaden;
       var abf = abfOptional || (EEP.welt ? EEP.welt.abfrage(koerper.x, koerper.z) : { tiefe: 0, hoehe: 0.25 });
       var wattMax = typeof wattMaxOptional === 'number' ? wattMaxOptional : (koerper.profil === 'strassenpkw' ? 0.30 : 0.70);

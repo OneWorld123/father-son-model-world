@@ -1,0 +1,70 @@
+schema_version: 1
+area: vehicle-transport
+title: Paket I – Begehbarer Fahrzeug-Innenraum für Lara Croft und Fahrzeug-Transport (G-Klassen auf Schiff & Frachtflugzeug)
+
+specs:
+  - id: s-vehicle-transport-001
+    title: Begehbarer Innenraum aller großen Verkehrsmittel mit lokaler Koordinaten-Mitführung
+    given:
+      - js/welt/fahrzeug-transport.js ist geladen (A-Frame-frei, DOM-frei, THREE-frei).
+      - Lara Croft ist in ein Trägerfahrzeug (Schiff, Flugzeug, Zug oder Auto) eingestiegen.
+    when: Der Innenraum-Rundgang über EEP.transport.setzeInnenraumModus(lara, traeger, aktiv) aktiviert und EEP.transport.aktualisiereInnenraum(lara, traeger, dt, eingabe) ausgeführt wird.
+    then:
+      - "Lara erhält lokale Koordinaten (lokalX, lokalY, lokalZ, lokalYaw) innerhalb der definierten Kabinen-/Deck-Grenzen des jeweiligen Verkehrsmittels."
+      - "Vorwärts-/Seitwärts-Eingaben bewegen Lara im Innenraum, wobei die Kabinenwände (minX..maxX, minZ..maxZ) nicht durchdrungen werden können."
+      - "Bewegt und dreht sich das Trägerfahrzeug in der Welt (x, y, z, yaw), wird Laras Weltposition (lara.x, lara.y, lara.z, lara.yaw) jeden Tick exakt aus Träger-Pose plus lokaler Innenraum-Position berechnet."
+    why: Lara soll sich während der Fahrt auf dem Schiff, im Flugzeug und im Zug frei im funktionierenden Innenraum bewegen können.
+
+  - id: s-vehicle-transport-002
+    title: Ausklappbare Laderampen und Auffahren von G-Klassen auf Schiff und Frachtflugzeug
+    given:
+      - Ein Trägerfahrzeug (Schiff 'mein-schiff-haupt' oder Flugzeug 'airliner-haupt') und eine G-Klasse ('gklasse-tuerkis' / 'gklasse-weiss') sind in EEP.sim registriert.
+    when: Die Laderampe des Trägers über EEP.transport.schalteRampe(traeger, true) geöffnet wird und die G-Klasse in die Rampenzone fährt bzw. EEP.transport.verlade(auto, traeger) aufgerufen wird.
+    then:
+      - "Bei geschlossener Rampe (rampeOffen=false) wird eine Auffahrt verweigert."
+      - "Bei geöffneter Rampe (rampeOffen=true) wird das Auto als verladen registriert (auto.verladenAuf = traeger.id, traeger.geladeneFahrzeuge enthält auto.id) und auf seinen lokalen Stellplatz auf dem Autodeck bzw. im Frachtraum gesetzt."
+      - "EEP.bus.emit('fahrzeug-verladen', { autoId, traegerId, traegerTyp }) wird ausgelöst."
+    why: G-Klassen sollen über Rampen direkt auf Schiffe und in Frachtflugzeuge gefahren werden können.
+
+  - id: s-vehicle-transport-003
+    title: Physikalisches Mitreisen ohne Eigen-Wasserschaden und Entladen über die Rampe am Zielort
+    given:
+      - Eine G-Klasse ist auf einem Schiff oder in einem Flugzeug verladen (auto.verladenAuf === traeger.id).
+    when: Das Schiff über das Meer fährt oder das Flugzeug zu einem anderen Kontinent fliegt und EEP.transport.aktualisiereVerladene(dt) läuft, und anschließend am Zielort bei geöffneter Rampe EEP.transport.entlade(auto) ausgelöst wird.
+    then:
+      - "Während des Transports folgen auto.x, auto.y, auto.z und auto.yaw exakt der Bewegung und Drehung des Trägerfahrzeugs."
+      - "Obwohl sich das Schiff über Tiefwasser oder das Flugzeug in großer Höhe befindet, erleidet das verladene Auto keinen Wasserschaden (auto.schaden.versunken === false, auto.schaden.wasserImInnenraum === 0) und löst keine Eigen-Kollision mit dem Träger aus."
+      - "Nach EEP.transport.entlade(auto) bei geöffneter Rampe steht das Auto frei fahrbar vor/hinter der Rampe am neuen Zielort (auto.verladenAuf === null)."
+    why: Verladene Fahrzeuge müssen sicher über den Ozean oder durch die Luft zum Zielkontinent transportiert und dort wieder heruntergefahren werden können.
+
+decisions:
+  - id: d-vehicle-transport-001
+    title: Lokale Träger-Kind-Transformation in EEP.transport statt Szenegraph-Reparenting
+    status: accepted
+    specs: [s-vehicle-transport-001, s-vehicle-transport-002, s-vehicle-transport-003]
+    decision: "Verladene Autos und Lara im Innenraum behalten ihre eigenen A-Frame-Entities auf oberster Szene-Ebene; ihre Weltkoordinaten werden deterministisch in js/welt/fahrzeug-transport.js aus der 2D/3D-Rotationsmatrix des Trägerfahrzeugs berechnet. Während der Verladung wird auto.aufTraeger=true gesetzt, sodass EEP.schaden.pruefeWasser keinen Wasserschaden auf dem Schiffsdeck auslöst."
+    why: Szenegraph-Reparenting in A-Frame/Three.js führt zu Kamera-, Weltmatrix- und LOD-Fehlern (bekannt aus dem früheren THREE.LOD-Bug); eine reine Koordinaten-Transformation in EEP.transport ist 100 % deterministisch und headless-testbar.
+
+tests:
+  - id: t-vehicle-transport-001
+    title: Selbsttest für Rampen-Verladung auf Schiff & Flugzeug, Mitreisen über Ozean/Luft, Entladen und begehbaren Innenraum
+    specs: [s-vehicle-transport-001, s-vehicle-transport-002, s-vehicle-transport-003]
+    suites: [smoke, regression]
+    areas: [vehicle-transport]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?transporttest=1 im Headless-Browser öffnen."
+        expected:
+          - "TRANSPORT_TEST_RESULT meldet schiffVerladungOk=true (Auto fährt bei offener Rampe auf Schiff, reist über Tiefwasser ohne Wasserschaden mit und wird am Ziel entladen)."
+          - "TRANSPORT_TEST_RESULT meldet flugzeugVerladungOk=true (Auto wird bei offener Heckrampe ins Flugzeug geladen, fliegt mit nach Amerika und wird dort entladen)."
+          - "TRANSPORT_TEST_RESULT meldet rampeSchutzOk=true (Bei geschlossener Rampe ist kein Verladen möglich)."
+          - "TRANSPORT_TEST_RESULT meldet innenraumOk=true (Lara bewegt sich im begehbaren Innenraum innerhalb der Kabinengrenzen und reist mit dem Trägerfahrzeug mit)."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: transporttest=1

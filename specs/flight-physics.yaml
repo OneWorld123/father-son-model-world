@@ -1,0 +1,72 @@
+schema_version: 1
+area: flight-physics
+title: Paket E – Flugphysik, Landeklappen (Flaps), Störklappen (Spoilers), Stall/Overspeed, ILS, Autothrottle & Auto-Schubumkehr
+
+specs:
+  - id: s-flight-physics-001
+    title: Aerodynamik und mehrstufige Landeklappen (Flaps 0 / 1 / 2 / FULL) für sicheren Langsamflug
+    given:
+      - js/physik/flug-physik.js ist geladen (A-Frame-frei, DOM-frei, THREE-frei).
+      - Ein Flugzeugkörper ist in EEP.sim mit typ='flugzeug' registriert.
+    when: Die Klappenstufe über EEP.flugPhysik.setzeKlappen(koerper, stufe) zwischen 0 (0° Clean), 1 (10° Takeoff), 2 (25° Approach) und 3 (40° FULL) geschaltet und EEP.flugPhysik.schritt(koerper, dt, eingabe) ausgeführt wird.
+    then:
+      - "Die Stall-Geschwindigkeit vStall sinkt mit jeder Klappenstufe monoton: Stufe 0 = 14.5 m/s, Stufe 1 = 12.2 m/s, Stufe 2 = 10.2 m/s, Stufe 3 (FULL) = 8.5 m/s."
+      - "Der Auftriebsbeiwert cL steigt mit der Klappenstufe, sodass das Flugzeug bei 10.0 m/s mit Klappen FULL (Stufe 3) stabil ohne Strömungsabriss fliegt, während es bei 10.0 m/s mit Klappen 0 in den Stall gerät."
+      - "Die zulässige Höchstgeschwindigkeit vMax sinkt mit ausgefahrenen Klappen (Stufe 0 = 52.0 m/s, Stufe 1 = 40.0 m/s, Stufe 2 = 32.0 m/s, Stufe 3 = 26.0 m/s)."
+    why: Ausfahrbare Landeklappen erhöhen bei niedrigen Geschwindigkeiten den Auftrieb und erlauben sicheres Langsamfliegen und Landen ohne Strömungsabriss.
+
+  - id: s-flight-physics-002
+    title: Störklappen (Speedbrakes / Spoilers) gegen Overspeed und Strömungsabriss-Schutz (Stall)
+    given:
+      - Ein Flugzeug befindet sich im Flug (amBoden=false, Höhe über Grund > 1.2 m).
+    when: Die Geschwindigkeit v über vMax steigt (Overspeed) oder unter vStall fällt (Stall) bzw. Störklappen über EEP.flugPhysik.setzeSpoilers(koerper, modus) geschaltet werden (0=AUS, 1=ARMED, 2=VOLL).
+    then:
+      - "Bei v > vMax wird flug.overspeed=true gesetzt und per EEP.bus.emit('flug-warnung', { id, typ: 'overspeed', v, vMax }) gemeldet."
+      - "Mit ausgefahrenen Störklappen (spoilerStufe=2 VOLL) ist die Verzögerung im Overspeed mindestens 2.5-mal so stark wie mit eingefahrenen Störklappen (spoilerStufe=0), sodass die Übergeschwindigkeit rasch abgebaut wird."
+      - "Bei v < vStall in der Luft wird flug.stall=true gesetzt, per EEP.bus.emit('flug-warnung', { id, typ: 'stall', v, vStall }) gemeldet, und das Flugzeug senkt selbststabilisierend die Nase (pitch nimmt ab) und verliert Höhe, bis v >= vStall wieder erreicht ist."
+    why: Störklappen müssen bei Overspeed in der Luft helfen, schnell Geschwindigkeit abzubauen, und Strömungsabriss muss physikalisch spürbar sein.
+
+  - id: s-flight-physics-003
+    title: Landehilfen – ILS (Localizer & 3°-Gleitpfad), Autothrottle und Auto-Schubumkehr nach dem Aufsetzen
+    given:
+      - Die drei Pisten DE (-312, -6), US (306, 14) und AF (68, 190) sind als ILS-Landebahnen definiert.
+    when: ILS (ilsAktiv=true), Autothrottle (autothrottle=true) oder Auto-Schubumkehr (autoReverse=true) aktiv sind.
+    then:
+      - "EEP.flugPhysik.berechneILS(koerper, flughafenId) liefert { flughafenId, name, distanzM, locDeg, locDots, gsDeg, gsDots, aufGleitpfad } relativ zur Pisten-Mittellinie und einem 3.0°-Soll-Gleitpfad."
+      - "Bei aktivem Autothrottle (autothrottle=true) regelt EEP.flugPhysik den Schub automatisch so nach, dass sich die Fluggeschwindigkeit v der Zielgeschwindigkeit zielV annähert."
+      - "Bei aktivem ILS (ilsAktiv=true) steuert das Flugzeug im Anflug selbstständig Richtung Pisten-Mittellinie (abs(locDeg) nimmt ab) und hält den 3°-Gleitpfad bis zum Aufsetzen."
+      - "Setzt das Flugzeug mit aktivem autoReverse=true (und/oder spoilerStufe=1 ARMED) auf der Landebahn auf, werden automatisch schubumkehrAktiv=true und die Boden-Spoiler aktiviert; das Flugzeug verzögert stark bis auf Rollgeschwindigkeit (v <= 3.5 m/s) und schaltet die Schubumkehr danach automatisch wieder ab."
+    why: Echte Airliner-Landehilfen (ILS, Autothrottle, Auto-Reverse) machen den Landeanflug auf alle drei Kontinent-Flughäfen realistisch und kindgerecht beherrschbar.
+
+decisions:
+  - id: d-flight-physics-001
+    title: Modellbahn-skalierte Aerodynamik-Parameter passend zur Pistenlänge (48–58 m)
+    status: accepted
+    specs: [s-flight-physics-001, s-flight-physics-002, s-flight-physics-003]
+    decision: "Die Geschwindigkeiten in m/s sind auf die Modellbahn-Pistenlängen (48–58 m) abgestimmt (1 m/s Simulation entspricht imCockpit-HUD ca. 10 km/h Airliner-Anzeige, Reiseflug ~24–42 m/s, Landeanflug mit Klappen FULL ~11 m/s), damit Start, ILS-Gleitpfad und Bremsweg mit Auto-Schubumkehr exakt auf die vorhandenen Startbahnen passen."
+    why: Mit realen 75 m/s Aufsetzgeschwindigkeit wäre eine 52 m lange Modellbahn-Piste in 0,7 Sekunden überrollt; die abgestimmte Skalierung erlaubt realistische Klappen-, ILS- und Reverse-Thrust-Abläufe auf den bestehenden Flughäfen.
+
+tests:
+  - id: t-flight-physics-001
+    title: Selbsttest für Landeklappen (Flaps), Störklappen (Overspeed), Stall, ILS, Autothrottle und Auto-Schubumkehr
+    specs: [s-flight-physics-001, s-flight-physics-002, s-flight-physics-003]
+    suites: [smoke, regression]
+    areas: [flight-physics]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?flugtest=1 im Headless-Browser öffnen."
+        expected:
+          - "FLUG_TEST_RESULT meldet klappenStallOk=true (bei 10.0 m/s: Stall mit Klappen 0, stabiler Flug ohne Stall mit Klappen 3 FULL)."
+          - "FLUG_TEST_RESULT meldet overspeedSpoilerOk=true (Overspeed erkannt und Verzögerung mit Störklappen VOLL >= 2.5x stärker als ohne)."
+          - "FLUG_TEST_RESULT meldet autothrottleOk=true (Geschwindigkeit regelt automatisch auf zielV ein)."
+          - "FLUG_TEST_RESULT meldet ilsOk=true (ILS berechnet Localizer/Glideslope und führt das Flugzeug im Anflug zur Pistenachse)."
+          - "FLUG_TEST_RESULT meldet autoReverseOk=true (Nach Touchdown aktiviert sich Auto-Schubumkehr + Ground-Spoilers und bremst bis <= 3.5 m/s ab, danach schubumkehrAktiv=false)."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: flugtest=1
