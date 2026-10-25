@@ -296,12 +296,16 @@
     reg({ id: 'rotes-meer-riff', form: 'ellipse', prioritaet: 50, untergrund: 'riff', kontinent: 'afrika', tiefe: 0.8, cx: 125, cz: 95, rx: 22, rz: 7, minX: 103, maxX: 147, minZ: 88, maxZ: 102 }, true);
 
     var baumStandorte = [
-      { x: -325, z: 36, s: 3.2 }, { x: -318, z: 38, s: 3.5 }, { x: -310, z: 37, s: 3.0 },
-      { x: -302, z: 38, s: 3.4 }, { x: -295, z: 36, s: 3.2 }
+      { x: -325, z: 36, s: 3.2, k: 'europa' }, { x: -318, z: 38, s: 3.5, k: 'europa' }, { x: -310, z: 37, s: 3.0, k: 'europa' },
+      { x: -302, z: 38, s: 3.4, k: 'europa' }, { x: -295, z: 36, s: 3.2, k: 'europa' },
+      { x: -316, z: -48, s: 3.4, k: 'europa' }, { x: -308, z: -46, s: 3.6, k: 'europa' }, { x: -300, z: -48, s: 3.2, k: 'europa' },
+      { x: -292, z: -47, s: 3.5, k: 'europa' }, { x: -284, z: -48, s: 3.3, k: 'europa' }, { x: -276, z: -49, s: 3.1, k: 'europa' },
+      { x: 241, z: -5, s: 3.5, k: 'amerika' }, { x: 262, z: -4, s: 3.6, k: 'amerika' }, { x: 240, z: 6, s: 3.4, k: 'amerika' },
+      { x: 263, z: 7, s: 3.5, k: 'amerika' },  { x: 242, z: 16, s: 3.3, k: 'amerika' }, { x: 261, z: 17, s: 3.4, k: 'amerika' }
     ];
     for (var bIdx = 0; bIdx < baumStandorte.length; bIdx++) {
       var bm = baumStandorte[bIdx], rW = 1.2 * bm.s;
-      reg({ id: 'wald-de-' + bIdx, form: 'kreis', prioritaet: 60, untergrund: 'waldboden', kontinent: 'europa', hoehe: 0.25, cx: bm.x, cz: bm.z, r: rW, minX: bm.x - rW, maxX: bm.x + rW, minZ: bm.z - rW, maxZ: bm.z + rW }, true);
+      reg({ id: 'wald-de-' + bIdx, form: 'kreis', prioritaet: 60, untergrund: 'waldboden', kontinent: bm.k || 'europa', hoehe: 0.25, cx: bm.x, cz: bm.z, r: rW, minX: bm.x - rW, maxX: bm.x + rW, minZ: bm.z - rW, maxZ: bm.z + rW }, true);
     }
 
     var alpenKegel = [

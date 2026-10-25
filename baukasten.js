@@ -6261,26 +6261,40 @@ AFRAME.registerComponent('ki-rockies', {
       group.add(snow);
     });
 
+    const tanneHellMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.9, flatShading: true });
     const trees = [
-      [-10.5, -8.5], [-11.2, -2.5], [-10.8, 4.0], [-8.5, 10.2],
-      [9.8, -8.0],   [11.0, -2.0],  [10.5, 5.5],  [7.8, 10.5],
-      [-2.5, -11.5], [3.5, -11.0],  [-3.0, 12.2], [3.2, 11.8]
+      // Äußerer Waldgürtel rund um die Rocky Mountains
+      [-11.5, -10.5, 0], [-12.2, -6.0, 0], [-11.8, -1.5, 0], [-12.0, 3.0, 0], [-11.4, 7.5, 0], [-9.5, 11.2, 0],
+      [10.8, -10.0, 0],  [11.6, -5.5, 0],  [11.8, -0.5, 0],  [11.4, 4.2, 0],  [10.8, 8.5, 0],  [8.6, 11.5, 0],
+      [-6.5, -12.2, 0],  [-2.2, -12.5, 0], [2.4, -12.2, 0],  [6.8, -11.5, 0],
+      [-5.8, 12.6, 0],   [-1.5, 13.0, 0],  [2.8, 12.8, 0],   [6.2, 12.2, 0],
+      // Mittlerer Bergwald in den Tälern und auf den unteren Berghängen
+      [-9.2, -4.5, 1.4], [-9.5, 1.2, 1.6], [-8.8, 6.5, 1.2], [9.2, -3.5, 1.5], [9.4, 2.2, 1.7], [8.5, 7.2, 1.3],
+      [-3.5, -9.8, 1.5], [1.8, -9.5, 1.6], [-4.2, 9.8, 1.4], [2.2, 10.2, 1.5],
+      [-1.8, -5.2, 2.8], [2.5, -4.8, 2.6], [-1.5, 3.8, 2.9], [1.8, 5.2, 2.5]
     ];
-    trees.forEach(([tx, tz], i) => {
-      const s = 1.15 + (i % 3) * 0.25;
-      const stamm = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.24 * s, 1.1 * s, 5), stammMat);
-      stamm.position.set(tx, 0.55 * s, tz);
+    trees.forEach(([tx, tz, ty], i) => {
+      const s = 1.25 + (i % 4) * 0.24;
+      const baseY = ty || 0;
+      const mat = (i % 2 === 0) ? tanneMat : tanneHellMat;
+      const stamm = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.26 * s, 1.2 * s, 5), stammMat);
+      stamm.position.set(tx, baseY + 0.6 * s, tz);
       group.add(stamm);
 
-      const krone1 = new THREE.Mesh(new THREE.ConeGeometry(1.1 * s, 2.6 * s, 6), tanneMat);
-      krone1.position.set(tx, 1.9 * s, tz);
+      const krone1 = new THREE.Mesh(new THREE.ConeGeometry(1.25 * s, 2.7 * s, 6), mat);
+      krone1.position.set(tx, baseY + 2.0 * s, tz);
       krone1.castShadow = true;
       group.add(krone1);
 
-      const krone2 = new THREE.Mesh(new THREE.ConeGeometry(0.82 * s, 2.1 * s, 6), tanneMat);
-      krone2.position.set(tx, 3.1 * s, tz);
+      const krone2 = new THREE.Mesh(new THREE.ConeGeometry(0.95 * s, 2.3 * s, 6), mat);
+      krone2.position.set(tx, baseY + 3.2 * s, tz);
       krone2.castShadow = true;
       group.add(krone2);
+
+      const krone3 = new THREE.Mesh(new THREE.ConeGeometry(0.65 * s, 1.8 * s, 6), mat);
+      krone3.position.set(tx, baseY + 4.2 * s, tz);
+      krone3.castShadow = true;
+      group.add(krone3);
     });
 
     this.el.setObject3D('mesh', group);
@@ -6303,6 +6317,49 @@ AFRAME.registerComponent('ki-rockies', {
     }
 
     const st = steuerungEl.components['ki-steuerung'];
+
+    // 0. Dichten Alpen-Bergwald direkt an den Hängen & im Vorland der Alpen ergänzen
+    const alpenEl = document.querySelector('[ki-alpen]');
+    if (alpenEl && alpenEl.object3D && !alpenEl._bergwaldGebaut) {
+      alpenEl._bergwaldGebaut = true;
+      const waldGrp = new THREE.Group();
+      const fichteDunkel = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.9, flatShading: true });
+      const fichteHell = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.9, flatShading: true });
+      const stammMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.95 });
+      const alpenBaeume = [
+        // Vorderer Waldgürtel am Fuß der Alpen (Südhang Richtung Deutschland)
+        [-28, 9, 0], [-25, 12, 0], [-22, 8.5, 0.8], [-19, 13, 0], [-16, 10, 0.5], [-13, 14, 0],
+        [-10, 9.5, 0.8], [-7, 12.5, 0], [-4, 10.5, 0.4], [-1, 14, 0], [2, 11, 0.5], [5, 13.5, 0],
+        [8, 9.5, 0.8], [11, 12.5, 0], [14, 10, 0.4], [17, 13, 0], [20, 9, 0.6], [23, 11.5, 0],
+        // Höher gelegene Bergfichten in den Alpentälern und auf den Flanken
+        [-26, 3, 2.2], [-17, 2.5, 2.8], [-11, 4.5, 2.4], [-5, 3.8, 3.0], [3, 4.2, 2.6], [9, 3.5, 2.8], [16, 4.0, 2.2], [22, 3.0, 1.8],
+        // West- und Ostflanke der Alpen
+        [-30, -2, 1.0], [-29, 4, 0.5], [25, -1, 1.0], [24, 4, 0.5]
+      ];
+      alpenBaeume.forEach(([tx, tz, ty], i) => {
+        const s = 1.3 + (i % 4) * 0.25;
+        const mat = (i % 2 === 0) ? fichteDunkel : fichteHell;
+        const stamm = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.26 * s, 1.2 * s, 5), stammMat);
+        stamm.position.set(tx, ty + 0.6 * s, tz);
+        waldGrp.add(stamm);
+
+        const k1 = new THREE.Mesh(new THREE.ConeGeometry(1.25 * s, 2.7 * s, 6), mat);
+        k1.position.set(tx, ty + 2.0 * s, tz);
+        k1.castShadow = true;
+        waldGrp.add(k1);
+
+        const k2 = new THREE.Mesh(new THREE.ConeGeometry(0.95 * s, 2.3 * s, 6), mat);
+        k2.position.set(tx, ty + 3.2 * s, tz);
+        k2.castShadow = true;
+        waldGrp.add(k2);
+
+        const k3 = new THREE.Mesh(new THREE.ConeGeometry(0.65 * s, 1.8 * s, 6), mat);
+        k3.position.set(tx, ty + 4.2 * s, tz);
+        k3.castShadow = true;
+        waldGrp.add(k3);
+      });
+      alpenEl.object3D.add(waldGrp);
+    }
     const lara = window.EEP.laraComp;
 
     // 1. G-Klassen-Scheiben transparenter machen, damit man Lara von außen am Steuer sitzen sieht
