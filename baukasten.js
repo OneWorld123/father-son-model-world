@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
  * BAUKASTEN.JS - Die 3D-Modelleisenbahn-Engine ("EEP-Vibe")
  * Enthält alle A-Frame Components: Gleise, Schwellen, Züge, Waggons, 
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
@@ -6286,3 +6286,519 @@ AFRAME.registerComponent('ki-rockies', {
     this.el.setObject3D('mesh', group);
   }
 });
+
+
+// ============================================================================
+// LARA CROFT EINSTEIGE-, SITZ- & AUSSTEIGE-SYSTEM ('EEP.einstieg')
+// Lara kann zu jedem Fahrzeug (G-Klassen, Flugzeug, Mein Schiff, Züge) laufen,
+// mit [Enter] / [E] oder per Klick wirklich einsteigen, sitzt sichtbar am
+// Steuer/Lenkrad und steigt mit [Enter] genau am aktuellen Ort wieder aus!
+// ============================================================================
+(function () {
+  const initEinstiegSystem = () => {
+    const steuerungEl = document.querySelector('[ki-steuerung]');
+    if (!steuerungEl || !steuerungEl.components || !steuerungEl.components['ki-steuerung'] || !window.EEP || !window.EEP.laraComp) {
+      setTimeout(initEinstiegSystem, 150);
+      return;
+    }
+
+    const st = steuerungEl.components['ki-steuerung'];
+    const lara = window.EEP.laraComp;
+
+    // 1. G-Klassen-Scheiben transparenter machen, damit man Lara von außen am Steuer sitzen sieht
+    if (window.EEP.autos) {
+      window.EEP.autos.forEach(ac => {
+        ac.el.object3D.traverse(node => {
+          if (node.isMesh && node.material && node.material.transparent && node.material.opacity > 0.5) {
+            node.material.opacity = 0.36;
+          }
+        });
+      });
+    }
+
+    // 2. Einsteige-Button im Lara-HUD (#eep-lara-hud) ergänzen
+    const laraHud = document.getElementById('eep-lara-hud');
+    let boardBtn = document.getElementById('eep-lara-board-btn');
+    if (laraHud && !boardBtn) {
+      const row = document.createElement('div');
+      row.className = 'eep-btn-row';
+      row.style.marginTop = '4px';
+      boardBtn = document.createElement('button');
+      boardBtn.id = 'eep-lara-board-btn';
+      boardBtn.className = 'eep-btn';
+      boardBtn.style.cssText = 'width:100%; background:linear-gradient(135deg,#059669,#0284c7); border:1px solid #4ade80; font-weight:800; font-size:12.5px; padding:7px 12px; color:#ffffff; box-shadow:0 0 12px rgba(74,222,128,0.35);';
+      boardBtn.textContent = '🚪 In Fahrzeug einsteigen [Enter / E]';
+      row.appendChild(boardBtn);
+      laraHud.appendChild(row);
+
+      boardBtn.addEventListener('click', () => {
+        if (window.EEP.einstieg) window.EEP.einstieg.interaktion();
+      });
+    }
+
+    // 3. Schwebender Aussteige-Button für alle Fahrzeuge (Kamera 2, 3, 5, 6, 8)
+    let exitBar = document.getElementById('eep-lara-exit-bar');
+    if (!exitBar) {
+      exitBar = document.createElement('div');
+      exitBar.id = 'eep-lara-exit-bar';
+      exitBar.style.cssText = 'display:none; position:fixed; bottom:18px; right:76px; z-index:9500; background:rgba(15,23,42,0.92); border:1.5px solid #38bdf8; border-radius:12px; padding:8px 12px; box-shadow:0 8px 20px rgba(0,0,0,0.5); align-items:center; gap:10px; font-family:system-ui,sans-serif;';
+      exitBar.innerHTML = `
+        <span id="eep-lara-seat-info" style="color:#bae6fd; font-size:12px; font-weight:700;">👩‍✈️ Lara sitzt am Steuer</span>
+        <button id="eep-lara-exit-btn" class="eep-btn" style="background:linear-gradient(135deg,#ea580c,#dc2626); border-color:#fdba74; font-weight:800; color:#fff; padding:6px 12px;">🚶‍♀️ Hier aussteigen [Enter]</button>
+      `;
+      document.body.appendChild(exitBar);
+
+      document.getElementById('eep-lara-exit-btn').addEventListener('click', () => {
+        if (window.EEP.einstieg) window.EEP.einstieg.steigeAus();
+      });
+    }
+
+    // 4. Alle einsteigbaren Fahrzeuge ermitteln + Distanz zu Lara berechnen
+    function findeFahrzeuge() {
+      const liste = [];
+      const lPos = lara.el.object3D.position;
+
+      if (window.EEP.autos) {
+        window.EEP.autos.forEach((ac, idx) => {
+          if (ac && ac.el && ac.el.object3D.visible) {
+            const p = ac.el.object3D.position;
+            const d = Math.hypot(p.x - lPos.x, p.z - lPos.z);
+            liste.push({
+              typ: 'auto',
+              name: ac.data.name || (idx === 0 ? 'G-Klasse Türkis' : 'G-Klasse Weiß'),
+              icon: '🚙',
+              comp: ac,
+              carIdx: idx,
+              kamera: 8,
+              pos: p,
+              dist: d,
+              nahSchwelle: 8.5
+            });
+          }
+        });
+      }
+
+      if (window.EEP.flugzeugComp && window.EEP.flugzeugComp.el) {
+        const fc = window.EEP.flugzeugComp;
+        const p = fc.el.object3D.position;
+        const d = Math.hypot(p.x - lPos.x, p.z - lPos.z);
+        liste.push({
+          typ: 'flugzeug',
+          name: 'Flugzeug 3D',
+          icon: '✈️',
+          comp: fc,
+          kamera: 5,
+          pos: p,
+          dist: d,
+          nahSchwelle: 20.0
+        });
+      }
+
+      if (window.EEP.faehreComp && window.EEP.faehreComp.el) {
+        const sh = window.EEP.faehreComp;
+        const p = sh.el.object3D.position;
+        const d = Math.hypot(p.x - lPos.x, p.z - lPos.z);
+        liste.push({
+          typ: 'schiff',
+          name: 'Mein Schiff',
+          icon: '🚢',
+          comp: sh,
+          kamera: 6,
+          pos: p,
+          dist: d,
+          nahSchwelle: 26.0
+        });
+      }
+
+      if (window.EEP.zuege) {
+        window.EEP.zuege.forEach((zug, zIdx) => {
+          if (zug && zug.waggons && zug.waggons[0] && zug.waggons[0].el) {
+            const wPos = zug.waggons[0].el.object3D.position;
+            const d = Math.hypot(wPos.x - lPos.x, wPos.z - lPos.z);
+            liste.push({
+              typ: 'zug',
+              name: zug.data.name || 'Zug',
+              icon: '🚂',
+              comp: zug,
+              zugIdx: zIdx,
+              kamera: zIdx === 0 ? 2 : 3,
+              pos: wPos,
+              dist: d,
+              nahSchwelle: 16.0
+            });
+          }
+        });
+      }
+
+      liste.sort((a, b) => a.dist - b.dist);
+      return liste;
+    }
+
+    // 5. Zustandsverwaltung für Einsteigen, Sitzen & Aussteigen
+    const einstieg = {
+      animAktiv: false,
+      animZeit: 0,
+      animDauer: 0.55,
+      animStartPos: new THREE.Vector3(),
+      animZielPos: new THREE.Vector3(),
+      animZielObj: null,
+      echtEingestiegen: false,
+      letzteFussPos: { x: -252, y: 0.25, z: -36, yawDeg: 165 },
+
+      interaktion: function () {
+        const modus = window.EEP.aktiveKamera;
+        if (modus === 1 || modus === 4 || modus === 9) {
+          const liste = findeFahrzeuge();
+          if (liste.length > 0) {
+            this.steigeEin(liste[0]);
+          }
+        } else if (modus === 2 || modus === 3 || modus === 5 || modus === 6 || modus === 8) {
+          this.steigeAus();
+        }
+      },
+
+      steigeEin: function (ziel) {
+        if (!ziel || this.animAktiv) return;
+        this.letzteFussPos = {
+          x: lara.el.object3D.position.x,
+          y: lara.el.object3D.position.y,
+          z: lara.el.object3D.position.z,
+          yawDeg: THREE.MathUtils.radToDeg(lara.el.object3D.rotation.y)
+        };
+        this.echtEingestiegen = true;
+        this.animAktiv = true;
+        this.animZeit = 0;
+        this.animDauer = 0.52;
+        this.animZielObj = ziel;
+        this.animStartPos.copy(lara.el.object3D.position);
+
+        // Wenn Lara weiter als 10 m weg war, direkt auf 3.5 m vor die Fahrzeugtür setzen, damit man den Einstiegs-Sprung sieht!
+        const zp = ziel.pos;
+        const dx = this.animStartPos.x - zp.x;
+        const dz = this.animStartPos.z - zp.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > 8.0) {
+          const nx = dist > 0.1 ? dx / dist : 0;
+          const nz = dist > 0.1 ? dz / dist : 1;
+          this.animStartPos.set(zp.x + nx * 3.2, Math.max(0.25, zp.y), zp.z + nz * 3.2);
+          lara.el.object3D.position.copy(this.animStartPos);
+        }
+        this.animZielPos.set(zp.x, Math.max(0.45, zp.y + 0.35), zp.z);
+
+        // Lara schaut beim Einsteigen direkt zur Fahrzeugtür
+        const lookYaw = Math.atan2(-(zp.x - this.animStartPos.x), -(zp.z - this.animStartPos.z));
+        lara.el.object3D.rotation.set(0, lookYaw, 0);
+
+        if (window.EEP.laraSprung) window.EEP.laraSprung();
+        if (window.EEP.schaltKlick) setTimeout(() => window.EEP.schaltKlick(), 260);
+      },
+
+      schliesseEinstiegAb: function () {
+        const ziel = this.animZielObj;
+        this.animAktiv = false;
+        if (!ziel) return;
+
+        if (ziel.typ === 'auto' && typeof ziel.carIdx === 'number' && window.EEP.wechsleAuto) {
+          window.EEP.wechsleAuto(ziel.carIdx);
+          // In 3rd-Person-Ansicht starten, damit man Lara sofort am Steuer der G-Klasse sitzen sieht!
+          window.EEP.autoAussenAnsicht = true;
+          if (window.EEP.aktualisiereAutoHUD) window.EEP.aktualisiereAutoHUD();
+        }
+        st.setzeKamera(ziel.kamera);
+      },
+
+      steigeAus: function () {
+        const modus = window.EEP.aktiveKamera;
+        let ausPos = { x: this.letzteFussPos.x, y: 0.25, z: this.letzteFussPos.z, yawDeg: 0 };
+
+        if (modus === 8 && window.EEP.autoComp) {
+          const carObj = window.EEP.autoComp.el.object3D;
+          const carPos = carObj.position;
+          const carYaw = carObj.rotation.y;
+          // 1.85 m links neben der Fahrertür der G-Klasse aussteigen
+          const leftX = -Math.cos(carYaw);
+          const leftZ = Math.sin(carYaw);
+          ausPos.x = carPos.x + leftX * 1.85;
+          ausPos.z = carPos.z + leftZ * 1.85;
+          ausPos.yawDeg = THREE.MathUtils.radToDeg(carYaw);
+        } else if (modus === 5 && window.EEP.flugzeugComp) {
+          const pPos = window.EEP.flugzeugComp.el.object3D.position;
+          const pYaw = window.EEP.flugzeugComp.yaw || 0;
+          ausPos.x = pPos.x - Math.cos(pYaw) * 3.8;
+          ausPos.z = pPos.z + Math.sin(pYaw) * 3.8;
+          ausPos.yawDeg = THREE.MathUtils.radToDeg(pYaw);
+        } else if (modus === 6 && window.EEP.faehreComp) {
+          const sPos = window.EEP.faehreComp.el.object3D.position;
+          const sYaw = window.EEP.faehreComp.yaw || 0;
+          ausPos.x = sPos.x - Math.cos(sYaw) * 4.5;
+          ausPos.z = sPos.z + Math.sin(sYaw) * 4.5;
+          ausPos.yawDeg = THREE.MathUtils.radToDeg(sYaw);
+        } else if ((modus === 2 || modus === 3) && window.EEP.zuege) {
+          const zIdx = modus === 2 ? 0 : 1;
+          const zug = window.EEP.zuege[zIdx];
+          if (zug && zug.waggons && zug.waggons[0]) {
+            const wObj = zug.waggons[0].el.object3D;
+            ausPos.x = wObj.position.x + 2.4;
+            ausPos.z = wObj.position.z + 2.4;
+            ausPos.yawDeg = THREE.MathUtils.radToDeg(wObj.rotation.y);
+          }
+        }
+
+        // Bodenhöhe am Ausstiegsort abfragen
+        if (window.EEP.welt && typeof window.EEP.welt.abfrage === 'function') {
+          const abf = window.EEP.welt.abfrage(ausPos.x, ausPos.z);
+          ausPos.y = (abf.untergrund === 'wasser' || abf.untergrund === 'riff') ? 0.25 : Math.max(0.21, abf.hoehe);
+        }
+
+        // Sichtbarkeit aller Körperteile wiederherstellen & Kollisionskörper aktivieren
+        if (lara.headGroup) lara.headGroup.visible = true;
+        if (lara.torsoGroup) lara.torsoGroup.visible = true;
+        if (lara.simKoerper) lara.simKoerper.entfernt = false;
+        this.echtEingestiegen = false;
+
+        // Passende Lara-Kamera (1 = Europa/Ozean, 4 = Amerika, 9 = Afrika) wählen, ohne Laras Ausstiegsort zu überschreiben!
+        const zielKam = ausPos.z > 105 ? 9 : (ausPos.x > 180 ? 4 : 1);
+        lara._behalteAusstiegsPos = true;
+        st.setzeKamera(zielKam);
+        lara._behalteAusstiegsPos = false;
+        lara.teleportiereZu(ausPos.x, ausPos.y, ausPos.z, ausPos.yawDeg);
+
+        if (window.EEP.schaltKlick) window.EEP.schaltKlick();
+        if (window.EEP.laraLandung) window.EEP.laraLandung();
+      },
+
+      // Positioniert Lara im jeweiligen Fahrzeugsitz (mit Sitzhaltung & Mitlenken!)
+      aktualisiereSitzPose: function (modus, deltaSec) {
+        if (!lara || !lara.pelvisGroup) return;
+
+        // Kollisionskörper im Fahrzeug deaktivieren, damit das Fahrzeug nicht mit seiner eigenen Fahrerin kollidiert
+        if (lara.simKoerper) lara.simKoerper.entfernt = true;
+
+        let sitzGefunden = false;
+        let lenkWinkel = 0;
+        const worldPos = new THREE.Vector3();
+        const worldQuat = new THREE.Quaternion();
+
+        if (modus === 8 && window.EEP.autoComp) {
+          const ac = window.EEP.autoComp;
+          ac.el.object3D.updateMatrixWorld(true);
+          // Fahrersitz der G-Klasse: lokal (-0.38, -0.18, 0.16) -> Kopf, Zopf & Schultern klar über der Fensterlinie sichtbar!
+          worldPos.set(-0.38, -0.18, 0.16).applyMatrix4(ac.el.object3D.matrixWorld);
+          ac.el.object3D.getWorldQuaternion(worldQuat);
+          lenkWinkel = ac.lenkWinkel || 0;
+          sitzGefunden = true;
+
+          // Im 1st-Person-Cockpit Kopf & Oberkörper ausblenden (verhindert Kamera-Clipping), in 3rd-Person voll sichtbar!
+          const zeigeKoerper = Boolean(window.EEP.autoAussenAnsicht);
+          if (lara.headGroup) lara.headGroup.visible = zeigeKoerper;
+          if (lara.torsoGroup) lara.torsoGroup.visible = zeigeKoerper;
+        } else if (modus === 5 && window.EEP.flugzeugComp) {
+          const fc = window.EEP.flugzeugComp;
+          fc.el.object3D.updateMatrixWorld(true);
+          worldPos.set(0, -0.15, -2.2).applyMatrix4(fc.el.object3D.matrixWorld);
+          fc.el.object3D.getWorldQuaternion(worldQuat);
+          lenkWinkel = -(fc.roll || 0) * 0.6;
+          sitzGefunden = true;
+          if (lara.headGroup) lara.headGroup.visible = true;
+          if (lara.torsoGroup) lara.torsoGroup.visible = true;
+        } else if (modus === 6 && window.EEP.faehreComp) {
+          const sh = window.EEP.faehreComp;
+          sh.el.object3D.updateMatrixWorld(true);
+          // Lara steht/sitzt gut sichtbar oben auf dem vorderen Kommandobrücken-/Sonnendeck (+X ist Bug)
+          worldPos.set(3.6, 3.35, 0).applyMatrix4(sh.el.object3D.matrixWorld);
+          sh.el.object3D.getWorldQuaternion(worldQuat);
+          const turnQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+          worldQuat.multiply(turnQuat);
+          lenkWinkel = sh.ruderWinkel || 0;
+          sitzGefunden = true;
+          if (lara.headGroup) lara.headGroup.visible = true;
+          if (lara.torsoGroup) lara.torsoGroup.visible = true;
+        } else if ((modus === 2 || modus === 3) && window.EEP.zuege) {
+          const zIdx = modus === 2 ? 0 : 1;
+          const zug = window.EEP.zuege[zIdx];
+          if (zug && zug.waggons && zug.waggons[0]) {
+            const wObj = zug.waggons[0].el.object3D;
+            wObj.updateMatrixWorld(true);
+            worldPos.set(0, 0.55, 1.85).applyMatrix4(wObj.matrixWorld);
+            wObj.getWorldQuaternion(worldQuat);
+            const turnQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+            worldQuat.multiply(turnQuat);
+            sitzGefunden = true;
+            if (lara.headGroup) lara.headGroup.visible = false;
+            if (lara.torsoGroup) lara.torsoGroup.visible = false;
+          }
+        }
+
+        if (sitzGefunden) {
+          lara.el.object3D.position.copy(worldPos);
+          lara.el.object3D.quaternion.copy(worldQuat);
+          lara.posY = worldPos.y;
+
+          // Sitz-Gelenkhaltung (Oberschenkel nach vorn, Unterschenkel zu den Pedalen, Hände am Lenkrad/Steuerhorn)
+          lara.pelvisGroup.position.y = 0.94;
+          lara.pelvisGroup.rotation.set(0, 0, 0);
+          lara.beinL.hip.rotation.set(1.42, 0.08, 0);
+          lara.beinR.hip.rotation.set(1.42, -0.08, 0);
+          lara.beinL.knee.rotation.set(-1.32, 0, 0);
+          lara.beinR.knee.rotation.set(-1.32, 0, 0);
+          lara.armL.shoulder.rotation.set(0.88 + lenkWinkel * 0.35, 0, 0.12);
+          lara.armR.shoulder.rotation.set(0.88 - lenkWinkel * 0.35, 0, -0.12);
+          lara.armL.elbow.rotation.set(0.52, 0, 0);
+          lara.armR.elbow.rotation.set(0.52, 0, 0);
+          lara.torsoGroup.rotation.set(-0.08, lenkWinkel * 0.25, 0);
+          if (lara.headGroup) {
+            lara.headGroup.rotation.y = lenkWinkel * 0.45;
+          }
+        }
+      }
+    };
+
+    window.EEP.einstieg = einstieg;
+
+    // 6. setzeKamera erweitern, damit Lara beim Wechsel zurück in [1]/[4]/[9] ihren Ort behält
+    const origSetzeKamera = st.setzeKamera.bind(st);
+    st.setzeKamera = function (modus) {
+      const vorher = window.EEP.aktiveKamera;
+      if ((vorher === 1 || vorher === 4 || vorher === 9) && (modus === 2 || modus === 3 || modus === 5 || modus === 6 || modus === 8)) {
+        if (!einstieg.animAktiv) {
+          einstieg.letzteFussPos = {
+            x: lara.el.object3D.position.x,
+            y: lara.el.object3D.position.y,
+            z: lara.el.object3D.position.z,
+            yawDeg: THREE.MathUtils.radToDeg(lara.el.object3D.rotation.y)
+          };
+        }
+      }
+
+      if ((modus === 1 || modus === 4 || modus === 9) && lara) {
+        if (lara.headGroup) lara.headGroup.visible = true;
+        if (lara.torsoGroup) lara.torsoGroup.visible = true;
+        if (lara.simKoerper) lara.simKoerper.entfernt = false;
+
+        if (!lara._behalteAusstiegsPos && (vorher === 2 || vorher === 3 || vorher === 5 || vorher === 6 || vorher === 8) && !einstieg.echtEingestiegen) {
+          // Wenn nur per Kamera-Button umgeschaltet wurde (z.B. in Selbsttests), letzte Fußposition wiederherstellen
+          lara.teleportiereZu(einstieg.letzteFussPos.x, einstieg.letzteFussPos.y, einstieg.letzteFussPos.z, einstieg.letzteFussPos.yawDeg);
+        }
+      }
+
+      origSetzeKamera(modus);
+
+      if (exitBar) {
+        const imFahrzeug = (modus === 2 || modus === 3 || modus === 5 || modus === 6 || modus === 8);
+        exitBar.style.display = imFahrzeug ? 'flex' : 'none';
+        const infoEl = document.getElementById('eep-lara-seat-info');
+        if (infoEl && imFahrzeug) {
+          const namen = { 2: '🚂 Lara im Führerstand (Ludmilla)', 3: '🚄 Lara im Führerstand (US-Express)', 5: '✈️ Lara im Flugzeug-Cockpit', 6: '🚢 Lara auf der Schiffsbrücke', 8: '🚙 Lara sitzt am G-Klasse-Steuer' };
+          infoEl.textContent = namen[modus] || '👩‍✈️ Lara sitzt am Steuer';
+        }
+      }
+    };
+
+    // 7. In ki-lara.tick einklinken für Einsteige-Sprung, Sitz-Pose & HUD-Distanzanzeige
+    const origLaraTick = lara.tick.bind(lara);
+    lara.tick = function (time, dt) {
+      const deltaSec = Math.min((dt || 16) / 1000, 0.08);
+      const modus = window.EEP.aktiveKamera;
+
+      // Fall A: Laufende Einsteige-Animation (Lara springt in 3rd-Person durch die Fahrzeugtür)
+      if (einstieg.animAktiv) {
+        einstieg.animZeit += deltaSec;
+        const u = Math.min(1, einstieg.animZeit / einstieg.animDauer);
+        lara.el.object3D.position.lerpVectors(einstieg.animStartPos, einstieg.animZielPos, u);
+        lara.el.object3D.position.y += Math.sin(u * Math.PI) * 1.15;
+        lara.posY = lara.el.object3D.position.y;
+
+        lara.beinL.hip.rotation.x = 0.85 * u;
+        lara.beinR.hip.rotation.x = 1.15 * u;
+        lara.beinL.knee.rotation.x = -0.95 * u;
+        lara.beinR.knee.rotation.x = -1.10 * u;
+        lara.armL.shoulder.rotation.x = 0.9 * u;
+        lara.armR.shoulder.rotation.x = 0.9 * u;
+
+        if (u >= 1) {
+          einstieg.schliesseEinstiegAb();
+        }
+        return;
+      }
+
+      // Fall B: Lara sitzt in einem Fahrzeug (Kamera 2, 3, 5, 6, 8)
+      if (modus === 2 || modus === 3 || modus === 5 || modus === 6 || modus === 8) {
+        einstieg.aktualisiereSitzPose(modus, deltaSec);
+        return;
+      }
+
+      // Fall C: Lara ist zu Fuß unterwegs (Kamera 1, 4, 9)
+      if (lara.headGroup) lara.headGroup.visible = true;
+      if (lara.torsoGroup) lara.torsoGroup.visible = true;
+      if (lara.simKoerper) lara.simKoerper.entfernt = false;
+
+      origLaraTick(time, dt);
+
+      // Einsteige-Button mit nächstem Fahrzeug aktualisieren
+      if (boardBtn && (!this._lastBoardUi || time - this._lastBoardUi > 180)) {
+        this._lastBoardUi = time;
+        const liste = findeFahrzeuge();
+        if (liste.length > 0) {
+          const top = liste[0];
+          const nah = top.dist <= top.nahSchwelle;
+          boardBtn.textContent = nah
+            ? `🚪 Jetzt in ${top.icon} ${top.name} einsteigen (${top.dist.toFixed(1)} m) [Enter / E]`
+            : `🏃‍♀️ Zu ${top.icon} ${top.name} laufen & einsteigen (${Math.round(top.dist)} m) [Enter]`;
+          boardBtn.style.background = nah
+            ? 'linear-gradient(135deg,#16a34a,#059669)'
+            : 'linear-gradient(135deg,#0284c7,#1d4ed8)';
+        }
+      }
+    };
+
+    // 7b. Auch am Ende von ki-steuerung.tick Sitzpose synchronisieren (0-Frame-Lag bei schneller Fahrt)
+    const origStTick = st.tick.bind(st);
+    st.tick = function (time, dt) {
+      origStTick(time, dt);
+      const modus = window.EEP.aktiveKamera;
+      if (modus === 2 || modus === 3 || modus === 5 || modus === 6 || modus === 8) {
+        einstieg.aktualisiereSitzPose(modus, Math.min((dt || 16) / 1000, 0.08));
+      }
+    };
+
+    // 8. Tastatur-Steuerung: [Enter] (immer) oder [E] (wenn Lara neben einem Fahrzeug steht)
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const modus = window.EEP.aktiveKamera;
+      if (e.key === 'Enter') {
+        einstieg.interaktion();
+        e.preventDefault();
+      } else if (e.key.toLowerCase() === 'e' && (modus === 1 || modus === 4 || modus === 9) && !lara.tasten.hoch && !lara.tasten.runter) {
+        const liste = findeFahrzeuge();
+        if (liste.length > 0 && liste[0].dist <= liste[0].nahSchwelle) {
+          einstieg.steigeEin(liste[0]);
+          e.preventDefault();
+        }
+      }
+    });
+
+    if (window.location.search.includes('einstiegtest=1')) {
+      setTimeout(() => {
+        const liste = findeFahrzeuge();
+        if (liste.length > 0) {
+          einstieg.steigeEin(liste[0]);
+          setTimeout(() => {
+            einstieg.schliesseEinstiegAb();
+            if (window.EEP.lookState) {
+              // Leicht seitlich auf die G-Klasse blicken, damit man Lara am Fahrersitz sieht
+              window.EEP.lookState.aktiv = true;
+              window.EEP.lookState.yaw = 0.65;
+              window.EEP.lookState.pitch = -0.05;
+            }
+          }, 600);
+        }
+      }, 450);
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initEinstiegSystem);
+  } else {
+    setTimeout(initEinstiegSystem, 100);
+  }
+})();
