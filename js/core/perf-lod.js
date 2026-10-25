@@ -302,8 +302,8 @@
         }
       }
 
-      // 4. Landschaft (Alpen, Canyon, Pyramiden)
-      var land = sceneEl.querySelectorAll('[ki-alpen], [ki-canyon], [ki-pyramiden]');
+      // 4. Landschaft (Alpen, Rocky Mountains, Canyon, Pyramiden)
+      var land = sceneEl.querySelectorAll('[ki-alpen], [ki-rockies], [ki-canyon], [ki-pyramiden]');
       for (var lIdx = 0; lIdx < land.length; lIdx++) {
         var lo = land[lIdx].object3D;
         if (lo && !bek.has(lo)) {
@@ -508,7 +508,7 @@
 
     tick: function (dtMs, workMs, camPos) {
       var now = perfState.testModusAktiv ? perfState.testZeitMs : (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      var delta = Math.max(1, dtMs || 16.67);
+      var delta = Math.min(250, Math.max(1, dtMs || 16.67));
       var work = typeof workMs === 'number' ? workMs : Math.min(delta * 0.45, 14);
 
       if (perfState.simFps !== null) {

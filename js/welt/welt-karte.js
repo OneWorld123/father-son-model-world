@@ -312,6 +312,14 @@
     ];
     reg({ id: 'gebirge-alpen', form: 'kegelfeld', prioritaet: 70, untergrund: 'fels', kontinent: 'europa', spitz: true, cx: -290, cz: -66, basisHoehe: 0.20, kegel: alpenKegel, minX: -325, maxX: -258, minZ: -86, maxZ: -48 }, true);
 
+    var rockiesKegel = [
+      { x: -5.5, z: -6.5, r: 7.5, h: 29 * 0.92 }, { x: 1.0,  z: -1.5, r: 9.2, h: 29 * 1.00 },
+      { x: 5.8,  z: -5.0, r: 7.0, h: 29 * 0.84 }, { x: -4.8, z: 2.5,  r: 8.0, h: 29 * 0.88 },
+      { x: 4.5,  z: 4.2,  r: 7.8, h: 29 * 0.86 }, { x: -1.2, z: 8.0,  r: 7.2, h: 29 * 0.78 },
+      { x: -7.5, z: -1.0, r: 5.8, h: 29 * 0.66 }, { x: 7.2,  z: 0.5,  r: 6.0, h: 29 * 0.68 }
+    ];
+    reg({ id: 'gebirge-rockies', form: 'kegelfeld', prioritaet: 70, untergrund: 'fels', kontinent: 'amerika', spitz: true, cx: 252, cz: 6, basisHoehe: 0.25, kegel: rockiesKegel, minX: 238, maxX: 266, minZ: -9, maxZ: 22 }, true);
+
     reg({
       id: 'gebirge-canyon', form: 'hoehenfunktion', prioritaet: 70, untergrund: 'fels', kontinent: 'amerika', spitz: true,
       minX: 243, maxX: 289, minZ: 32, maxZ: 76,

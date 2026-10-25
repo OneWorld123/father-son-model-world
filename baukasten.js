@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  * BAUKASTEN.JS - Die 3D-Modelleisenbahn-Engine ("EEP-Vibe")
  * Enthält alle A-Frame Components: Gleise, Schwellen, Züge, Waggons, 
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
@@ -5385,7 +5385,7 @@ AFRAME.registerComponent('ki-steuerung', {
     } else if (modus === 4 && lara) {
       // Wenn Lara in Deutschland oder Afrika stand, nach Amerika (New York / Mein Haus) holen
       if (lara.el.object3D.position.x < 195 || lara.el.object3D.position.z > 90) {
-        lara.teleportiereZu(294, 0.25, -34, 152);
+        lara.teleportiereZu(286, 0.25, -26, 138);
       }
     } else if (modus === 9 && lara) {
       // Wenn Lara außerhalb von Afrika/Ägypten stand, vor die Pyramiden von Gizeh & Wüstenbahn holen
@@ -6208,5 +6208,81 @@ AFRAME.registerComponent('ki-steuerung', {
       });
       container.appendChild(wrap);
     }
+  }
+});
+
+
+// ============================================================================
+// ROCKY MOUNTAINS ('ki-rockies' - Nordamerikanisches Hochgebirge in den USA)
+// Markante braun-graue Granitgipfel mit Schneekappen, Felsgraten & Bergkiefern
+// ============================================================================
+AFRAME.registerComponent('ki-rockies', {
+  schema: {
+    breite: { type: 'number', default: 26 },
+    tiefe: { type: 'number', default: 28 },
+    hoehe: { type: 'number', default: 29 }
+  },
+  init: function () {
+    const d = this.data;
+    const group = new THREE.Group();
+    const granitDunkelMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.92, flatShading: true });
+    const granitHellMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.88, flatShading: true });
+    const schieferMat = new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.90, flatShading: true });
+    const schneeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45, flatShading: true });
+    const tanneMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.9, flatShading: true });
+    const stammMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.95 });
+
+    const peaks = [
+      { x: -5.5, z: -6.5, r: 7.5, h: d.hoehe * 0.92, mat: granitDunkelMat },
+      { x:  1.0, z: -1.5, r: 9.2, h: d.hoehe * 1.00, mat: granitHellMat },
+      { x:  5.8, z: -5.0, r: 7.0, h: d.hoehe * 0.84, mat: schieferMat },
+      { x: -4.8, z:  2.5, r: 8.0, h: d.hoehe * 0.88, mat: granitHellMat },
+      { x:  4.5, z:  4.2, r: 7.8, h: d.hoehe * 0.86, mat: granitDunkelMat },
+      { x: -1.2, z:  8.0, r: 7.2, h: d.hoehe * 0.78, mat: schieferMat },
+      { x: -7.5, z: -1.0, r: 5.8, h: d.hoehe * 0.66, mat: schieferMat },
+      { x:  7.2, z:  0.5, r: 6.0, h: d.hoehe * 0.68, mat: granitHellMat }
+    ];
+
+    peaks.forEach((p, idx) => {
+      const coneGeo = new THREE.ConeGeometry(p.r, p.h, 6);
+      const cone = new THREE.Mesh(coneGeo, p.mat);
+      cone.position.set(p.x, p.h * 0.5, p.z);
+      cone.rotation.y = idx * 0.75 + 0.3;
+      cone.castShadow = true;
+      cone.receiveShadow = true;
+      group.add(cone);
+
+      const snowH = p.h * 0.36;
+      const snowR = p.r * 0.37;
+      const snowGeo = new THREE.ConeGeometry(snowR, snowH, 6);
+      const snow = new THREE.Mesh(snowGeo, schneeMat);
+      snow.position.set(p.x, p.h - snowH * 0.48, p.z);
+      snow.rotation.y = idx * 0.75 + 0.3;
+      group.add(snow);
+    });
+
+    const trees = [
+      [-10.5, -8.5], [-11.2, -2.5], [-10.8, 4.0], [-8.5, 10.2],
+      [9.8, -8.0],   [11.0, -2.0],  [10.5, 5.5],  [7.8, 10.5],
+      [-2.5, -11.5], [3.5, -11.0],  [-3.0, 12.2], [3.2, 11.8]
+    ];
+    trees.forEach(([tx, tz], i) => {
+      const s = 1.15 + (i % 3) * 0.25;
+      const stamm = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.24 * s, 1.1 * s, 5), stammMat);
+      stamm.position.set(tx, 0.55 * s, tz);
+      group.add(stamm);
+
+      const krone1 = new THREE.Mesh(new THREE.ConeGeometry(1.1 * s, 2.6 * s, 6), tanneMat);
+      krone1.position.set(tx, 1.9 * s, tz);
+      krone1.castShadow = true;
+      group.add(krone1);
+
+      const krone2 = new THREE.Mesh(new THREE.ConeGeometry(0.82 * s, 2.1 * s, 6), tanneMat);
+      krone2.position.set(tx, 3.1 * s, tz);
+      krone2.castShadow = true;
+      group.add(krone2);
+    });
+
+    this.el.setObject3D('mesh', group);
   }
 });
