@@ -6859,3 +6859,392 @@ AFRAME.registerComponent('ki-rockies', {
     setTimeout(initEinstiegSystem, 100);
   }
 })();
+
+
+// ============================================================================
+// REALISTISCHE 3D-DISTANZ-, STEREO- & WIND-SOUND-ENGINE ('EEP.audio3D')
+// - Beseitigt das dauerhafte globale Dampflok-Tuckern komplett!
+// - Züge & Fahrzeuge sind nur noch hörbar, wenn man sich ihnen wirklich nähert
+//   (< 38 m), schwellen beim Vorbeifahren räumlich (Links/Rechts-Panning) an
+//   und verstummen in der Ferne zu 100 %.
+// - Berücksichtigt bereits den Windvektor (EEP.wind) für Reichweite & Dämpfung.
+// ============================================================================
+(function () {
+  window.EEP = window.EEP || {};
+
+  // Globales Wind-Modell (vorbereitet für Paket G: Wetter & Windrichtung)
+  window.EEP.wind = {
+    richtungGrad: 245, // West-Südwest-Wind
+    x: 0.906,          // Wind weht nach Ost-Nordost (+X / +Z)
+    z: 0.422,
+    staerke: 0.45      // 0.0 = Windstille, 1.0 = Sturm
+  };
+
+  window.EEP.setzeWind = function (grad, staerke) {
+    const rad = (grad * Math.PI) / 180;
+    this.wind.richtungGrad = grad;
+    this.wind.x = Math.sin(rad);
+    this.wind.z = Math.cos(rad);
+    this.wind.staerke = Math.max(0, Math.min(1.5, staerke));
+  };
+
+  // Berechnet Lautstärke-Faktor (0..1), Stereo-Panning (-1..+1) & Tiefpass-Frequenz
+  // abhängig von 3D-Distanz zur Kamera UND Windrichtung
+  const berechneRaumklang = function (quellPos, basisReichweite) {
+    const maxDist = basisReichweite || 42;
+    if (!quellPos) {
+      return { faktor: 1.0, pan: 0, cutoffHz: 3200, dist: 0 };
+    }
+
+    const rig = document.querySelector('#kamera-rig');
+    if (!rig || !rig.object3D) {
+      return { faktor: 1.0, pan: 0, cutoffHz: 3200, dist: 0 };
+    }
+
+    const camPos = rig.object3D.position;
+    const dx = quellPos.x - camPos.x;
+    const dy = (quellPos.y || 0) - (camPos.y || 0);
+    const dz = quellPos.z - camPos.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    // Wind-Einfluss: Schall trägt MIT dem Wind (Quelle -> Kamera in Windrichtung) bis zu +35 % weiter,
+    // GEGEN den Wind bis zu -25 % kürzer und dumpfer!
+    let windFaktor = 1.0;
+    const w = window.EEP.wind;
+    if (w && dist > 0.5) {
+      // Vektor von der Schallquelle zum Hörer: (-dx, -dz)
+      const toListenerX = -dx / dist;
+      const toListenerZ = -dz / dist;
+      const windDot = toListenerX * w.x + toListenerZ * w.z; // +1 = Rückenwind für den Schall, -1 = Gegenwind
+      windFaktor = 1.0 + windDot * (w.staerke || 0.4) * 0.35;
+    }
+
+    const effReichweite = maxDist * windFaktor;
+    if (dist >= effReichweite) {
+      return { faktor: 0, pan: 0, cutoffHz: 350, dist: dist };
+    }
+
+    // Sanfter quadratischer Pegelabfall (0 in der Ferne -> 1 direkt vor der Nase)
+    const norm = 1.0 - (dist / effReichweite);
+    const faktor = Math.pow(norm, 2.2);
+
+    // Stereo-Panning (-0.85 links bis +0.85 rechts relativ zur Kamera-Blickrichtung)
+    const camYaw = rig.object3D.rotation ? rig.object3D.rotation.y : 0;
+    const rightX = Math.cos(camYaw);
+    const rightZ = -Math.sin(camYaw);
+    const horizDist = Math.max(1.0, Math.hypot(dx, dz));
+    const pan = Math.max(-0.85, Math.min(0.85, (dx * rightX + dz * rightZ) / horizDist));
+
+    // Luftabsorption + Winddämpfung: Ferne Geräusche klingen warm und gedämpft
+    const cutoffHz = Math.round(380 + 3400 * Math.pow(norm, 1.4) * Math.min(1.2, windFaktor));
+
+    return { faktor, pan, cutoffHz, dist };
+  };
+
+  const verbindeMitRaumklang = function (ctx, quellNode, raum) {
+    if ( ctx.createStereoPanner && Math.abs(raum.pan || 0) > 0.02) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.setValueAtTime(raum.pan, ctx.currentTime);
+      quellNode.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      quellNode.connect(ctx.destination);
+    }
+  };
+
+  window.EEP.audio3D = { berechneRaumklang };
+
+  // --------------------------------------------------------------------------
+  // 1. Altes globales Dauer-Tuckern (dampfTschuff ohne Ortsbezug) stilllegen!
+  // --------------------------------------------------------------------------
+  window.EEP.dampfTschuff = function (lautstaerke = 0.04, quellPos = null) {
+    if (!this.soundAktiv || !this.audioCtx || this.audioCtx.state !== 'running') return;
+    // Ohne Quellposition (alter globaler Aufruf aus ki-zug.tick) komplett ignorieren,
+    // da die neue 3D-Zug-Soundlogik unten das distanzabhängige Schienen-/Lokgeräusch übernimmt!
+    if (!quellPos) return;
+
+    const raum = berechneRaumklang(quellPos, 36);
+    if (raum.faktor <= 0.01) return;
+
+    const ctx = this.audioCtx;
+    const now = ctx.currentTime;
+    const bufferSize = Math.floor(ctx.sampleRate * 0.14);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const env = Math.sin((i / bufferSize) * Math.PI) * Math.exp(-i / (bufferSize * 0.45));
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // Tiefer, warmer Dampf-/Diesel-Ausstoß (160 Hz Lowpass statt schrillem 400 Hz Rauschen!)
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(220, raum.cutoffHz), now);
+
+    const gain = ctx.createGain();
+    const vol = Math.max(0.001, lautstaerke * raum.faktor * 0.65);
+    gain.gain.setValueAtTime(0.0005, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.135);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    verbindeMitRaumklang(ctx, gain, raum);
+    noise.start(now);
+  };
+
+  // Realistisches Schienenstoß-Doppelklackern ("Klack-Klack ... Pause ... Klack-Klack"),
+  // NUR hörbar wenn man nahe am Zug steht (< 36 m) oder im Zug mitfährt!
+  window.EEP.schienenKlack = function (quellPos, tempo) {
+    if (!this.soundAktiv || !this.audioCtx || this.audioCtx.state !== 'running') return;
+    const raum = berechneRaumklang(quellPos, 36);
+    if (raum.faktor <= 0.015) return;
+
+    const ctx = this.audioCtx;
+    const now = ctx.currentTime;
+    const gap = Math.max(0.065, Math.min(0.14, 0.9 / Math.max(2, Math.abs(tempo))));
+
+    [0, gap].forEach((delay, idx) => {
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      const startFreq = idx === 0 ? 115 : 98;
+      osc.frequency.setValueAtTime(startFreq, now + delay);
+      osc.frequency.exponentialRampToValueAtTime(42, now + delay + 0.045);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(Math.min(650, raum.cutoffHz), now + delay);
+
+      const peak = 0.045 * raum.faktor * (idx === 0 ? 1.0 : 0.78);
+      gain.gain.setValueAtTime(0.0005, now + delay);
+      gain.gain.linearRampToValueAtTime(peak, now + delay + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.05);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      verbindeMitRaumklang(ctx, gain, raum);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.055);
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. Angenehme, untergrundabhängige Schritte & sanftere Stimme für Lara Croft
+  // --------------------------------------------------------------------------
+  window.EEP.laraSchritt = function () {
+    if (!this.soundAktiv) return;
+    this.initAudio();
+    const ctx = this.audioCtx;
+    if (ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+
+    // Untergrund unter Lara prüfen (Asphalt/Fels vs. Gras/Waldboden vs. Sand/Wasser)
+    let ug = 'gras';
+    if (this.laraComp && this.laraComp.el && this.welt && typeof this.welt.abfrage === 'function') {
+      const p = this.laraComp.el.object3D.position;
+      ug = this.welt.abfrage(p.x, p.z).untergrund || 'gras';
+    }
+
+    // Dezenter, natürlicher Sohlen-Auftritt statt synthetischem Piepton
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const baseFreq = (ug === 'strasse' || ug === 'fels' || ug === 'bordstein') ? 105 : (ug === 'sand' ? 72 : 85);
+    osc.frequency.setValueAtTime(baseFreq + Math.random() * 10, now);
+    osc.frequency.exponentialRampToValueAtTime(38, now + 0.045);
+
+    const vol = (ug === 'sand' || ug === 'gras' || ug === 'waldboden') ? 0.035 : 0.05;
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.048);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.052);
+  };
+
+  window.EEP.laraSprung = function () {
+    if (!this.soundAktiv) return;
+    this.initAudio();
+    const ctx = this.audioCtx;
+    if (ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+
+    // Sanfter Luft-Impuls beim Absprung (kein schriller Sawtooth-Synthesizer mehr)
+    const bufSize = Math.floor(ctx.sampleRate * 0.16);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufSize) * Math.PI);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(420, now);
+    filter.frequency.exponentialRampToValueAtTime(680, now + 0.15);
+    filter.Q.setValueAtTime(2.2, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.065, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now);
+  };
+
+  window.EEP.laraLandung = function () {
+    if (!this.soundAktiv) return;
+    this.initAudio();
+    const ctx = this.audioCtx;
+    if (ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+
+    [0, 0.05].forEach((delay, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(idx === 0 ? 95 : 82, now + delay);
+      osc.frequency.exponentialRampToValueAtTime(36, now + delay + 0.065);
+      gain.gain.setValueAtTime(0.075, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.07);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.075);
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. Hupen, Hörner & Kollisions-Sounds mit 3D-Raumklang & weicherer Klangfarbe
+  // --------------------------------------------------------------------------
+  window.EEP.dampfPfeife = function (quellPos) {
+    if (!this.soundAktiv) return;
+    this.initAudio();
+    const ctx = this.audioCtx;
+    const now = ctx.currentTime;
+    const pos = quellPos || (this.zuege && this.zuege[0] && this.zuege[0].waggons && this.zuege[0].waggons[0] ? this.zuege[0].waggons[0].el.object3D.position : null);
+    const raum = berechneRaumklang(pos, 180);
+    const faktor = Math.max(0.25, raum.faktor); // Bei manuellem Button-Klick immer mindestens leise aus der Ferne hörbar
+
+    [440, 554.37, 659.25].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq * 0.99, now);
+      osc.frequency.exponentialRampToValueAtTime(freq, now + 0.06);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(Math.min(1400, raum.cutoffHz), now);
+
+      const peak = (i === 0 ? 0.09 : 0.05) * faktor;
+      gain.gain.setValueAtTime(0.0005, now);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.07);
+      gain.gain.setValueAtTime(peak, now + 0.65);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.05);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      verbindeMitRaumklang(ctx, gain, raum);
+      osc.start(now);
+      osc.stop(now + 1.08);
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // 4. Züge in der Szene mit 3D-Distanz-Vorbeifahrts-Sound & Stummschalter [M] koppeln
+  // --------------------------------------------------------------------------
+  const initSoundUpgrade = () => {
+    const steuerungEl = document.querySelector('[ki-steuerung]');
+    if (!steuerungEl || !steuerungEl.components || !steuerungEl.components['ki-steuerung']) {
+      setTimeout(initSoundUpgrade, 150);
+      return;
+    }
+
+    // Stummschalter-Button [M] in der Sound-Zeile ergänzen
+    const wetterBtn = document.getElementById('eep-wetter-btn');
+    if (wetterBtn && wetterBtn.parentElement && !document.getElementById('eep-mute-btn')) {
+      const muteBtn = document.createElement('button');
+      muteBtn.id = 'eep-mute-btn';
+      muteBtn.className = 'eep-btn';
+      muteBtn.textContent = '🔊 Ton: AN [M]';
+      wetterBtn.parentElement.insertBefore(muteBtn, wetterBtn.nextSibling);
+
+      const toggleMute = () => {
+        window.EEP.soundAktiv = !window.EEP.soundAktiv;
+        muteBtn.textContent = window.EEP.soundAktiv ? '🔊 Ton: AN [M]' : '🔇 Ton: AUS [M]';
+        muteBtn.style.borderColor = window.EEP.soundAktiv ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.6)';
+      };
+      muteBtn.addEventListener('click', toggleMute);
+      window.addEventListener('keydown', (e) => {
+        if (!e.repeat && e.key && e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.altKey) {
+          toggleMute();
+        }
+      });
+    }
+
+    // Alle Züge: Nur noch sanftes 3D-Schienenklackern in unmittelbarer Nähe (< 36 m)
+    if (window.EEP.zuege) {
+      window.EEP.zuege.forEach((zug) => {
+        if (zug._soundUpgraded) return;
+        zug._soundUpgraded = true;
+        zug._letzterSchienenKlack = 0;
+        const origZugTick = zug.tick.bind(zug);
+        zug.tick = function (time, timeDelta) {
+          origZugTick(time, timeDelta);
+          const tempo = Math.abs(this.aktuellesTempo || 0);
+          if (tempo < 0.5 || !this.waggons || !this.waggons[0] || !this.waggons[0].el) return;
+
+          // Intervall: Ruhiger Schienenstoß-Takt (alle 650..1100 ms statt hektischem 110 ms Dauerfeuer!)
+          const intervall = Math.max(620, Math.min(1200, 7500 / tempo));
+          if (time - this._letzterSchienenKlack >= intervall) {
+            this._letzterSchienenKlack = time;
+            const lokPos = this.waggons[0].el.object3D.position;
+            window.EEP.schienenKlack(lokPos, tempo);
+          }
+        };
+      });
+    }
+
+    // Kollisions-Sound über Event-Bus (nur in Hörweite < 50 m)
+    if (window.EEP.bus && !window.EEP._aufprallSoundVerbunden) {
+      window.EEP._aufprallSoundVerbunden = true;
+      window.EEP.bus.on('aufprall', (ev) => {
+        if (!window.EEP.soundAktiv || !ev || ev.vImpact < 1.5) return;
+        window.EEP.initAudio();
+        const ctx = window.EEP.audioCtx;
+        if (!ctx || ctx.state !== 'running') return;
+        const k = window.EEP.sim && window.EEP.sim.koerper ? window.EEP.sim.koerper(ev.koerperId) : null;
+        const raum = berechneRaumklang(k, 55);
+        if (raum.faktor <= 0.02) return;
+
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(28, now + 0.16);
+        const vol = Math.min(0.22, (ev.vImpact / 25) * 0.18) * raum.faktor;
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.17);
+        osc.connect(gain);
+        verbindeMitRaumklang(ctx, gain, raum);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      });
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initSoundUpgrade);
+  } else {
+    setTimeout(initSoundUpgrade, 150);
+  }
+})();
