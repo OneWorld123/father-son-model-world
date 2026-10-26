@@ -248,6 +248,16 @@
       uiState.hudEl.style.display = 'none';
       return;
     }
+    if (cam === 8 && ak) {
+      var istVerladen = Boolean(ak.verladenAuf);
+      var irAktiv = Boolean(laraK && laraK.innenraum && laraK.innenraum.aktiv);
+      var naheTransport = (Math.abs(ak.x - (-312)) < 90 && Math.abs(ak.z - (-6)) < 90) ||
+                          (Math.abs(ak.x - (-244)) < 90 && Math.abs(ak.z - 46) < 90);
+      if (!istVerladen && !irAktiv && !naheTransport) {
+        uiState.hudEl.style.display = 'none';
+        return;
+      }
+    }
     uiState.hudEl.style.display = 'block';
 
     if (cam === 5 && fk && fk.flug && EEP.flugPhysik) {
