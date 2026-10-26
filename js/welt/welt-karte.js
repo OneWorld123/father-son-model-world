@@ -55,8 +55,12 @@
       if (z.prioritaet >= 10 && z.prioritaet <= 20 && z.untergrund !== 'wasser' && z.untergrund !== 'riff') {
         landRechtecke.push(z);
       }
-      if (typeof z.minX === 'number') {
-        fuegeInRasterEin(z, z.minX, z.maxX, z.minZ, z.maxZ);
+      var minX = typeof z.minX === 'number' ? z.minX : z.xMin;
+      var maxX = typeof z.maxX === 'number' ? z.maxX : z.xMax;
+      var minZ = typeof z.minZ === 'number' ? z.minZ : z.zMin;
+      var maxZ = typeof z.maxZ === 'number' ? z.maxZ : z.zMax;
+      if (typeof minX === 'number') {
+        fuegeInRasterEin(z, minX, maxX, minZ, maxZ);
       }
     }
   }
@@ -130,18 +134,25 @@
   }
 
   function pruefeZone(zone, x, z) {
-    if (typeof zone.minX === 'number') {
-      if (x < zone.minX || x > zone.maxX || z < zone.minZ || z > zone.maxZ) return null;
+    var minX = typeof zone.minX === 'number' ? zone.minX : zone.xMin;
+    var maxX = typeof zone.maxX === 'number' ? zone.maxX : zone.xMax;
+    var minZ = typeof zone.minZ === 'number' ? zone.minZ : zone.zMin;
+    var maxZ = typeof zone.maxZ === 'number' ? zone.maxZ : zone.zMax;
+    if (typeof minX === 'number') {
+      if (x < minX || x > maxX || z < minZ || z > maxZ) return null;
+    }
+    if (typeof zone.enthaltenFn === 'function') {
+      if (!zone.enthaltenFn(x, z)) return null;
     }
     var form = zone.form;
-    if (form === 'rechteck') {
+    if (!form || form === 'rechteck') {
       if (zone.yawRad) {
         var dx = x - zone.cx, dz = z - zone.cz;
         var c = Math.cos(zone.yawRad), s = Math.sin(zone.yawRad);
         if (Math.abs(dx * c - dz * s) > zone.halbBreite || Math.abs(dx * s + dz * c) > zone.halbTiefe) return null;
       }
-      var h = typeof zone.hoehe === 'function' ? zone.hoehe(x, z) : (zone.hoehe || 0.25);
-      return { untergrund: zone.untergrund, hoehe: h, tiefe: zone.tiefe || 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz) };
+      var h = typeof zone.hoeheFn === 'function' ? zone.hoeheFn(x, z) : (typeof zone.hoehe === 'function' ? zone.hoehe(x, z) : (zone.hoehe || 0.25));
+      return { untergrund: zone.untergrund, hoehe: h, tiefe: zone.tiefe || 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz), hoeheFn: zone.hoeheFn, prioritaetOverride: zone.prioritaet };
     }
     if (form === 'ellipse' || form === 'kreis') {
       var edx = x - zone.cx, edz = z - zone.cz;
@@ -153,8 +164,8 @@
       }
       var rx = zone.rx || zone.r || 1, rz = zone.rz || zone.r || 1;
       if ((edx * edx) / (rx * rx) + (edz * edz) / (rz * rz) > 1.0) return null;
-      var eh = typeof zone.hoehe === 'function' ? zone.hoehe(x, z) : (zone.hoehe || 0.25);
-      return { untergrund: zone.untergrund, hoehe: eh, tiefe: zone.tiefe || 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz) };
+      var eh = typeof zone.hoeheFn === 'function' ? zone.hoeheFn(x, z) : (typeof zone.hoehe === 'function' ? zone.hoehe(x, z) : (zone.hoehe || 0.25));
+      return { untergrund: zone.untergrund, hoehe: eh, tiefe: zone.tiefe || 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz), hoeheFn: zone.hoeheFn, prioritaetOverride: zone.prioritaet };
     }
     if (form === 'kegelfeld') {
       var maxH = -Infinity, getroffen = false;
@@ -168,7 +179,7 @@
         }
       }
       if (!getroffen) return null;
-      return { untergrund: zone.untergrund, hoehe: maxH, tiefe: 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz) };
+      return { untergrund: zone.untergrund, hoehe: maxH, tiefe: 0, kontinent: zone.kontinent, spitz: Boolean(zone.spitz), hoeheFn: zone.hoeheFn, prioritaetOverride: zone.prioritaet };
     }
     if (form === 'hoehenfunktion') {
       var res = zone.fn(x, z);
@@ -178,7 +189,9 @@
         hoehe: typeof res.hoehe === 'number' ? res.hoehe : 0.25,
         tiefe: res.tiefe || 0,
         kontinent: res.kontinent || zone.kontinent,
-        spitz: typeof res.spitz === 'boolean' ? res.spitz : Boolean(zone.spitz)
+        spitz: typeof res.spitz === 'boolean' ? res.spitz : Boolean(zone.spitz),
+        hoeheFn: zone.hoeheFn,
+        prioritaetOverride: zone.prioritaet
       };
     }
     if (form === 'polylinie') {
@@ -195,9 +208,9 @@
       }
       if (minD2 > gesamtB2) return null;
       if (Math.sqrt(minD2) <= halbB) {
-        return { untergrund: zone.untergrund, hoehe: zone.hoehe || 0.28, tiefe: 0, kontinent: zone.kontinent, spitz: false, prioritaetOverride: zone.prioritaet };
+        return { untergrund: zone.untergrund, hoehe: typeof zone.hoeheFn === 'function' ? zone.hoeheFn(x, z) : (zone.hoehe || 0.28), tiefe: 0, kontinent: zone.kontinent, spitz: false, prioritaetOverride: zone.prioritaet, hoeheFn: zone.hoeheFn };
       }
-      return { untergrund: 'bordstein', hoehe: (zone.hoehe || 0.28) + 0.08, tiefe: 0, kontinent: zone.kontinent, spitz: false, prioritaetOverride: 90 };
+      return { untergrund: 'bordstein', hoehe: (typeof zone.hoeheFn === 'function' ? zone.hoeheFn(x, z) : (zone.hoehe || 0.28)) + 0.08, tiefe: 0, kontinent: zone.kontinent, spitz: false, prioritaetOverride: 90, hoeheFn: zone.hoeheFn };
     }
     return null;
   }
@@ -244,9 +257,9 @@
     var kont = besterTreffer.kontinent || kontinentGefunden || (x < -100 ? 'europa' : (x > 200 ? 'amerika' : (z > 105 ? 'afrika' : 'ozean')));
     if (ug === 'wasser' || ug === 'riff') {
       var tiefe = (besterTreffer.tiefe && besterTreffer.tiefe > 0) ? besterTreffer.tiefe : Math.min(40, 0.2 + 0.35 * abstandZuNaechstemLand(x, z));
-      return { untergrund: ug, hoehe: WASSER_SPIEGEL - tiefe, tiefe: tiefe, kontinent: kont, spitz: false };
+      return { untergrund: ug, hoehe: WASSER_SPIEGEL - tiefe, tiefe: tiefe, kontinent: kont, spitz: false, hoeheFn: besterTreffer.hoeheFn };
     }
-    return { untergrund: ug, hoehe: besterTreffer.hoehe, tiefe: 0, kontinent: kont, spitz: Boolean(besterTreffer.spitz) };
+    return { untergrund: ug, hoehe: besterTreffer.hoehe, tiefe: 0, kontinent: kont, spitz: Boolean(besterTreffer.spitz), hoeheFn: besterTreffer.hoeheFn };
   }
 
   function registriereStandardZonen() {
@@ -382,6 +395,10 @@
 
     registriereZone: function (zone, ohneRebuild) {
       if (!zone || !zone.id) return;
+      if (zone.xMin !== undefined && zone.minX === undefined) zone.minX = zone.xMin;
+      if (zone.xMax !== undefined && zone.maxX === undefined) zone.maxX = zone.xMax;
+      if (zone.zMin !== undefined && zone.minZ === undefined) zone.minZ = zone.zMin;
+      if (zone.zMax !== undefined && zone.maxZ === undefined) zone.maxZ = zone.zMax;
       for (var i = zonenListe.length - 1; i >= 0; i--) {
         if (zonenListe[i].id === zone.id) zonenListe.splice(i, 1);
       }
@@ -441,14 +458,20 @@
       var b = basisAbfrageOhneGradient(x, z);
       var ug = b.untergrund;
       var kw = KENNWERTE[ug] || KENNWERTE.gras;
+      var h = b.hoehe;
       var sx = 0, sz = 0, steigungProzent = 0;
-      if (ug !== 'wasser' && ug !== 'riff') {
+      if (typeof b.hoeheFn === 'function') {
+        h = b.hoeheFn(x, z);
+        sx = b.hoeheFn(x + 0.5, z) - b.hoeheFn(x - 0.5, z);
+        sz = b.hoeheFn(x, z + 0.5) - b.hoeheFn(x, z - 0.5);
+        steigungProzent = 100 * Math.sqrt(sx * sx + sz * sz);
+      } else if (ug !== 'wasser' && ug !== 'riff') {
         sx = basisAbfrageOhneGradient(x + 0.5, z).hoehe - basisAbfrageOhneGradient(x - 0.5, z).hoehe;
         sz = basisAbfrageOhneGradient(x, z + 0.5).hoehe - basisAbfrageOhneGradient(x, z - 0.5).hoehe;
         steigungProzent = 100 * Math.sqrt(sx * sx + sz * sz);
       }
       return {
-        untergrund: ug, hoehe: b.hoehe, steigungX: sx, steigungZ: sz, steigung: steigungProzent,
+        untergrund: ug, hoehe: h, steigungX: sx, steigungZ: sz, steigung: steigungProzent,
         reibung: kw.reibung, rollwiderstand: kw.rollwiderstand, tiefe: b.tiefe, kontinent: b.kontinent, spitz: b.spitz
       };
     },

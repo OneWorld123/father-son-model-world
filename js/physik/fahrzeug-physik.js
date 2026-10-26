@@ -244,14 +244,18 @@
       curX += fx * koerper.v * subDt;
       curZ += fz * koerper.v * subDt;
 
+      curX = Math.max(-430, Math.min(450, curX));
+      curZ = Math.max(-1400, Math.min(450, curZ));
       koerper.x = curX;
       koerper.z = curZ;
       koerper.yaw = curYaw;
 
       var vVorKollision = koerper.v;
       var koll = aufloesenKollision(koerper);
-      curX = koerper.x;
-      curZ = koerper.z;
+      curX = Math.max(-430, Math.min(450, koerper.x));
+      curZ = Math.max(-1400, Math.min(450, koerper.z));
+      koerper.x = curX;
+      koerper.z = curZ;
       if (koll && Math.abs(koerper.v) < 0.1) {
         if (!koerper.letzterVImpact || koll.vImpact > koerper.letzterVImpact) {
           koerper.letzterVImpact = koll.vImpact || Math.abs(vVorKollision);

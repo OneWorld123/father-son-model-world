@@ -3626,8 +3626,8 @@ AFRAME.registerComponent('ki-auto', {
       const yawDelta = (this.geschwindigkeit / this.radstand) * Math.tan(this.lenkWinkel) * deltaSec;
       this.el.object3D.rotation.y += yawDelta;
       const yaw = this.el.object3D.rotation.y;
-      this.el.object3D.position.x -= Math.sin(yaw) * this.geschwindigkeit * deltaSec;
-      this.el.object3D.position.z -= Math.cos(yaw) * this.geschwindigkeit * deltaSec;
+      this.el.object3D.position.x = THREE.MathUtils.clamp(this.el.object3D.position.x - Math.sin(yaw) * this.geschwindigkeit * deltaSec, -430, 450);
+      this.el.object3D.position.z = THREE.MathUtils.clamp(this.el.object3D.position.z - Math.cos(yaw) * this.geschwindigkeit * deltaSec, -1400, 450);
     }
 
     // ------------------------------------------------------------------------
