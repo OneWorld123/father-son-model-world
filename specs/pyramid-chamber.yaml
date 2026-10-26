@@ -1,0 +1,81 @@
+schema_version: 1
+area: pyramid-chamber
+title: Geheime Tomb-Raider-Pyramidenwelt mit verstecktem Skarabäus-Schalter, Steintor, Fackel in Laras Hand und High-Poly-Schatzkammer
+
+specs:
+  - id: s-pyramid-chamber-001
+    title: Versteckter Skarabäus-Knopf und aufgleitendes Pharaonen-Steintor mit echter Kollisions-Freigabe
+    given:
+      - js/welt/pyramiden-kammer.js ist geladen (A-Frame-frei, DOM-frei, THREE-frei).
+      - Die Cheops-Pyramide steht bei Weltkoordinate (146, 0.25, 212) mit dem Nordportal bei Z=199.8.
+    when: Lara sich dem versteckten Skarabäus-Schalter seitlich am rechten Pylon (149.35, 1.45, 199.1) nähert und ihn betätigt (EEP.pyramide.drueckeGeheimKnopf()).
+    then:
+      - "Vor dem Drücken des Knopfs ist torOffen=false, torFortschritt=0 und das Hindernis 'cheops-steintor' in EEP.kollision blockiert den Durchgang bei (146, 200)."
+      - "Nach EEP.pyramide.drueckeGeheimKnopf() wird knopfGedrueckt=true und torOffen=true gesetzt; in EEP.pyramide.schritt(dt) gleitet torFortschritt auf 1.0 und das Hindernis 'cheops-steintor' wird aus EEP.kollision entfernt."
+      - "Lara kann nun kollisionsfrei durch den Eingangskorridor (X=146, Z=200..205) bis in die innere Schatzkammer (X=140..152, Z=205..219) laufen, während die äußeren Pyramidenwände weiterhin gegen Durchdringung geschützt sind."
+    why: Der Nutzer wünscht sich einen etwas versteckten Knopf, der den Pyramideneingang öffnet, sodass Lara wie in Tomb Raider physisch in die Pyramide eintreten kann.
+
+  - id: s-pyramid-chamber-002
+    title: Brennende Fackel in Laras Hand mit dynamischer Licht-Erleuchtung und entzündbaren Feuerschalen
+    given:
+      - Lara steht vor oder in der Cheops-Pyramide.
+    when: Die Fackel über EEP.pyramide.setzeFackel(true) aktiviert wird (oder Lara durch das geöffnete Tor in den dunklen Korridor tritt) und sich den 4 Feuerschalen in der Schatzkammer nähert.
+    then:
+      - "fackelAktiv ist true, Laras rechter Arm hält die 3D-Fackel nach vorne-oben und ein dynamisches PointLight erleuchtet die Umgebung in Echtzeit."
+      - "Nähert sich Lara mit aktiver Fackel einer der 4 Feuerschalen auf <= 4.5 m, entzündet sich diese dauerhaft (entzuendeteSchalen steigt bis 4) und erhöht die Ausleuchtung der Schatzkammer."
+    why: Mit der Fackel in der Hand soll Lara das dunkle Pyramideninnere selbst erleuchten und die funkelnden Schätze zum Leuchten bringen können.
+
+  - id: s-pyramid-chamber-003
+    title: Magische High-Poly-Schatzkammer mit Diamanten-Wänden, gedrechselten Vasen und Pharaonen-Sarkophag
+    given:
+      - Die 3D-Szene (welt.html) und js/core/pyramiden-ui.js sind geladen.
+    when: Die Schatzkammer im Inneren der Cheops-Pyramide aufgebaut wird.
+    then:
+      - "Die Kammer besitzt mindestens 120 facettierte 3D-Diamanten/Edelsteine an den Wänden (diamantenAnzahl >= 120)."
+      - "Es stehen mindestens 10 hochauflösend per Rotationsgeometrie (LatheGeometry, 32 Segmente) geformte seltene Vasen, Amphoren und Kanopenkrüge in der Kammer (vasenAnzahl >= 10)."
+      - "Im Zentrum stehen der goldene Pharaonen-Sarkophag mit schwebendem Horus-Herzdiamanten, 4 Lotus-Säulen, 2 Anubis-Wächterstatuen und Schatztruhen."
+    why: Der Nutzer wünscht sich eine wundervolle, magische High-Poly-Welt im Inneren der Pyramide mit diamantverzierten Wänden, seltenen Vasen und ägyptischen Schätzen.
+
+  - id: s-pyramid-chamber-004
+    title: Pyramiden-Musik (YouTube Lgqv6LGtCvA) mit sanftem Fade-In, Fade-Out beim Verlassen und nahtlosem Fortsetzen (Resume)
+    given:
+      - Die Audiospur von https://youtu.be/Lgqv6LGtCvA (videoId 'Lgqv6LGtCvA') ist als Pyramiden-Hintergrundmusik eingebunden.
+    when: Lara die Pyramide betritt (inKammer=true), wieder verlässt (inKammer=false) und später erneut betritt.
+    then:
+      - "Beim Betreten (inKammer=true) startet die Musik (musikSpielt=true) und blendet musikLautstaerke sanft bis 1.0 ein, während musikPositionSek voranschreitet."
+      - "Beim Verlassen der Pyramide (inKammer=false) blendet musikLautstaerke langsam und kontinuierlich bis auf 0.0 aus; erst bei Lautstärke 0.0 pausiert die Wiedergabe (musikSpielt=false) und behält die aktuelle Stelle musikPositionSek (> 0) gespeichert."
+      - "Beim erneuten Betreten setzt die Musik exakt an der gespeicherten Stelle musikPositionSek wieder ein (kein Reset auf 0) und blendet wieder sanft ein."
+    why: Der Nutzer wünscht sich die Audiospur von https://youtu.be/Lgqv6LGtCvA beim Betreten der Pyramide, langsames Ausblenden beim Hinausgehen und Fortsetzen an genau der aufgehörten Stelle beim Wiedereintreten.
+
+decisions:
+  - id: d-pyramid-chamber-001
+    title: Aufgeteilte Hohlraum-Kollision und offene Nordportal-Geometrie für die Cheops-Pyramide
+    status: accepted
+    specs: [s-pyramid-chamber-001, s-pyramid-chamber-003]
+    decision: "Der bisherige Vollkegel und die durchgehende Kollisionsbox 'pyramide-cheops' werden durch 4 geschlossene Außenwände (Ost, West, Süd sowie geteilte Nordfront links/rechts des Portals) ersetzt. Dadurch entsteht im Inneren (X=138.5..153.5, Z=200..220) eine echte begehbare Halle ohne Geometrie-Überlappung am Eingang."
+    why: Nur wenn sowohl das 3D-Außenmesh am Nordportal ausgespart als auch die AABB-Kollisionsbox in Wandsegmente zerlegt ist, kann Lara nahtlos von außen in die Pyramide hineinlaufen.
+
+tests:
+  - id: t-pyramid-chamber-001
+    title: Selbsttest für versteckten Skarabäus-Knopf, Tor-Öffnung, Innenraum-Begehbarkeit, Fackel, High-Poly-Schätze und Musik-Fade/Resume
+    specs: [s-pyramid-chamber-001, s-pyramid-chamber-002, s-pyramid-chamber-003, s-pyramid-chamber-004]
+    suites: [smoke, regression]
+    areas: [pyramid-chamber]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+    steps:
+      - action: "http://localhost:8080/welt.html?pyramidentest=1 im Headless-Browser öffnen."
+        expected:
+          - "PYRAMIDEN_TEST_RESULT meldet torVorherBlockiert=true (Tor ist vor Knopfdruck zu und blockiert Kollision)."
+          - "PYRAMIDEN_TEST_RESULT meldet knopfUndTorOffenOk=true (Nach Drücken des versteckten Knopfs öffnet das Tor und Lara kann kollisionsfrei bis ins Zentrum (146, 212) laufen)."
+          - "PYRAMIDEN_TEST_RESULT meldet fackelUndSchalenOk=true (Fackel in Laras Hand leuchtet und entzündet die Feuerschalen beim Vorbeilaufen)."
+          - "PYRAMIDEN_TEST_RESULT meldet highPolySchaetzeOk=true (diamantenAnzahl >= 120, vasenAnzahl >= 10, sarkophagOk=true)."
+          - "PYRAMIDEN_TEST_RESULT meldet musikFadeResumeOk=true (Musik startet beim Betreten, blendet beim Verlassen langsam bis 0 aus, pausiert und setzt beim Wiedereintreten exakt an der gemerkten Sekunde fort)."
+          - Keine Uncaught-Ausnahmen.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: pyramidentest=1
