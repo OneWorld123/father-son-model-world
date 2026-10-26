@@ -1,0 +1,149 @@
+schema_version: 1
+area: alpine-foreland-tunnel
+title: Paket K – Großes Alpenvorland mit zweispuriger Panoramastraße, Hochalpen-Massiv und technischem Straßentunnel im Stil der Tauernautobahn
+
+# Umsetzungshinweise für das implementierende LLM:
+# - Neue Dateien: js/welt/alpenvorland.js (reine Logik, KEIN AFRAME/THREE/document) und
+#   js/core/alpenvorland-ui.js (3D-Meshes, darf THREE/AFRAME/document nutzen). Jede Datei < 800 Zeilen.
+# - Einbindung in welt.html: alpenvorland.js direkt nach js/welt/pyramiden-kammer.js,
+#   alpenvorland-ui.js ganz am Ende nach js/core/pyramiden-ui.js. baukasten.js NICHT vergrößern.
+# - Koordinatenkonvention wie im Projekt: yaw 0 = Fahrtrichtung -Z (Norden), Einheiten in Metern.
+# - Vorlage für Muster: js/welt/pyramiden-kammer.js (Logik) + js/core/pyramiden-ui.js (View, Prototyp-Kopplung, Selbsttest).
+
+specs:
+  - id: s-alpine-foreland-tunnel-001
+    title: Großes, sanft ansteigendes Alpenvorland nördlich von Europa als neue Landfläche
+    given:
+      - "Europa liegt in welt-karte.js bei X -346..-218, Z -85..41; die bisherigen Alpen (ki-alpen bei -290 0.2 -66) stehen ohne Vorland direkt an der Küste."
+      - "Nördlich von Europa (Z < -85) ist bisher Ozean."
+    when: welt.html geladen wird.
+    then:
+      - "Es existiert eine neue Landfläche 'Alpenvorland' im Rechteck X -400..-120, Z -470..-85, die als Zone mit Priorität 30 über dem Ozean in EEP.welt registriert ist (untergrund 'gras', kontinent 'europa')."
+      - "Die Geländehöhe wird ausschließlich durch EEP.alpenvorland.hoehe(x, z) bestimmt (siehe d-alpine-foreland-tunnel-001); EEP.welt.abfrage(x, z) liefert im Vorland exakt diesen Wert (Toleranz 0.05 m)."
+      - "Die Grundhöhe steigt von 0.25 m am Südrand (Z -88) weich (smoothstep) bis 16.0 m am Bergfuß (Z -460) an; darauf liegen sanfte Hügel mit maximal +7 m und nie unter Grundhöhe minus 1 m."
+      - "Das Gelände ist als ein einziges Terrain-Mesh (PlaneGeometry 280 x 385 m, 140 x 190 Segmente) mit Vertex-Farben gebaut (sattes Wiesengrün, hellere Kuppen, dunklere Senken) und empfängt Schatten."
+      - "Wunderschöne Natur - mindestens 350 Nadel- und Laubbäume in Waldinseln (InstancedMesh, je Baumtyp ein InstancedMesh), 3 kleine Seen (flache Kreisscheiben, blau, leicht spiegelnd), 2 Almhütten mit Holzzaun, Blumenwiesen als bunte Punkt-Instanzen (mindestens 600) - nichts davon steht auf der Straße (Mindestabstand 6 m zur Straßenmittellinie)."
+      - "Bäume und Hütten sind als statische Hindernisse in EEP.kollision registriert (Bäume als Kreis r=0.6, Hütten als Box)."
+    why: Der Sohn wünscht sich ein langsam ansteigendes, natürliches Vorland, durch das man eine Weile fährt, bevor das Gebirge beginnt (Kinderzeichnung - Tannen am Hangfuß, Ebene läuft nach links aus).
+
+  - id: s-alpine-foreland-tunnel-002
+    title: Zweispurige Panoramastraße, breit genug für beide G-Klassen nebeneinander
+    given:
+      - "Die bestehende G-Klassen-Straße in welt.html beginnt bei (-242, 0.28, -53)."
+    when: Der Spieler mit einer G-Klasse (Kamera 8) Richtung Norden fährt.
+    then:
+      - "Eine neue Straße mit Breite 8.5 m (zwei Fahrstreifen à 4.25 m, weiße Randlinien, gelbe gestrichelte Mittellinie) führt nahtlos vom Punkt (-242, 0.28, -53) über die exakten Stützpunkte aus d-alpine-foreland-tunnel-002 bis zum Tunnelportal bei (-240, 16.0, -470)."
+      - "Die Straßenhöhe folgt EEP.alpenvorland.strassenHoehe(z) (linear von 0.28 m bei Z -88 bis 16.0 m bei Z -460, darunter 0.28 m), die maximale Steigung ist kleiner als 6 Prozent."
+      - "Das Gelände ist im Korridor bis 5 m neben der Mittellinie exakt auf Straßenhöhe abgeflacht und blendet zwischen 5 m und 14 m weich in die Hügel über (keine Stufen, kein Durchstoßen des Asphalts)."
+      - "EEP.welt.abfrage liefert auf der Straße untergrund 'strasse' (Zone als Polylinien-Korridor mit halber Breite 4.25 m, Priorität 40)."
+      - "Beidseitig stehen Leitpfosten alle 12 m und an den Hangkanten Leitplanken (verzinkte Profile als InstancedMesh)."
+      - "Die Fahrt vom Europa-Straßenanschluss bis zum Portal ist mindestens 420 m lang, sodass man bei 60 km/h mindestens 25 Sekunden durch die Hügellandschaft fährt."
+    why: Laut Nutzer soll man eine Weile auf einer für beide G-Klassen breiten Straße durch eine Hügellandschaft fahren, bis man das Bergmassiv erreicht.
+
+  - id: s-alpine-foreland-tunnel-003
+    title: Hochalpen-Bergmassiv mit Tunnelportal (wie Kinderzeichnung)
+    given:
+      - Die Straße endet am Bergfuß bei Z -470.
+    when: Der Spieler sich dem Bergmassiv nähert.
+    then:
+      - "Ein großes Bergmassiv 'HOCHALPEN' füllt das Rechteck X -380..-100, Z -470..-810 aus - mindestens 9 schroffe Felsgipfel (ConeGeometry mit 7-9 Segmenten, leicht unregelmäßig skaliert und gedreht), Höhen 55 m bis 110 m, der höchste Gipfel rechts (östlich, X ca. -150) mit einem schmalen Felszahn an der Spitze, Schneekappen auf den oberen 35 Prozent, blaugraues Felsmaterial."
+      - "Eine steile Felswand (Box/verformtes Mesh) schließt das Massiv zur Straße hin bei Z -470 ab; in ihr sitzt ein halbrundes Tunnelportal (Hufeisenprofil 10.0 m breit, 6.5 m hoch) mit Betonrahmen, Portalbeschriftung 'TAUERN-TUNNEL' und je einer gelben Ampel/Signalleuchte links und rechts."
+      - "Am linken Hangfuß des Massivs stehen mindestens 4 große Tannen nahe dem Portal (wie in der Zeichnung)."
+      - "Das Massiv ist in EEP.kollision so eingetragen, dass ausschließlich der Tunnelkorridor X -245..-235 befahrbar ist (westlicher Block X -380..-246, östlicher Block X -234..-100, je Z -470..-810, Höhe 120 m)."
+      - "Die bisherigen kleinen Alpen (ki-alpen bei -290, -66) bleiben unverändert erhalten (bestehende Tests hängen daran)."
+    why: Die Kinderzeichnung zeigt ein steiles Bergmassiv 'ALPEN' mit höchstem Gipfel rechts und einem halbrunden 'Tunel' am Bergfuß, aus dem eine G-Klasse kommt.
+
+  - id: s-alpine-foreland-tunnel-004
+    title: Befahrbarer technischer Straßentunnel im Stil der Tauernautobahn
+    given:
+      - Das Tunnelportal liegt bei (-240, 16.0, -470).
+    when: Die G-Klasse in den Tunnel einfährt.
+    then:
+      - "Der Tunnel verläuft gerade von Z -470 bis Z -790 (320 m) auf konstanter Fahrbahnhöhe 16.0 m; Fahrbahnzone X -244.25..-235.75 mit untergrund 'strasse', beidseitig 0.75 m erhöhte Notgehwege mit Bordstein."
+      - "Querschnitt Hufeisenprofil - innen 10.0 m breit, 6.5 m hoch; untere 3.0 m der Wände hell gefliest/beschichtet (fast weiß, leicht glänzend), darüber grauer Spritzbeton; Gewölbe innen sichtbar (side BackSide oder DoubleSide)."
+      - "Deckenbeleuchtung - in der Gewölbemitte durchgehende Reihe rechteckiger gelb-weißer Leuchten alle 6 m (emissive Material, InstancedMesh)."
+      - "Seitliche Beleuchtung - auf beiden Seiten je ein durchgehender, leuchtender LED-Streifen auf 1.0 m Höhe über Gehweg über die gesamte Tunnellänge (emissive, als wenige lange Segmente à 40 m)."
+      - "Belüftung - alle 64 m ein Paar Strahlventilatoren (Jet-Fans) links und rechts oben im Gewölbe - zylindrisches Gehäuse 1.2 m Durchmesser, 3.5 m lang, Schutzgitter und sichtbar rotierender Rotor mit 4 Schaufeln (X-förmig wie in der Zeichnung, rotation.z = zeit * 9 rad/s)."
+      - "Ausstattung - alle 100 m eine Notrufnische mit beleuchtetem 'SOS'-Schild (blau-weiß), grüne Fluchtweg-Schilder alle 50 m, Leitschiene beidseitig, Tunnelfunk-Schild '88.8 MHz' am Portal."
+      - "Akustik - im Tunnel wird ein leises, tiefes Lüfterrauschen über WebAudio abgespielt (Lautstärke max. 0.06, Fade 1 s beim Ein- und Ausfahren); kein dauerhaftes Tuckern."
+      - "Tunnelwände sind in EEP.kollision als zwei lange Boxen bei X -245.6 und X -234.4 eingetragen; die G-Klasse kann nicht durch die Wand fahren."
+    why: Der Nutzer wünscht einen Tunnel, der innen wie die Tauernautobahn aussieht - technisch, mit Deckenbeleuchtung, durchgehendem seitlichen Leuchtstreifen und Belüftungsturbinen an der Decke.
+
+  - id: s-alpine-foreland-tunnel-005
+    title: Leistungsbudget und LOD für Vorland und Tunnel
+    given:
+      - EEP.perf und EEP.lod laufen (Paket 0).
+    when: Die Kamera sich im Vorland oder im Tunnel befindet.
+    then:
+      - "Keine einzelnen PointLights pro Tunnelleuchte - Leuchten sind emissive Materialien; zusätzlich höchstens 2 PointLights (Reichweite 25 m), die im Tunnel mit der G-Klasse mitwandern (vor und hinter dem Auto)."
+      - "Bäume, Blumen, Leitpfosten und Tunnelleuchten werden als InstancedMesh gezeichnet (insgesamt höchstens 40 zusätzliche Draw-Calls für Paket K)."
+      - "Bäume und Hütten des Vorlands registrieren sich bei EEP.lod in der Klasse 'baum' bzw. 'gebaeude'; das Tunnelinnere ist nur sichtbar (visible=true), wenn die Kamera näher als 60 m am Portal oder im Tunnelkorridor ist."
+    why: Der Projektstandard verlangt stabile 60 FPS auch auf der GTX 950M.
+
+decisions:
+  - id: d-alpine-foreland-tunnel-001
+    title: Deterministische Höhenfunktion für Vorland-Gelände, Straße und Physik
+    status: accepted
+    specs: [s-alpine-foreland-tunnel-001, s-alpine-foreland-tunnel-002]
+    decision: "Gelände-Mesh, Straßenhöhe und EEP.welt.abfrage nutzen dieselbe reine Funktion EEP.alpenvorland.hoehe(x, z) aus js/welt/alpenvorland.js."
+    why: Nur eine gemeinsame Funktion garantiert, dass Räder, Lara und Bäume exakt auf dem sichtbaren Boden stehen.
+    how:
+      - "t = clamp((-88 - z) / 372, 0, 1); grund = 0.25 + 15.75 * (t * t * (3 - 2 * t))."
+      - "huegel = 4.0 * sin(x * 0.021) * sin(z * 0.017) + 2.5 * sin(x * 0.047 + 1.3) * cos(z * 0.039) + 1.5 * sin((x + z) * 0.011); huegel = max(-1.0, huegel)."
+      - "strassenHoehe(z) = z > -88 ? 0.28 : (z < -460 ? 16.0 : 0.28 + 15.72 * ((-88 - z) / 372))."
+      - "d = Abstand (x, z) zur Straßen-Polylinie aus d-alpine-foreland-tunnel-002; w = smoothstep(5, 14, d)."
+      - "hoehe(x, z) = (1 - w) * strassenHoehe(z) + w * (grund + huegel)."
+      - "welt-karte.js wird minimal erweitert - Zonen dürfen ein Feld hoeheFn (function(x, z)) tragen; abfrage() nutzt dann hoeheFn statt hoehe und berechnet steigungX/steigungZ per zentraler Differenz mit +-0.5 m. welt-karte.js bleibt dabei frei von AFRAME, THREE und document."
+
+  - id: d-alpine-foreland-tunnel-002
+    title: Exakte Straßen-Stützpunkte und Fahrbahnaufbau
+    status: accepted
+    specs: [s-alpine-foreland-tunnel-002]
+    decision: "Die Straße ist ein ki-strasse-kompatibler Catmull-Rom-Zug durch feste Stützpunkte (x, z); y kommt aus strassenHoehe(z) + 0.03."
+    why: Feste Punkte machen Straße, Abflachungskorridor, Kollisionsfreiheit der Bäume und Tests reproduzierbar.
+    how:
+      - "Stützpunkte (x, z) - (-242, -53), (-238, -95), (-226, -150), (-248, -210), (-272, -262), (-258, -318), (-236, -372), (-240, -428), (-240, -470)."
+      - "Ab dem Portal setzt sich die Mittellinie als Gerade (-240, -470) bis (-240, -790) im Tunnel fort."
+      - "Fahrbahn als Band-Mesh entlang der Kurve (Abtastung alle 2 m, Breite 8.5 m), nicht als einzelne Quader, damit es auf Steigungen nahtlos ist. Mittellinie gelb gestrichelt (3 m Strich, 3 m Lücke), Randlinien weiß durchgehend 0.15 m breit."
+      - "Die gleiche Polylinie (fein abgetastet, ca. 2 m Schritte) wird in js/welt/alpenvorland.js als Array EEP.alpenvorland.strassenPunkte bereitgestellt und für Abstandsberechnung und Straßenzone verwendet."
+
+  - id: d-alpine-foreland-tunnel-003
+    title: Fahrbare Weltgrenze für Fahrzeuge erweitern
+    status: accepted
+    specs: [s-alpine-foreland-tunnel-001, s-alpine-foreland-tunnel-004]
+    decision: "Alle Positions-Clamps, die eine G-Klasse betreffen (Suche nach 'clamp' in baukasten.js im Bereich ki-auto sowie in js/physik/fahrzeug-physik.js), werden so erweitert, dass das Rechteck X -420..-100, Z -820..41 befahrbar ist. Navi-Kartenbereich darf unverändert bleiben."
+    why: Ohne Erweiterung würde die G-Klasse am alten Nordrand Z -85 hängen bleiben.
+
+  - id: d-alpine-foreland-tunnel-004
+    title: Tunnelende als Übergabepunkt an Paket L (Schneewelt)
+    status: accepted
+    specs: [s-alpine-foreland-tunnel-004]
+    decision: "js/welt/alpenvorland.js meldet per EEP.bus.emit('tunnel-uebergang', { autoId, richtung: 'nord' }), sobald eine vom Spieler gesteuerte G-Klasse (EEP.aktiveKamera === 8) im Tunnel Z <= -700 erreicht. Paket K selbst teleportiert nicht; ohne Paket L wird die Fahrt am Tunnelende (Z -790) durch eine Betonwand mit Schild 'BAUSTELLE - BALD GEHT ES WEITER' gestoppt."
+    why: So ist Paket K eigenständig testbar und Paket L dockt sauber über den Event-Bus an.
+
+tests:
+  - id: t-alpine-foreland-tunnel-001
+    title: Selbsttest Vorland-Höhe, Straße, Massiv-Kollision und Tunnel
+    specs: [s-alpine-foreland-tunnel-001, s-alpine-foreland-tunnel-002, s-alpine-foreland-tunnel-003, s-alpine-foreland-tunnel-004, s-alpine-foreland-tunnel-005]
+    suites: [smoke, regression]
+    areas: [alpine-foreland-tunnel]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
+      - "test_auto.ps1 filtert zusätzlich nach 'VORLAND_TEST'."
+    steps:
+      - action: "http://localhost:8080/welt.html?vorlandtest=1&cam=8 öffnen; der Selbsttest liegt in js/core/alpenvorland-ui.js und startet 500 ms nach Init."
+        expected:
+          - "VORLAND_TEST_RESULT meldet hoeheOk=true (EEP.welt.abfrage(-300, -300).hoehe weicht höchstens 0.05 m von EEP.alpenvorland.hoehe(-300, -300) ab und liegt zwischen 3 und 23 m)."
+          - "VORLAND_TEST_RESULT meldet strasseOk=true (an allen 9 Stützpunkten ist untergrund 'strasse' und hoehe = strassenHoehe(z) +- 0.1 m; Straßenlänge >= 420 m; max. Steigung < 0.06)."
+          - "VORLAND_TEST_RESULT meldet baeumeFreiOk=true (kein Baum näher als 6 m an der Straßenmittellinie; baumAnzahl >= 350)."
+          - "VORLAND_TEST_RESULT meldet massivKollisionOk=true (EEP.kollision.pruefe für eine G-Klassen-Probe bei (-270, y, -520) liefert einen Treffer, bei (-240, y, -520) im Tunnelkorridor keinen Treffer)."
+          - "VORLAND_TEST_RESULT meldet tunnelOk=true (fanPaare >= 5, deckenLeuchten >= 50, ledStreifen beidseitig vorhanden, sosNischen >= 3)."
+          - "VORLAND_TEST_RESULT meldet uebergangEventOk=true (simulierte Spieler-G-Klasse bei (-240, 16, -705) mit aktiveKamera 8 löst genau ein 'tunnel-uebergang'-Event aus)."
+          - Keine Uncaught-Ausnahmen; ARCH_TEST mit archtest=1 bleibt grün.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: vorlandtest=1
