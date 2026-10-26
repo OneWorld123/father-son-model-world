@@ -463,6 +463,7 @@
     // Baustellenwand Nordende (Z = -790)
     var bGroup = new THREE.Group();
     bGroup.id = 'tauern-tunnel-baustelle';
+    bGroup.name = 'tauern-tunnel-baustelle';
     addMesh(bGroup, new THREE.BoxGeometry(10.0, 6.5, 0.6), betonMat, -240, 19.0, -790);
     var bSchildMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, emissive: 0xb91c1c, emissiveIntensity: 0.6 });
     addMesh(bGroup, new THREE.BoxGeometry(6.5, 1.2, 0.1), bSchildMat, -240, 18.5, -789.6);
