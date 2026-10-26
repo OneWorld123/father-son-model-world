@@ -272,17 +272,24 @@
       addMesh(group, new THREE.BoxGeometry(br, ho * 0.58, br), stufenMat, 0, fr * 21.5 * 0.68 + ho * 0.3, 0);
     }
 
-    // C. Tempelportal + Versteckter Skarabäus-Schalter rechts außen an der Tempelsäule
+    // C. Tempelportal + Versteckter Skarabäus-Schalter an der Vorderseite der rechten Tempelsäule (x=2.55, y=1.40, z=-13.38)
     addMesh(group, new THREE.BoxGeometry(2.6, 5.2, 2.2), tempelMat, -2.6, 2.6, -12.2);
     addMesh(group, new THREE.BoxGeometry(2.6, 5.2, 2.2), tempelMat,  2.6, 2.6, -12.2);
     addMesh(group, new THREE.BoxGeometry(8.4, 1.3, 2.6), stufenMat, 0, 5.5, -12.2);
     addMesh(group, new THREE.CylinderGeometry(0.95, 0.95, 0.42, 32), goldMat, 0, 5.5, -13.5, Math.PI / 2);
 
-    addMesh(group, new THREE.BoxGeometry(0.45, 0.75, 0.75), obsidianMat, 3.82, 1.35, -12.6);
-    addMesh(group, new THREE.TorusGeometry(0.24, 0.04, 16, 32), goldMat, 4.02, 1.35, -12.6, 0, Math.PI / 2);
-    pState.knopfSteinMesh = addMesh(group, new THREE.SphereGeometry(0.17, 24, 18), tuerkisMat, 4.05, 1.35, -12.6);
-    pState.knopfSteinMesh.scale.set(0.65, 1.15, 0.85);
-    pState.knopfJuwelMesh = addMesh(group, new THREE.OctahedronGeometry(0.09, 2), diamantMats[1], 4.14, 1.35, -12.6);
+    // Dunkle Obsidian-Schalternische an der Vorderseite des rechten Pylons + goldene Trittplatte davor
+    var nischeMesh = addMesh(group, new THREE.BoxGeometry(0.85, 0.95, 0.28), obsidianMat, 2.55, 1.40, -13.28);
+    var rahmenMesh = addMesh(group, new THREE.TorusGeometry(0.28, 0.045, 16, 32), goldMat, 2.55, 1.40, -13.40);
+    pState.knopfSteinMesh = addMesh(group, new THREE.SphereGeometry(0.20, 24, 18), tuerkisMat, 2.55, 1.40, -13.42);
+    pState.knopfSteinMesh.scale.set(0.90, 1.20, 0.65);
+    pState.knopfJuwelMesh = addMesh(group, new THREE.OctahedronGeometry(0.12, 2), diamantMats[1], 2.55, 1.40, -13.52);
+    var trittPlatte = addMesh(group, new THREE.BoxGeometry(1.3, 0.08, 1.1), goldEmissiveMat, 2.55, 0.05, -14.05);
+    pState.klickbareKnopfMeshes = [nischeMesh, rahmenMesh, pState.knopfSteinMesh, pState.knopfJuwelMesh, trittPlatte];
+
+    var knopfGlowLight = new THREE.PointLight(0x10b981, 2.2, 5.5, 1.5);
+    knopfGlowLight.position.set(2.55, 1.55, -13.85);
+    group.add(knopfGlowLight);
 
     // D. Schweres Hieroglyphen-Steintor
     var torGroup = new THREE.Group();
@@ -498,9 +505,35 @@
       if (!btn) return;
       var akt = btn.getAttribute('data-pyr');
       if (akt === 'teleport') teleportiereLaraVorPyramide();
-      else if (akt === 'knopf' && EEP.pyramide) { EEP.pyramide.drueckeGeheimKnopf(); spieleGeheimnisUndTorSound(); }
+      else if (akt === 'knopf' && EEP.pyramide) { EEP.pyramide.drueckeGeheimKnopf(); }
       else if (akt === 'fackel' && EEP.pyramide) EEP.pyramide.setzeFackel();
       aktualisierePyramidenHUD();
+    });
+
+    if (EEP.bus) {
+      EEP.bus.on('pyramide-tor', function () {
+        spieleGeheimnisUndTorSound();
+      });
+    }
+
+    // 3D-Mausklick-Raycaster direkt auf den Skarabäus-Knopf an der rechten Säule
+    window.addEventListener('pointerdown', function (ev) {
+      if (!pState.klickbareKnopfMeshes || !pState.klickbareKnopfMeshes.length || typeof THREE === 'undefined') return;
+      if (ev.target && ev.target.tagName !== 'CANVAS') return;
+      var sceneEl = document.querySelector('a-scene');
+      if (!sceneEl || !sceneEl.camera) return;
+      var rect = ev.target.getBoundingClientRect();
+      var mouse = new THREE.Vector2(
+        ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+        -((ev.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      var raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, sceneEl.camera);
+      var hits = raycaster.intersectObjects(pState.klickbareKnopfMeshes, true);
+      if (hits && hits.length > 0 && EEP.pyramide) {
+        EEP.pyramide.drueckeGeheimKnopf();
+        aktualisierePyramidenHUD();
+      }
     });
 
     window.addEventListener('keydown', function (e) {
@@ -510,7 +543,6 @@
       if (k === 'g') {
         if (EEP.pyramide && (EEP.pyramide.zustand.naheAmKnopf || EEP.pyramide.zustand.inKammer)) {
           EEP.pyramide.drueckeGeheimKnopf();
-          spieleGeheimnisUndTorSound();
         } else {
           teleportiereLaraVorPyramide();
         }
@@ -518,9 +550,8 @@
       } else if (k === 't') {
         if (EEP.pyramide) EEP.pyramide.setzeFackel();
         e.preventDefault();
-      } else if (k === 'e' && EEP.pyramide && EEP.pyramide.zustand.naheAmKnopf && !EEP.pyramide.zustand.torOffen) {
-        EEP.pyramide.drueckeGeheimKnopf(true);
-        spieleGeheimnisUndTorSound();
+      } else if (k === 'e' && EEP.pyramide && EEP.pyramide.zustand.naheAmKnopf) {
+        EEP.pyramide.drueckeGeheimKnopf();
         e.preventDefault();
       }
     });
@@ -654,7 +685,7 @@
 
         if (pState.torGroup) pState.torGroup.position.y = 2.40 + z.torFortschritt * 4.35;
         if (pState.knopfSteinMesh && pState.knopfJuwelMesh) {
-          pState.knopfSteinMesh.position.x = z.knopfGedrueckt ? 3.96 : 4.05;
+          pState.knopfSteinMesh.position.z = z.knopfGedrueckt ? -13.30 : -13.42;
           pState.knopfJuwelMesh.rotation.y = zeitSek * 2.4;
         }
         if (pState.horusKristall && pState.horusRing) {

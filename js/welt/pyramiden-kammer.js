@@ -10,8 +10,8 @@
 
   // Weltkoordinaten der großen Cheops-Pyramide (Zentrum: X=146, Z=212)
   var ZENTRUM = { x: 146.0, y: 0.26, z: 212.0 };
-  // Etwas versteckter goldener Skarabäus-Schalter rechts außen an der Tempelsäule
-  var GEHEIM_KNOPF = { x: 149.35, y: 1.45, z: 199.10, aktivierungsRadius: 4.2 };
+  // Etwas versteckter goldener Skarabäus-Schalter an der rechten Tempelsäule (Vorder-/ Außenseite)
+  var GEHEIM_KNOPF = { x: 148.45, y: 1.45, z: 198.62, aktivierungsRadius: 6.5 };
   // Position des schweren Hieroglyphen-Steintors im Nordportal
   var STEIN_TOR = { x: 146.0, y: 2.40, z: 200.20 };
 
@@ -188,6 +188,11 @@
         var dzK = laraPos.z - GEHEIM_KNOPF.z;
         var distKnopf = Math.sqrt(dxK * dxK + dzK * dzK);
         zustand.naheAmKnopf = distKnopf <= GEHEIM_KNOPF.aktivierungsRadius;
+
+        // Läuft Lara direkt an den Skarabäus-Schalter an der rechten Säule heran (<= 1.75 m), betätigt sie ihn automatisch!
+        if (distKnopf <= 1.75 && !zustand.torOffen) {
+          EEP.pyramide.drueckeGeheimKnopf(true);
+        }
 
         var drinnen = EEP.pyramide.istImInneren(laraPos.x, laraPos.z);
         if (drinnen && !zustand.inKammer) {
