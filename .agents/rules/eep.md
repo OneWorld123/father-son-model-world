@@ -23,21 +23,37 @@ Dieses Projekt ist ein interaktives Vater-Sohn-Modelleisenbahn-Projekt im Browse
   - Sound-Effekte: Dampflok-Pfeife, ICE-Horn, Fahrgeräusche (WebAudio Synthesizer + optional MP3).
   - Licht/Wetter-Umschalter (`[L]`).
 
-## 4. Produktwissen: Specs, Decisions und Testfälle (`specs/*.yaml`)
-Ab dem 24.10.2026 gilt für alle neuen oder geänderten Anforderungen, Architekturentscheidungen und Fehlerbehebungen das strukturierte Vorgehen nach `2026-10-24-development-lead-specs-decisions-tests.md`:
+## 4. Produktwissen: Specs, Decisions und Testfälle (specs/*.yaml)
+Maßgebliche Referenz im Repository ist **[docs/specs-decisions-tests.md](file:///m:/Develop/Trains/docs/specs-decisions-tests.md)** (Stand 27.10.2026). Für alle neuen oder geänderten Anforderungen, Architekturentscheidungen und Fehlerbehebungen gelten verbindlich folgende Schreib- und Reviewregeln:
 
-1. **Ablageort & Zuschnitt (`specs/<area>.yaml` & `specs/global.yaml`):**
-   - Bereichsdateien liegen versioniert im Repository unter `specs/` (englische Dateinamen in Kleinbuchstaben mit Bindestrich, z. B. `specs/car-cockpit.yaml`, `specs/world-rendering.yaml`, `specs/global.yaml`).
-   - **Keine historische Nachdokumentation:** Bestehende Features werden nicht pauschal rückwirkend inventarisiert, sondern erst dann aufgenommen, wenn sie im Rahmen einer beauftragten Änderung oder Fehlerbehebung konkret bearbeitet werden.
-2. **Stabile IDs (`<type>-<area>-<number>`, mind. dreistellig):**
-   - `s-<area>-001` (Spec: `id`, `title`, `given`, `when`, `then`, optional `why`, `sources`)
-   - `d-<area>-001` (Decision: `id`, `title`, `status` [`proposed` | `accepted` | `superseded`], `decision`, `why`, optional `how`, `specs`, `sources`, `superseded_by`)
-   - `t-<area>-001` (Testfall: `id`, `title`, `specs`, `suites` [`smoke` | `regression`], `areas`, `risk` [`low` | `medium` | `high`], `requires`, `preconditions`, `steps` [`action` + `expected`], `cleanup`, optional `automation` [`path` + `selector`])
-3. **Vorgehen bei Änderungen & Bugs:**
-   - **Vor/Mit der Umsetzung:** Betroffene `specs`, `decisions` und `tests` in der jeweiligen `specs/<area>.yaml` anlegen oder aktualisieren.
-   - **Bei Bugs:** Zuerst prüfen, ob eine bestehende Spec verletzt ist, die Spec unvollständig war oder ein Regressionstest (`t-...`) ergänzt werden muss. Niemals Specs abschwächen, um fehlerhaften Code zu rechtfertigen.
-   - **Prüfnachweise getrennt halten:** Keine Laufzeit-Ergebnisse (`passed: true` oder Zeitstempel) in `specs/*.yaml` schreiben. Prüfnachweise werden nach der Ausführung separat mit Test-ID, Commit-Stand, Umgebung/GPU, Laufzeit, Ergebnis (`bestanden` / `fehlgeschlagen` / `blockiert`) und Beobachtungen/Screenshot-Artefakten berichtet.
-
+1. **Ablageort & Zuschnitt (specs/<area>.yaml & specs/global.yaml):**
+   - Bereichsdateien liegen versioniert unter specs/ (englische Dateinamen in Kleinbuchstaben mit Bindestrich; rea entspricht exakt dem Dateistamm). Übergreifende Abläufe liegen in specs/global.yaml (niemals cross-cutting.yaml).
+   - **Keine historische Nachdokumentation:** Bestehende oder unbearbeitete Dateien werden nicht pauschal rückwirkend inventarisiert oder umgeschrieben, sondern erst dann nachgeschärft, wenn ihr Bereich im Rahmen einer beauftragten Änderung oder Fehlerbehebung konkret bearbeitet wird.
+   - **Keine einmaligen Bau-/Integrationsanweisungen in YAML:** Hinweise wie *„Neue Dateien: …“*, *„Nach Script X in welt.html einbinden“* oder *„Suche nach clamp in baukasten.js“* gehören in den Arbeitsplan, **niemals** als Kommentar, Spec oder Decision in specs/*.yaml.
+2. **Stabile IDs (<type>-<area>-<number>, mind. dreistellig):**
+   - s-<area>-001, d-<area>-001, 	-<area>-001. Bestehende IDs dürfen **niemals** neu vergeben oder nachträglich umnummeriert werden.
+3. **Schreibregeln für specs (Dauerhaftes Produktversprechen statt Projektgeschichte):**
+   - **Ein Verhalten pro Spec:** Eine Spec beschreibt genau **ein** zusammengehöriges fachliches Verhalten (nicht ein ganzes Arbeitspaket). Eintritt, Austritt/Fade-Out, Wiedereintritt/Resume, Fehler-/Fallbackfälle werden als getrennte s-...-Einträge formuliert.
+   - **given (Herstellbare Ausgangslage):** Nur fachliche Zustände, die unmittelbar vor dem Auslöser gemeinsam gelten und im fertigen Produkt herstellbar sind. **Verboten in given:** Projektgeschichte (*„Nördlich von Europa ist bisher Ozean“*, *„Paket K stellt bereit…“*), Dateinamen oder Implementierungsaufträge.
+   - **when (Einzelner realer Auslöser):** Genau **eine** Benutzeraktion oder ein fachliches Ereignis (nicht mehrere Oder-Auslöser in einem Satz, kein *„Der Entwickler baut…“*).
+   - **	hen (Von außen beobachtbares Ergebnis & Portierungsfrage):** Was können Anwender oder angebundene Systeme beobachten/messen? **Verboten in 	hen:** Interne Klassen, Three.js-/A-Frame-Geometrien (PlaneGeometry, InstancedMesh, ConeGeometry, DoubleSide), Modul-/Dateinamen oder unbestimmte Aussagen (*„funktioniert schnell“*). *Portierungsfrage:* Das fachliche Versprechen in 	hen muss auch bei einer Neuimplementierung mit anderer Engine/Sprache unverändert gelten!
+4. **Schreibregeln für decisions (Dauerhafte technische/gestalterische Wahl):**
+   - Technische Mittel, Formeln, Datenstrukturen, Mesh-/LOD-Strategien und Event-Verträge gehören in decisions (decision, why, how) mit Verweis auf specs: [...].
+   - Bei Ablösung einer Entscheidung bleibt die alte erhalten (status: superseded, superseded_by: d-...).
+5. **Schreibregeln für 	ests (Konkreter, reproduzierbarer Prüfablauf):**
+   - Jeder Testfall beschreibt konkrete preconditions, geordnete steps (ction + Liste beobachtbarer expected) und cleanup.
+   - **Keine bloßen internen Flag-Kopien:** In expected darf nicht lediglich stehen *„TEST_RESULT meldet ...Ok=true“*, sondern es müssen die konkret geprüften Daten, Aktionen und beobachteten Ergebnisse benannt werden.
+   - **Gezielte Testauswahl statt Sammel-Smoke-Test:** Unabhängige Prüfziele werden als getrennte 	-...-Einträge geführt; umfangreiche Sammelprüfungen dürfen nicht pauschal als smoke deklariert werden.
+   - **Prüfnachweise getrennt halten:** Keine Laufzeit-Ergebnisse (passed: true oder Zeitstempel) in specs/*.yaml schreiben.
+6. **Verbindlicher 8-Punkte-Selbstreview vor jedem Commit einer YAML-Datei (Abschnitt 11 aus docs/specs-decisions-tests.md):**
+   1. Beschreibt jede Spec dauerhaftes Produktverhalten statt Projektgeschichte oder Bauauftrag?
+   2. Sind alle given-Bedingungen gemeinsam herstellbar und nennt when genau einen realen Auslöser?
+   3. Sind alle 	hen-Ergebnisse von außen beobachtbar (keine Mesh-/Klassennamen) und sind UI-Texte/Grenzwerte konkret?
+   4. Liegen Implementierungsdetails in decisions und einmalige Umbauanweisungen im Plan (Portierungsfrage bestanden)?
+   5. Sind relevante Leer-, Fehler-, Abbruch- und Rückkehrfälle (z. B. Verlassen & Wiedereintritt) als eigene Szenarien berücksichtigt?
+   6. Erklärt jede Decision die Wahl (decision) und ihren Grund (why)?
+   7. Prüfen die Testschritte die behaupteten Ergebnisse konkret, statt nur ...Ok=true-Flags aufzulisten?
+   8. Sind unabhängige Prüfziele sauber in eigene 	-...-Einträge getrennt (smoke vs. egression)?
 ## 5. Modulare JS-Architektur (`js/*` statt Monolith)
 - **`baukasten.js` einfrieren / entlasten:** Neue Features, Physik-, Welt- und Spielsysteme werden **nicht** mehr als große Blöcke in die ~7.250 Zeilen lange `baukasten.js` geschrieben, sondern als eigenständige, kleine Module unter `js/` (`< 800` Zeilen pro Datei, gemäß `s-architecture-lod-001`) angelegt und in `welt.html` eingebunden:
   - `js/core/eep-kern.js` (`EEP.bus`, `EEP.sim`, `EEP.zustand`, `EEP.zeit`)

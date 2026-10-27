@@ -1,117 +1,149 @@
 schema_version: 1
 area: snow-world
-title: Paket L – Magische Schneewelt hinter dem Tauern-Tunnel mit Level-Schwarzblende, YouTube-Soundtrack (5w3rRFWzjcM), dynamischem Winterwetter und tief eingeschnittenem Hochgebirgstal
-
-# Umsetzungshinweise für das implementierende LLM:
-# - Neue Dateien: js/welt/schneewelt.js (reine Logik, KEIN AFRAME/THREE/document) und
-#   js/core/schneewelt-ui.js (3D-Meshes, Partikel, HUD, YouTube-Audio, darf THREE/AFRAME/document nutzen). Jede Datei < 800 Zeilen.
-# - Einbindung in welt.html: js/welt/schneewelt.js direkt nach js/welt/alpenvorland.js,
-#   js/core/schneewelt-ui.js ganz am Ende nach js/core/alpenvorland-ui.js. baukasten.js NICHT vergrößern.
-# - Koordinatenkonvention: Das Nordportal des Tauern-Tunnels aus Paket K liegt bei (-240, 16.0, -790).
-#   Dort öffnet sich das tief eingeschnittene Hochgebirgstal der Schneewelt (X -420..-80, Z -1380..-790).
+title: Magische Schneewelt hinter dem Tauern-Tunnel mit Level-Schwarzblende, Musik-Resume und dynamischem Winterwetter
 
 specs:
   - id: s-snow-world-001
-    title: Tunnel-Schwarzblende (Level-Übergang) und Einfahrt in die Magische Schneewelt
+    title: Kurze Schwarzblende im Tunnel und Ausfahrt in die Schneewelt
     given:
-      - "Paket K stellt den Tauern-Tunnel von (-240, 16.0, -470) bis (-240, 16.0, -790) bereit und feuert bei Z <= -700 das Event EEP.bus.emit('tunnel-uebergang', { autoId, richtung: 'nord' })."
-    when: Der Spieler mit einer G-Klasse im Tunnel über Z <= -700 Richtung Norden (oder auf dem Rückweg über Z >= -760 Richtung Süden) fährt.
+      - Der Spieler fährt mit einer G-Klasse im Tauern-Tunnel Richtung Norden auf das Nordportal bei (X = -240, Y = 16,0, Z = -790) zu.
+    when: Das Fahrzeug durchfährt den nördlichen Übergangsabschnitt des Tunnels zwischen Z = -715 und Z = -765 und verlässt anschließend das Nordportal bei Z < -790.
     then:
-      - "Die Baustellen-Abschlusswand am Nordportal (Z -790) aus Paket K wird durch Paket L geöffnet/ausgeblendet, sodass der Tunnel bei (-240, 16.0, -790) ins freie Nordportal der Schneewelt mündet."
-      - "Beim Durchfahren der Übergangszone im Tunnel (Z -715..-765) blendet ein Vollbild-Overlay (#eep-schneewelt-fade) weich auf Schwarz (transitionAlpha 0 -> 1 -> 0, Gesamtdauer ca. 1.4 s) mit dezentem Level-Titel 'Magische Schneewelt', während die Schneewelt-Atmosphäre geladen/aktiviert wird."
-      - "Sobald sich das aktive Fahrzeug oder die Kamera nördlich des Tunnelportals befindet (Z < -790), ist inSchneewelt = true; südlich von Z > -780 im Tunnel gilt wieder inSchneewelt = false."
-    why: Der Nutzer wünscht nach längerer Fahrt im Tunnel eine kurze Schwarzblende ('neues Level wird geladen'), bevor man aus dem Tunnel in die magische Schneewelt hinausfährt.
+      - Während der Fahrt durch den Übergangsabschnitt wird das Bild vorübergehend schwarz überblendet (mit dem Hinweis "❄️ Magische Schneewelt wird geladen...") und blendet vor dem Nordportal wieder auf.
+      - Die Tunnelausfahrt am Nordportal (Z = -790) ist frei passierbar und mündet unter einer Lawinengalerie direkt in das verschneite Hochgebirgstal.
+    why: Nach der Fahrt durch den Tunnel soll ein sichtbarer Level-Übergang in die neue Schneewelt stattfinden.
 
   - id: s-snow-world-002
-    title: YouTube-Musik (5w3rRFWzjcM) beim Ausfahren aus dem Tunnel mit langsamem Fade-Out und exaktem Resume
+    title: Musikstart beim Einfahren in die Schneewelt
     given:
-      - Der Spieler fährt aus dem Nordportal (Z < -790) in die Schneewelt ein oder verlässt sie wieder durch den Tunnel (Z >= -780).
-    when: inSchneewelt zwischen true und false wechselt.
+      - Das Fahrzeug befindet sich im Tauern-Tunnel südlich des Nordportals (Z >= -780).
+      - Die Hintergrundmusik der Schneewelt (YouTube-Audio 5w3rRFWzjcM) wurde noch nicht gestartet.
+    when: Das Fahrzeug fährt durch das Nordportal über Z < -790 in die Schneewelt ein.
     then:
-      - "Beim Eintritt in die Schneewelt (Z < -790) startet automatisch die Audiospur von https://www.youtube.com/watch?v=5w3rRFWzjcM (videoId '5w3rRFWzjcM') und blendet sanft auf Ziel-Lautstärke 85 Prozent ein (musikStatus 'fadein' -> 'spielt')."
-      - "Beim Verlassen der Schneewelt zurück in den Tunnel (Z >= -780) verstummt die Musik nicht abrupt, sondern blendet langsam mit 45 Prozent pro Sekunde (ca. 1.9 s Dauer) auf 0 Prozent aus (musikStatus 'fadeout')."
-      - "Erreicht musikLautstaerke den Wert 0, wird die aktuelle Abspielposition musikPositionSek exakt gespeichert und der Player pausiert (musikStatus 'pausiert')."
-      - "Beim erneuten Einfahren in die Schneewelt (Z < -790) setzt die Musik exakt an der gespeicherten Stelle musikPositionSek wieder ein (seekTo(musikPositionSek, true)) und blendet wieder sanft auf 85 Prozent ein."
-      - "Falls der Browser YouTube-Autoplay ohne vorherigen Klick blockiert, fängt ein sanfter WebAudio-Winterwind-/Kristall-Pad-Synthesizer das Audio-Erlebnis auf und ein dezenter HUD-Button ermöglicht den 1-Klick-Musikstart."
-    why: Wie bei der Pyramide soll die Musik von YouTube (5w3rRFWzjcM) beim Herausfahren langsam verstummen und beim Wiedereintritt exakt an der alten Position weiterlaufen.
+      - Die Audiospur des Titels 5w3rRFWzjcM startet am Anfang (0 s) und blendet sanft bis auf die Ziellautstärke von 85 Prozent ein.
+    why: Beim Verlassen des Tunnels soll die Schneewelt sofort musikalisch untermalt werden.
 
   - id: s-snow-world-003
-    title: Tief eingeschnittenes, unüberwindbares Hochgebirgs-Schneetal
+    title: Tief eingeschnittenes, rundum geschlossenes Hochgebirgs-Schneetal
     given:
-      - Das Nordportal des Tunnels liegt bei (-240, 16.0, -790).
-    when: Der Spieler in die Schneewelt (X -420..-80, Z -1380..-790) einfährt.
+      - Das Fahrzeug befindet sich in der Schneewelt nördlich von Z = -790.
+    when: Der Spieler fährt durch das Tal oder versucht, die Talränder im Westen, Osten, Norden oder abseits des Tunnelportals im Süden zu überqueren.
     then:
-      - "Eine komplett weiße, schneebedeckte Talkessel-Landschaft (Zone 'Schneewelt' mit Priorität 32 in EEP.welt, untergrund 'schnee', kontinent 'europa') erstreckt sich von Z -790 bis Z -1380 und X -420 bis X -80."
-      - "Die Talsohle verläuft auf 15.5 m bis 21.0 m Höhe; links (X < -325), rechts (X > -155) und am Talende im Norden (Z < -1310) steigen extrem steile, schneebedeckte Fels- und Gletscherwände auf 75 m bis 135 m Höhe an."
-      - "Mindestens 14 mächtige, komplett weiß-bläulich verschneite Hochgebirgsgipfel (Höhen 80 m bis 140 m) umschließen das Tal lückenlos im Westen, Osten, Norden und über dem Südportal."
-      - "Ein geschlossener Ring aus AABB-Kollisionsboxen in EEP.kollision entlang der Steilwand-Füße (mit einziger Öffnung am Tunnelportal X -245..-235, Z -790) sowie die Steilwand-Geländehöhe verhindern zuverlässig, dass ein Fahrzeug jemals aus dem Tal oder aus der Welt fahren kann."
-    why: Der Nutzer fordert weiße, steile, hohe Berge ringsum in einem tief eingeschnittenen Tal, sodass man es gar nicht schafft, aus der Welt herauszufahren.
+      - Der Talboden liegt durchgehend unter einer geschlossenen Schneedecke auf 16,0 m bis 21,0 m Höhe.
+      - Rings um das Tal steigen im Westen (X < -325), Osten (X > -155), Norden (Z < -1310) und beidseitig über dem Tunnelportal steile, schneebedeckte Fels- und Gletscherwände sowie mindestens 14 weiße Hochgebirgsgipfel auf 75 m bis 140 m Höhe an.
+      - Jeder Versuch, das Tal abseits des Tunnelportals (X = -245 bis -235, Z = -790) mit dem Fahrzeug zu verlassen, wird durch die Steilwand-Begrenzung gestoppt.
+    why: Der Spieler soll sich in einem tief eingeschnittenen, vollständig weißen Hochgebirgstal befinden, aus dem man nicht aus der Welt herausfahren kann.
 
   - id: s-snow-world-004
-    title: Dynamisches Winterwetter mit Schneefall, Wind, wechselndem Himmel und winterlichem Licht
+    title: Winterliche Atmosphäre mit Schneefall, Wind und Wetterwechsel
     given:
-      - Der Spieler befindet sich in der Schneewelt (inSchneewelt === true).
-    when: Die Zeit voranschreitet oder der Wettermodus wechselt.
+      - Der Spieler befindet sich in der Schneewelt (Z < -790).
+    when: Der Spieler schaltet das Wetter mit der Taste [N] (oder über die Schaltfläche im HUD) auf den nächsten Wetterzustand um.
     then:
-      - "Das Wettersystem in EEP.schneewelt durchläuft vier lebendige Winterzustände ('schneefall', 'schneesturm', 'wintersonne', 'eisnebel'), die automatisch alle 45 Sekunden weich ineinander überblenden oder per HUD-Button / Taste [N] direkt umgeschaltet werden können."
-      - "Ein kameragekoppeltes 3D-Partikelsystem zeichnet mindestens 350 tanzende Schneeflocken sowie seitliche Wind-Schneeschleier rund um das Fahrzeug/die Kamera; Sinkgeschwindigkeit und seitliche Winddrift hängen direkt von schneeDichte und windStaerke des aktuellen Wetterzustands ab."
-      - "Himmel (#himmel), Szenennebel (scene.fog) und Lichtstimmung passen sich in der Schneewelt dynamisch dem Wetter an (winterlich kühles Blau-Weiß bei Wintersonne, dichtes Grau-Blau bei Schneesturm/Eisnebel) und stellen beim Verlassen durch den Tunnel die normale Welt-Atmosphäre wieder her."
-    why: Das Wetter soll komplett anders und wechselhaft sein, mit Schneefall- und Windeffekten, angepasstem Himmel und winterlichem Licht.
+      - Das Wetter wechselt zyklisch zwischen den vier Winterzuständen "schneefall", "schneesturm", "wintersonne" und "eisnebel".
+      - Himmelsfarbe, Sichtweite im Nebel sowie Fallgeschwindigkeit und seitliche Winddrift der tanzenden Schneeflocken passen sich unmittelbar dem gewählten Wetterzustand an.
+    why: In der Schneewelt soll ein eigenständiges, wechselhaftes Winterwetter mit sichtbaren Schneefall- und Windeffekten herrschen.
 
   - id: s-snow-world-005
-    title: Lange, vielfältig gestaltete Hochtalstraße zum Erleben mit den G-Klassen
+    title: Fahrt über die Hochtal-Erlebnisstraße mit fünf Winter-Stationen
     given:
-      - Die G-Klasse verlässt das Nordportal bei (-240, 16.0, -790).
-    when: Der Spieler durch das Schneetal fährt.
+      - Das Fahrzeug verlässt das Nordportal des Tunnels bei (X = -240, Y = 16,0, Z = -790).
+    when: Der Spieler folgt der geräumten Winterstraße Richtung Norden bis zum Talende bei Z = -1300.
     then:
-      - "Eine 8.5 m breite, geräumte Winterstraße (mit seitlichen Schneewällen und blau-weißen Schneestangen alle 14 m) führt über mindestens 520 m Länge in sanften Kurven von (-240, 16.0, -790) bis zur großen Gletscher-Wendeschleife bei (-240, 19.5, -1300)."
-      - "Entlang der Talstraße erlebt der Fahrer fünf abwechslungsreiche Winter-Stationen: (1) Beton-Lawinengalerie mit Eiszapfen am Nordportal (Z -790..-825), (2) zugefrorener Gletschersee mit verschneiter Holz-Bogenbrücke (Z -890..-950), (3) beleuchtetes Winterdorf 'St. Kristall' mit 5 warm leuchtenden Chalets, Dorfkirche und einer animierten Gondel-Seilbahn am Steilhang (Z -1000..-1090), (4) magischer, transluzent türkis leuchtender Eisgletscher-Torbogen über der Straße (Z -1140..-1195), (5) geräumter Panorama-Wendeplatz mit beleuchtetem Eiskristall-Monument vor der Nordgletscherwand (Z -1260..-1310)."
-      - "Mindestens 220 tief verschneite Hochgebirgstannen (InstancedMesh) säumen Hänge und Talboden mit mindestens 6 m Abstand zur Straßenmittellinie."
-    why: Das Tal soll lang und vielfältig gestaltet sein, sodass man mit dem Auto richtig etwas erleben kann.
+      - Eine 8,5 m breite, mindestens 520 m lange Winterstraße mit seitlichen Schneewällen und Schneestangen führt in sanften Kurven bis zu einem geräumten Wendeplatz bei (X = -240, Y = 19,5, Z = -1290).
+      - Entlang der Strecke passiert der Spieler nacheinander fünf gestaltete Stationen: (1) die Lawinengalerie mit Eiszapfen am Nordportal, (2) einen zugefrorenen Gletschersee mit Holz-Bogenbrücke, (3) das beleuchtete Bergdorf St. Kristall mit fünf Chalets und einer fahrenden Gondel-Seilbahn am Steilhang, (4) einen türkis-blau leuchtenden Eisgletscher-Torbogen über der Straße und (5) den Panorama-Wendeplatz mit rotierendem Eiskristall-Monument.
+      - Mindestens 220 tief verschneite Tannen säumen das Tal mit mindestens 6 m Abstand zur Straßenmittellinie.
+    why: Das lange Hochtal soll beim Durchfahren mit der G-Klasse abwechslungsreiche Winter-Erlebnisse bieten.
+
+  - id: s-snow-world-006
+    title: Langsames Ausblenden und Pausieren der Schneewelt-Musik bei Rückfahrt in den Tunnel
+    given:
+      - Das Fahrzeug befindet sich in der Schneewelt (Z < -790) und die Musik (5w3rRFWzjcM) spielt bei einer fortgeschrittenen Abspielposition.
+    when: Das Fahrzeug fährt zurück in den Tauern-Tunnel über Z >= -780.
+    then:
+      - Die Musik bricht nicht abrupt ab, sondern blendet mit 45 Prozent pro Sekunde gleichmäßig bis auf 0 Prozent Lautstärke aus.
+      - Sobald 0 Prozent Lautstärke erreicht sind, wird die Wiedergabe pausiert und die erreichte Abspielposition in Sekunden gespeichert.
+      - Gleichzeitig kehren Himmel und Sichtweite auf die normalen Werte außerhalb der Schneewelt zurück.
+    why: Beim Verlassen der Schneewelt soll die Musik wie bei der Pyramide sanft verstummen und ihre Position für die Rückkehr behalten.
+
+  - id: s-snow-world-007
+    title: Nahtloses Fortsetzen der Musik an der gespeicherten Stelle bei Wiedereintritt
+    given:
+      - Der Spieler hat die Schneewelt zuvor verlassen; die Musik ist im Status "pausiert" bei einer gespeicherten Abspielposition größer als 0 Sekunden.
+    when: Das Fahrzeug fährt erneut durch das Nordportal über Z < -790 in die Schneewelt ein.
+    then:
+      - Die Musikwiedergabe setzt exakt an der gespeicherten Sekundenposition wieder ein und blendet sanft auf 85 Prozent Lautstärke ein.
+    why: Beim erneuten Betreten der Schneewelt soll das Lied nicht von vorn beginnen, sondern an der verlassenen Stelle weiterlaufen.
 
 decisions:
   - id: d-snow-world-001
-    title: Deterministische Schneetal-Höhenfunktion und Talkessel-Einschluss
+    title: Gemeinsame Schneetal-Höhenfunktion mit quadratischem Steilwand-Anstieg und AABB-Kollisionsring
     status: accepted
     specs: [s-snow-world-003, s-snow-world-005]
-    decision: "js/welt/schneewelt.js stellt EEP.schneewelt.hoehe(x, z) und EEP.schneewelt.strassenHoehe(z) bereit und registriert die Zone 'Schneewelt' mit hoeheFn in EEP.welt."
-    why: Identische Höhenwerte für Terrain-Mesh, Straßenverlauf und Fahrzeugphysik verhindern Schweben oder Einsinken im Schnee.
+    decision: EEP.schneewelt.hoehe(x, z) definiert sowohl die sanft ansteigende Talsohle (16,0 m bis 21,0 m) entlang der Straßen-Polylinie als auch den steilen Wandanstieg an den Talrändern; zusätzlich sichert ein geschlossener Ring aus AABB-Kollisionsboxen (mit einziger Lücke am Nordportal X = -245..-235, Z = -790) die Talränder ab.
+    why: Die Kombination aus sichtbarer Steilwand-Topographie und deterministischer AABB-Kollision garantiert, dass weder langsame noch sehr schnelle Fahrzeuge den Talkessel verlassen können.
     how:
-      - "Straßen-Stützpunkte (x, z) - (-240, -790), (-240, -835), (-222, -900), (-218, -960), (-248, -1035), (-272, -1110), (-252, -1185), (-235, -1245), (-240, -1300)."
-      - "strassenHoehe(z) steigt sanft von 16.0 m bei Z -790 bis 19.5 m bei Z -1300."
-      - "Abseits der Straße (Abstand d > 5 m) steigt der Talboden sanft wellig an; ab Abstand > 55 m zur Talmitte (X = -245) bzw. nördlich von Z = -1315 steigt die Wandsteilheit quadratisch bis auf +75 m an, sodass das Tal eine geschlossene Wanne bildet."
+      - "Straßen-Stützpunkte (x, z): (-240, -790), (-240, -835), (-222, -900), (-218, -960), (-248, -1035), (-272, -1110), (-252, -1185), (-235, -1245), (-240, -1300)."
+      - "Außerhalb des Straßenkorridors steigt das Gelände ab X < -305, X > -175 und Z < -1310 steil bis auf 75..135 m an."
 
   - id: d-snow-world-002
-    title: Zustandsautomat für Tunnel-Schwarzblende, Wetterwechsel und YouTube-Musik-Resume
+    title: Deterministischer Zustandsautomat für Schwarzblende, Wetter und YouTube-Musik-Resume
     status: accepted
-    specs: [s-snow-world-001, s-snow-world-002, s-snow-world-004]
-    decision: "EEP.schneewelt.aktualisiere(dt, pos) berechnet deterministisch transitionAlpha, inSchneewelt, musikStatus, musikLautstaerke, musikPositionSek sowie den aktiven Wetterzustand."
-    why: Dadurch lassen sich Level-Transition, Musik-Fade-Out/Resume und Wetterwechsel in weniger als 1 Sekunde headless per Unit-/Integrationstest verifizieren.
-    how:
-      - "Hört zusätzlich auf EEP.bus.on('tunnel-uebergang') aus Paket K und triggert bei Z in [-765, -715] eine Glockenkurve für transitionAlpha (Peak 1.0 bei Z = -740 bzw. zeitgesteuert über 1.4 s)."
-      - "Musik-State-Machine analog zu EEP.pyramide, jedoch mit videoId '5w3rRFWzjcM', Eintrittsschwelle Z < -790 und Austrittsschwelle Z >= -780."
-      - "Fahrbare Weltgrenzen (Clamps in baukasten.js und js/physik/fahrzeug-physik.js) reichen mindestens bis Z = -1380 und X = -430..-80."
+    specs: [s-snow-world-001, s-snow-world-002, s-snow-world-004, s-snow-world-006, s-snow-world-007]
+    decision: EEP.schneewelt.aktualisiere(dt, pos) berechnet in reinem JavaScript ohne DOM-/Engine-Abhängigkeit den Blendenwert transitionAlpha, den Aufenthaltsstatus inSchneewelt, den Wetterzustand sowie den Musik-Zustandsautomaten (stumm, fadein, spielt, fadeout, pausiert) samt musikPositionSek; die UI-Schicht synchronisiert damit den YouTube-IFrame-Player (Video-ID 5w3rRFWzjcM) und hält einen WebAudio-Synthesizer als Autoplay-Fallback bereit.
+    why: Durch die Trennung von Zustandslogik und Browser-Medienplayer bleibt das gesamte Ein-/Ausblend- und Resume-Verhalten deterministisch prüfbar und funktioniert auch bei strengen Browser-Autoplay-Richtlinien.
 
 tests:
   - id: t-snow-world-001
-    title: Selbsttest Schneewelt-Topographie, Talkessel-Kollision, Schwarzblende, Wetter und Musik-Resume
-    specs: [s-snow-world-001, s-snow-world-002, s-snow-world-003, s-snow-world-004, s-snow-world-005]
+    title: Schneetal-Topographie, Ausbruchsschutz des Talkessels und Winterstationen prüfen
+    specs: [s-snow-world-003, s-snow-world-005]
     suites: [smoke, regression]
     areas: [snow-world]
     risk: high
     requires: [local-http-server, headless-edge-webgl]
     preconditions:
-      - Lokaler HTTP-Server läuft unter http://localhost:8080/welt.html.
-      - "test_auto.ps1 filtert zusätzlich nach 'SCHNEEWELT_TEST'."
+      - Die Anwendung ist über den lokalen HTTP-Server geladen; Weltkarte, Kollisionssystem und Schneewelt sind initialisiert.
     steps:
-      - action: "http://localhost:8080/welt.html?schneewelttest=1&cam=8 öffnen; der Selbsttest liegt in js/core/schneewelt-ui.js und startet 550 ms nach Init."
+      - action: Die Geländehöhe und den Untergrund im Talboden bei (-240, -900) und (-222, -900) sowie an den Steilwänden im Westen (-390, -1000), Osten (-110, -1000) und Norden (-240, -1360) abfragen.
         expected:
-          - "SCHNEEWELT_TEST_RESULT meldet talHoeheOk=true (EEP.welt.abfrage(-240, -900).hoehe liegt bei 16..20 m, untergrund 'strasse' auf der Stützpunktlinie; Steilwände bei (-390, -1000) und (-110, -1000) sowie (-240, -1360) haben hoehe >= 60 m)."
-          - "SCHNEEWELT_TEST_RESULT meldet kesselKollisionOk=true (EEP.kollision.pruefe blockiert das Verlassen des Tals an den Rändern links/rechts/norden, lässt aber das Nordportal bei (-240, 16, -790) frei)."
-          - "SCHNEEWELT_TEST_RESULT meldet transitionOk=true (Fahrt durch Z = -740 erzeugt transitionAlpha >= 0.5; bei Z = -820 ist inSchneewelt === true)."
-          - "SCHNEEWELT_TEST_RESULT meldet musikResumeOk=true (videoId === '5w3rRFWzjcM', Eintritt startet fadein/spielt, nach 5 s bei Z = -820 ist musikPositionSek >= 4.5, Rückfahrt nach Z = -750 wechselt in fadeout mit 0 < musikLautstaerke < 85 bis pausiert bei 0, erneute Einfahrt nach Z = -820 setzt exakt ab musikPositionSek >= 4.5 fort)."
-          - "SCHNEEWELT_TEST_RESULT meldet wetterUndSzeneOk=true (alle 4 Wettermodi schaltbar, >= 220 Schneetannen, Gondelbahn & Eisbogen im Scene-Graph vorhanden)."
-          - Keine Uncaught-Ausnahmen; ARCH_TEST und VORLAND_TEST bleiben grün.
+          - Im Talboden liegt die Höhe zwischen 16,0 m und 20,0 m und auf der Straßenlinie wird der Untergrund "strasse" gemeldet.
+          - An den westlichen, östlichen und nördlichen Talrändern beträgt die Geländehöhe jeweils mindestens 60,0 m.
+      - action: Kollisionsproben an den Talrändern im Westen (X = -360, Z = -1000), Osten (X = -120, Z = -1000) und Norden (X = -240, Z = -1340) sowie direkt im Nordportal (X = -240, Y = 16,0, Z = -790) ausführen.
+        expected:
+          - An allen drei Talrändern blockiert die Kollisionsprüfung die Weiterfahrt.
+          - Am Nordportal (X = -240, Z = -790) ist die Durchfahrt frei.
+      - action: Den Bestand an Schneetannen und die aufgebauten Talstationen prüfen.
+        expected:
+          - Es sind mindestens 220 Schneetannen sowie die Gondelbahn im Bergdorf und der Eisgletscher-Torbogen über der Straße vorhanden.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: schneewelttest=1
+
+  - id: t-snow-world-002
+    title: Tunnel-Schwarzblende, Wetterwechsel sowie Musik-Fade-Out und exaktes Resume prüfen
+    specs: [s-snow-world-001, s-snow-world-002, s-snow-world-004, s-snow-world-006, s-snow-world-007]
+    suites: [regression]
+    areas: [snow-world]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Anwendung ist geladen und der Zustandsautomat der Schneewelt befindet sich im Ausgangszustand außerhalb des Tals.
+    steps:
+      - action: Das Fahrzeug im Tunnel in den Übergangsabschnitt bei (X = -240, Z = -740) und anschließend hinter das Nordportal nach (X = -240, Z = -820) bewegen.
+        expected:
+          - Im Übergangsabschnitt bei Z = -740 erreicht die Schwarzblende (transitionAlpha) mindestens 0,5.
+          - Hinter dem Nordportal bei Z = -820 ist der Status inSchneewelt aktiv und die Musik (Video-ID 5w3rRFWzjcM) blendet ein.
+      - action: Den Aufenthalt bei (X = -240, Z = -820) über 5,0 Sekunden fortschreiben und anschließend das Fahrzeug zurück in den Tunnel nach (X = -240, Z = -750) bewegen.
+        expected:
+          - Nach 5,0 Sekunden im Tal liegt die gespeicherte Abspielposition (musikPositionSek) bei mindestens 4,5 Sekunden und die Lautstärke über 80 Prozent.
+          - Unmittelbar nach der Rückkehr in den Tunnel (Z = -750) wechselt der Musikstatus auf "fadeout", ohne sofort auf 0 Prozent zu springen.
+          - Nach vollständigem Ausblenden im Tunnel steht die Lautstärke auf 0 Prozent, der Status lautet "pausiert" und die Abspielposition (>= 4,5 s) bleibt erhalten.
+      - action: Das Fahrzeug erneut hinter das Nordportal nach (X = -240, Z = -820) bewegen und nacheinander die Wetterzustände "schneesturm", "wintersonne" und "schneefall" aktivieren.
+        expected:
+          - Beim Wiedereintritt startet das Einblenden ("fadein") exakt ab der gespeicherten Position von mindestens 4,5 Sekunden.
+          - Alle Wetterzustände lassen sich verzögerungsfrei umschalten.
     cleanup:
       - Temporäres Browser-Profilverzeichnis entfernen.
     automation:
