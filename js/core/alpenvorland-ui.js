@@ -386,15 +386,18 @@
     var leuchtenMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff3b0, emissiveIntensity: 2.2 });
     var ledMat = new THREE.MeshStandardMaterial({ color: 0xfffaed, emissive: 0xfff6c7, emissiveIntensity: 2.5 });
 
-    // Portal
-    addMesh(tGroup, new THREE.TorusGeometry(5.8, 1.2, 16, 24, Math.PI), betonMat, -240, 17.5, -470);
-    addMesh(tGroup, new THREE.BoxGeometry(1.6, 7.5, 3.2), betonMat, -245.8, 19.5, -470);
-    addMesh(tGroup, new THREE.BoxGeometry(1.6, 7.5, 3.2), betonMat, -234.2, 19.5, -470);
-    addMesh(tGroup, new THREE.BoxGeometry(8.2, 1.4, 0.3), betonMat, -240, 24.2, -469.8);
-
+    // Portal (immer sichtbar auf parent)
+    addMesh(parent, new THREE.TorusGeometry(5.8, 1.2, 16, 24, Math.PI), betonMat, -240, 17.5, -470);
+    addMesh(parent, new THREE.BoxGeometry(1.6, 7.5, 3.2), betonMat, -245.8, 19.5, -470);
+    addMesh(parent, new THREE.BoxGeometry(1.6, 7.5, 3.2), betonMat, -234.2, 19.5, -470);
+    addMesh(parent, new THREE.BoxGeometry(10.5, 1.8, 0.5), betonMat, -240, 24.2, -469.6);
+    var schildGruenMat = new THREE.MeshStandardMaterial({ color: 0x15803d, emissive: 0x14532d, emissiveIntensity: 0.5 });
+    addMesh(parent, new THREE.CylinderGeometry(0.18, 0.18, 6.2, 8), betonMat, -246.8, 3.3, -62);
+    addMesh(parent, new THREE.CylinderGeometry(0.18, 0.18, 6.2, 8), betonMat, -233.2, 3.3, -62);
+    addMesh(parent, new THREE.BoxGeometry(14.2, 1.8, 0.25), schildGruenMat, -240.0, 5.8, -62);
     var ampelMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 3.5 });
-    state.portalLichter.push(addMesh(tGroup, new THREE.SphereGeometry(0.35, 12, 12), ampelMat, -245.5, 22.8, -469.5));
-    state.portalLichter.push(addMesh(tGroup, new THREE.SphereGeometry(0.35, 12, 12), ampelMat, -234.5, 22.8, -469.5));
+    state.portalLichter.push(addMesh(parent, new THREE.SphereGeometry(0.45, 12, 12), ampelMat, -245.5, 22.8, -469.2));
+    state.portalLichter.push(addMesh(parent, new THREE.SphereGeometry(0.45, 12, 12), ampelMat, -234.5, 22.8, -469.2));
 
     // Fahrbahn & Gehwege (320 m)
     addMesh(tGroup, new THREE.BoxGeometry(8.5, 0.2, 320), fahrbahnMat, -240, 15.9, -630);
@@ -502,6 +505,7 @@
     baueTauernTunnel(group, alpen);
 
     entity.object3D.add(group);
+    [{ v: 'TAUERN-TUNNEL & SCHNEEWELT (400m)', p: '-240 5.85 -61.8', r: '0 0 0', w: '22', c: '#ffffff' }, { v: 'TAUERN-TUNNEL & SCHNEEWELT (400m)', p: '-240 5.85 -62.2', r: '0 180 0', w: '22', c: '#ffffff' }, { v: 'TAUERN-TUNNEL (88.8 MHz)', p: '-240 24.2 -469.2', r: '0 0 0', w: '26', c: '#fef08a' }].forEach(function (st) { var tEl = document.createElement('a-text'); tEl.setAttribute('value', st.v); tEl.setAttribute('color', st.c); tEl.setAttribute('width', st.w); tEl.setAttribute('align', 'center'); tEl.setAttribute('position', st.p); tEl.setAttribute('rotation', st.r); entity.appendChild(tEl); });
   }
 
   // --------------------------------------------------------------------------
@@ -622,13 +626,16 @@
       var ac = EEP.autoComp;
       var autoPos = (ac && ac.el && ac.el.object3D) ? ac.el.object3D.position : null;
 
+      var laraEl = document.querySelector('#lara-spieler');
+      var laraPos = (laraEl && laraEl.object3D) ? laraEl.object3D.position : null;
       var rig = document.querySelector('#kamera-rig');
-      var cX = (rig && rig.object3D) ? rig.object3D.position.x : (autoPos ? autoPos.x : -240);
-      var cZ = (rig && rig.object3D) ? rig.object3D.position.z : (autoPos ? autoPos.z : -50);
+      var rigPos = (rig && rig.object3D) ? rig.object3D.position : null;
+      var refPos = (EEP.aktiveKamera === 8 && autoPos) ? autoPos : ((EEP.aktiveKamera === 1 && laraPos) ? laraPos : (autoPos || rigPos));
+      var cX = refPos ? refPos.x : -240, cZ = refPos ? refPos.z : -50;
       var dPortal = Math.sqrt((cX - (-240)) * (cX - (-240)) + (cZ - (-470)) * (cZ - (-470)));
-      var imKorridor = (cZ <= -470 && cZ >= -795 && Math.abs(cX - (-240)) <= 15.0);
+      var imKorridor = (cZ <= -430 && cZ >= -815 && Math.abs(cX - (-240)) <= 35.0);
       if (state.tunnelGruppe) {
-        state.tunnelGruppe.visible = (dPortal <= 60.0 || imKorridor);
+        state.tunnelGruppe.visible = (dPortal <= 220.0 || imKorridor || EEP.aktiveKamera === 8);
       }
 
       if (autoPos && EEP.alpenvorland) {

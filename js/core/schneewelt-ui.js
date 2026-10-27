@@ -131,10 +131,12 @@
         var btn = e.target.closest('button');
         if (!btn) return;
         var akt = btn.dataset.akt;
-        if (akt === 'wetter') EEP.schneewelt.naechstesWetter();
-        else if (akt === 'tp-schneewelt' && EEP.autoComp) EEP.autoComp.teleportiereZu(-242, 18.2, -990, 0.15);
-        else if (akt === 'tp-tunnel' && EEP.autoComp) EEP.autoComp.teleportiereZu(-240, 16.0, -600, 0);
-        else if (akt === 'tp-vorland' && EEP.autoComp) EEP.autoComp.teleportiereZu(-240, 15.6, -445, 0);
+        if (akt === 'wetter') { EEP.schneewelt.naechstesWetter(); return; }
+        var stEl = document.querySelector('[ki-steuerung]');
+        if (stEl && stEl.components && stEl.components['ki-steuerung'] && EEP.aktiveKamera !== 8) stEl.components['ki-steuerung'].setzeKamera(8);
+        if (akt === 'tp-schneewelt' && EEP.autoComp) EEP.autoComp.teleportiereZu(-242, 18.2, -990, 0.15);
+        else if (akt === 'tp-tunnel' && EEP.autoComp) EEP.autoComp.teleportiereZu(-240, 16.0, -442, 0);
+        else if (akt === 'tp-vorland' && EEP.autoComp) EEP.autoComp.teleportiereZu(-240, 0.45, -75, 0);
       });
     }
 
@@ -144,24 +146,20 @@
     });
   }
 
-  function aktualisiereHUD(z) {
+  function aktualisiereHUD(z, cZ) {
     if (!sState.hudEl) return;
-    if (!z.inSchneewelt && z.transitionAlpha <= 0.01) {
-      sState.hudEl.style.display = 'none';
-      return;
-    }
+    var zeigeHud = Boolean(EEP.aktiveKamera === 8 || z.inSchneewelt || z.transitionAlpha > 0.01 || (typeof cZ === 'number' && cZ < -70));
+    if (!zeigeHud) { sState.hudEl.style.display = 'none'; return; }
     sState.hudEl.style.display = 'flex';
     var wIcons = { schneefall: '🌨️', schneesturm: '🌪️', wintersonne: '☀️', eisnebel: '🌫️' };
     var wIcon = wIcons[z.wetterModus] || '❄️';
     var mIcon = z.musikStatus === 'spielt' ? '▶️' : (z.musikStatus === 'fadein' ? '↗️' : (z.musikStatus === 'fadeout' ? '↘️' : '⏸️'));
-
     sState.hudEl.innerHTML =
-      '<span style="color:#7dd3fc;margin-right:10px;">❄️ Magische Schneewelt</span>' +
-      '<button data-akt="wetter" style="background:#1e293b;color:#f8fafc;border:1px solid #64748b;padding:4px 9px;border-radius:8px;font:inherit;cursor:pointer;margin-right:8px;">[N] Wetter: ' + wIcon + ' ' + z.wetterModus + '</button>' +
-      '<span style="color:#94a3b8;margin-right:10px;">🎵 ' + mIcon + ' ' + Math.round(z.musikLautstaerke) + '% (' + Math.floor(z.musikPositionSek) + 's)</span>' +
-      '<button data-akt="tp-schneewelt" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;margin-right:4px;">❄️ Tal</button>' +
-      '<button data-akt="tp-tunnel" style="background:#334155;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;margin-right:4px;">🚇 Tunnel</button>' +
-      '<button data-akt="tp-vorland" style="background:#334155;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;">🏔️ Vorland</button>';
+      '<span style="color:#7dd3fc;margin-right:10px;">🏔️ Alpen & Schneewelt</span>' +
+      (z.inSchneewelt ? ('<button data-akt="wetter" style="background:#1e293b;color:#f8fafc;border:1px solid #64748b;padding:4px 9px;border-radius:8px;font:inherit;cursor:pointer;margin-right:8px;">[N] Wetter: ' + wIcon + ' ' + z.wetterModus + '</button><span style="color:#94a3b8;margin-right:10px;">🎵 ' + mIcon + ' ' + Math.round(z.musikLautstaerke) + '% (' + Math.floor(z.musikPositionSek) + 's)</span>') : '') +
+      '<button data-akt="tp-vorland" title="Zum Start der Alpenvorland-Straße" style="background:#15803d;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;margin-right:4px;">🏔️ Start Vorland</button>' +
+      '<button data-akt="tp-tunnel" title="Direkt vor das Tauern-Tunnelportal" style="background:#d97706;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;margin-right:4px;">🚇 Vor Tunnel</button>' +
+      '<button data-akt="tp-schneewelt" title="Direkt in die Magische Schneewelt" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:8px;font:inherit;cursor:pointer;">❄️ Schneewelt</button>';
   }
 
   // --------------------------------------------------------------------------
@@ -584,14 +582,17 @@
       var rig = document.querySelector('#kamera-rig');
       var rigPos = (rig && rig.object3D) ? rig.object3D.position : null;
 
-      var cX = (camPos && rigPos) ? (rigPos.x + camPos.x) : (autoPos ? autoPos.x : -240);
-      var cY = (camPos && rigPos) ? (rigPos.y + camPos.y) : (autoPos ? autoPos.y : 16);
-      var cZ = (camPos && rigPos) ? (rigPos.z + camPos.z) : (autoPos ? autoPos.z : -790);
+      var laraEl = document.querySelector('#lara-spieler');
+      var laraPos = (laraEl && laraEl.object3D) ? laraEl.object3D.position : null;
+      var aktPos = (EEP.aktiveKamera === 8 && autoPos) ? autoPos : ((EEP.aktiveKamera === 1 && laraPos) ? laraPos : (autoPos || rigPos));
+      var cX = aktPos ? aktPos.x : ((camPos && rigPos) ? (rigPos.x + camPos.x) : -240);
+      var cY = aktPos ? aktPos.y : ((camPos && rigPos) ? (rigPos.y + camPos.y) : 16);
+      var cZ = aktPos ? aktPos.z : ((camPos && rigPos) ? (rigPos.z + camPos.z) : -790);
 
       if (EEP.schneewelt) {
-        var z = EEP.schneewelt.aktualisiere(deltaSec, autoPos || { x: cX, z: cZ });
+        var z = EEP.schneewelt.aktualisiere(deltaSec, { x: cX, y: cY, z: cZ });
         aktualisiereMusik(z);
-        aktualisiereHUD(z);
+        aktualisiereHUD(z, cZ);
 
         if (sState.fadeOverlayEl) {
           sState.fadeOverlayEl.style.opacity = Math.max(0, Math.min(1, z.transitionAlpha));

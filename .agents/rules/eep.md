@@ -69,8 +69,9 @@ Damit der User sich nicht selbst um Modellwechsel oder Token-Sparen kümmern mus
 3. **Keine 3D-Geometrie- oder Architektur-Arbeit durch `flash`:**
    - `flash` übersieht bei 3D-Modellierung und komplexer Spiellogik räumliche Details (z. B. zu kurze Dächer über Fassaden). Deshalb schreibt und prüft der **Haupt-Agent** allen 3D-Geometrie-, Physik- und Architektur-Code selbst in den kompakten `js/*.js`-Modulen.
 
-## 7. Selbstständige Pflege dieser Regeldatei (`.agents/rules/eep.md`)
-Der Agent hält `.agents/rules/eep.md` **proaktiv und ungefragt** aktuell, sobald:
+## 7. Git-Workflow & Selbstständige Pflege dieser Regeldatei (`.agents/rules/eep.md`)
+- **Immer sofort auf Remote pushen:** Nach **jedem** `git commit` (oder Merge) wird unmittelbar ein `git push` auf das Remote-Repository (`origin`) ausgeführt.
+- Der Agent hält `.agents/rules/eep.md` **proaktiv und ungefragt** aktuell, sobald:
 - ein neues Modul unter `js/` oder eine neue Spezifikationsdatei unter `specs/` hinzukommt,
 - der User Arbeitsweise, Modell-/Subagenten-Strategie, Qualitätskriterien oder Projektregeln anpasst oder korrigiert,
 - eine wichtige technische Erkenntnis / Fallstrick (wie der `THREE.LOD`-Szenengraph-Bug) gefunden wird, die künftig nie wieder passieren darf.
