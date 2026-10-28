@@ -1480,6 +1480,7 @@ AFRAME.registerComponent('ki-canyon', {
         const z = gz + (rnd() - 0.5) * 2.2;
         const dist = Math.abs(x - gorgeX(z));
         if (dist < gorgeHalf + 2.2) continue;   // Schlucht frei lassen
+        if (x > 9.5) continue;   // Ost-Mesa komplett frei lassen fuer Grand-Canyon-Felsentunnel
         if (rnd() < 0.12) continue;            // Lücken -> einzelne Buttes
         const h = Math.max(4, Math.min(d.hoehe, d.hoehe - dist * 0.32 + rnd() * 3));
         baueFormation(x, z, 3.3 + rnd() * 1.4, h);
@@ -5865,7 +5866,7 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn eep-car-tp" data-tp="-243,0.28,-51,138">🇩🇪 Mein Haus DE</button>
         <button class="eep-btn eep-car-tp" data-tp="-246,0.28,38,85">🇩🇪 Hafen Ostsee</button>
         <button class="eep-btn eep-car-tp" data-tp="293,0.28,-33,155">🇺🇸 New York</button>
-        <button class="eep-btn eep-car-tp" data-tp="246,0.28,48,180">🇺🇸 Grand Canyon</button>
+        <button class="eep-btn eep-car-tp" data-tp="286,0.35,42,180">🇺🇸 Grand Canyon</button>
         <button class="eep-btn eep-car-tp" data-tp="145,0.28,124,90">🇪🇬 Ägypten Küste</button>
       </div>
       <div id="eep-auto-damage-box" style="margin-top:4px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15);">
