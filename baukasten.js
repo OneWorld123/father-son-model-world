@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  * BAUKASTEN.JS - Die 3D-Modelleisenbahn-Engine ("EEP-Vibe")
  * Enthält alle A-Frame Components: Gleise, Schwellen, Züge, Waggons, 
  * Gebäude, Licht/Wetter, Sound-Synthesizer und das interaktive Steuerpult.
@@ -5868,7 +5868,7 @@ AFRAME.registerComponent('ki-steuerung', {
         <button class="eep-btn eep-car-tp" data-tp="293,0.28,-33,155">🇺🇸 New York</button>
         <button class="eep-btn eep-car-tp" data-tp="286,0.35,42,180">🇺🇸 Grand Canyon</button>
         <button class="eep-btn eep-car-tp" data-tp="145,0.28,124,90">🇪🇬 Ägypten Küste</button>
-        <button class="eep-btn eep-car-tp" data-tp="270,0.35,160,15">🇲🇽 Mexiko</button>
+        <button class="eep-btn eep-car-tp" data-tp="278,0.35,192,15">🇲🇽 Mexiko</button>
       </div>
       <div id="eep-auto-damage-box" style="margin-top:4px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.15);">
         <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">

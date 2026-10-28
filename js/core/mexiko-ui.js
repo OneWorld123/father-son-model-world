@@ -631,14 +631,14 @@
     window.EEP.autoAussenAnsicht = true;
     function platziereFokusMexiko() {
       if (window.EEP.autoComp && typeof window.EEP.autoComp.teleportiereZu === 'function') {
-        window.EEP.autoComp.teleportiereZu(270.0, 0.35, 160.0, 25);
+        window.EEP.autoComp.teleportiereZu(278.0, 0.35, 192.0, 15);
       }
       if (window.EEP.laraComp && typeof window.EEP.laraComp.teleportiereZu === 'function') {
-        window.EEP.laraComp.teleportiereZu(268.0, 0.35, 162.0, 25);
+        window.EEP.laraComp.teleportiereZu(275.5, 0.35, 193.0, 15);
       }
       var rig = document.querySelector('#kamera-rig');
       if (rig && rig.object3D && window.EEP.aktiveKamera !== 8) {
-        rig.object3D.position.set(270.0, 5.2, 178.0);
+        rig.object3D.position.set(278.0, 4.2, 201.0);
         rig.object3D.rotation.set(-0.12, 0, 0);
       }
     }

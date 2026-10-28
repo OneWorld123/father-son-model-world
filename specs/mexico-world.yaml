@@ -1,4 +1,4 @@
-schema_version: 1
+﻿schema_version: 1
 area: mexico-world
 title: Mexiko – Neues Land mit Maya-Pyramiden, Bergmassiv, Vulkan Popocatépetl, El-Chepe-Eisenbahn und Wegenetz
 
@@ -91,7 +91,7 @@ specs:
       - Das Steuerungs-HUD des Fahrzeugs oder das Schnellreise-Menü ist sichtbar.
     when: Der Spieler die Schaltfläche "🇲🇽 Mexiko" auswählt.
     then:
-      - Das aktive Fahrzeug oder die Spielerkamera wird auf den zentralen Platz zwischen Pyramiden und Bergmassiv (X = 270, Y = 0.35, Z = 160) teleportiert.
+      - Das aktive Fahrzeug oder die Spielerkamera wird auf den zentralen Platz zwischen Pyramiden und Bergmassiv (X = 278, Y = 0.35, Z = 192) teleportiert.
       - Die Orientierung der Kamera ist auf die Ruinenstadt und das Bergmassiv ausgerichtet.
     why: Schneller und bequemer Zugang zum neuen Kontinent ohne lange Anfahrt über den Ozean.
 
@@ -179,7 +179,7 @@ tests:
           - Für die Pyramiden sind physische Treppenkollisionen registriert.
       - action: Den HUD-Teleport nach Mexiko auslösen.
         expected:
-          - Die Position des Fahrzeugs oder der Kamera wechselt zu X = 270, Y = 0.35, Z = 160.
+          - Die Position des Fahrzeugs oder der Kamera wechselt zu X = 278, Y = 0.35, Z = 192.
           - Das Blickfeld erfasst die Pyramiden und das Bergmassiv.
     cleanup: []
 

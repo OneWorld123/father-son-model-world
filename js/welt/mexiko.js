@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  * js/welt/mexiko.js – Reines Domänenmodul für das Land MEXIKO (Paket N)
  * Strikte Einhaltung der Architekturregeln:
  * - 0 Zugriffe auf AFRAME, THREE oder document (vollkommen renderer-unabhängig)
@@ -93,9 +93,9 @@
     ],
 
     teleportMexiko: {
-      x: 270.0,
+      x: 278.0,
       y: 0.35,
-      z: 160.0,
+      z: 192.0,
       rotY: 15
     }
   };
