@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  * js/core/mexiko-ui.js – 3D-Darstellung des Landes MEXIKO (Paket N)
  * - Maya- & Azteken-Stufenpyramiden mit begehbaren Treppen
  * - Zentrales Bergmassiv mit Serpentinenpfad & Bergstation
@@ -624,14 +624,28 @@
       console.log('MEXIKO_TEST_OK');
     }
 
-    // Für Verifikations-Screenshot G-Klasse auf die Plaza mit Blick auf Ruinen & Bergmassiv platzieren
     var stEl = document.querySelector('[ki-steuerung]');
     if (stEl && stEl.components && stEl.components['ki-steuerung']) {
       stEl.components['ki-steuerung'].setzeKamera(8);
     }
-    if (EEP.autoComp && typeof EEP.autoComp.teleportiereZu === 'function') {
-      EEP.autoComp.teleportiereZu(270.0, 0.35, 160.0, 30);
+    window.EEP.autoAussenAnsicht = true;
+    function platziereFokusMexiko() {
+      if (window.EEP.autoComp && typeof window.EEP.autoComp.teleportiereZu === 'function') {
+        window.EEP.autoComp.teleportiereZu(270.0, 0.35, 160.0, 25);
+      }
+      if (window.EEP.laraComp && typeof window.EEP.laraComp.teleportiereZu === 'function') {
+        window.EEP.laraComp.teleportiereZu(268.0, 0.35, 162.0, 25);
+      }
+      var rig = document.querySelector('#kamera-rig');
+      if (rig && rig.object3D && window.EEP.aktiveKamera !== 8) {
+        rig.object3D.position.set(270.0, 5.2, 178.0);
+        rig.object3D.rotation.set(-0.12, 0, 0);
+      }
     }
+    platziereFokusMexiko();
+    setTimeout(platziereFokusMexiko, 500);
+    setTimeout(platziereFokusMexiko, 1500);
+    setTimeout(platziereFokusMexiko, 3000);
   }
 
   // --------------------------------------------------------------------------
