@@ -26,6 +26,7 @@
   <script src="js/welt/pyramiden-kammer.js"></script>
   <script src="js/welt/alpenvorland.js"></script>
   <script src="js/welt/schneewelt.js"></script>
+  <script src="js/welt/grand-canyon-tunnel.js"></script>
   <script src="js/physik/kollision.js"></script>
   <script src="js/physik/fahrzeug-physik.js"></script>
   <script src="js/physik/flug-physik.js"></script>
@@ -35,6 +36,7 @@
   <script src="js/core/pyramiden-ui.js"></script>
   <script src="js/core/alpenvorland-ui.js"></script>
   <script src="js/core/schneewelt-ui.js"></script>
+  <script src="js/core/grand-canyon-tunnel-ui.js"></script>
 </head>
 <body style="margin: 0; overflow: hidden; background: #000;">
 
@@ -196,6 +198,8 @@
 
     <!-- Straße von Mein Haus (USA) zum US-Flughafen -->
     <a-entity ki-strasse="breite: 3.6; punkte: 292 0.28 -31, 298 0.28 -20, 312 0.28 -10"></a-entity>
+    <!-- Straße zum Grand Canyon & durch den Felsentunnel -->
+    <a-entity ki-strasse="breite: 3.8; punkte: 312 0.28 -10, 304 0.28 12, 296 0.28 28, 287.8 0.28 48, 287.8 0.28 76, 274 0.28 82, 250 0.28 82"></a-entity>
 
     <!-- 2. MAISFELD (Oben links bei New York, in der großen Bahnschleife) -->
     <a-box color="#ca8a04" width="22" height="0.2" depth="18" position="256 0.26 -56" material="roughness: 0.9"></a-box>
@@ -225,6 +229,7 @@
     <!-- 4. GROSSER GRAND CANYON IM SÜDEN AMERIKAS + COLORADO-FLUSS MIT FÄHRE -->
     <a-entity ki-canyon="breite: 46; tiefe: 44; hoehe: 22; seed: 7; fluss: true" position="266 0.25 54"></a-entity>
     <a-text value="GRAND CANYON" color="#fed7aa" width="48" align="center" position="266 24 54"></a-text>
+    <a-entity id="grand-canyon-tunnel-welt"></a-entity>
 
     <!-- Fluss vom Grand Canyon zum Ozean mit amerikanischer Fluss-Fähre -->
     <a-box color="#0284c7" width="7.5" height="0.52" depth="48" position="238 0.04 34" rotation="0 -38 0" material="roughness: 0.1; metalness: 0.85"></a-box>
@@ -236,7 +241,7 @@
     <!-- 5. DAS GROSSE US-EISENBAHNNETZ -->
     <!-- Fährt um das Maisfeld, direkt weiter nach NEW YORK hinein (und an Mein Haus vorbei), -->
     <!-- zum US-Hafen und in einer riesigen Schleife komplett rund um den Grand Canyon! -->
-    <a-entity ki-gleis="id: us-bahn; punkte: 256 0.30 -68, 242 0.30 -56, 258 0.30 -44, 288 0.30 -56, 306 0.30 -46, 286 0.30 -30, 268 0.30 -10, 278 0.30 22, 296 0.30 48, 288 0.30 76, 244 0.30 76, 234 0.30 46, 234 0.30 8, 230 0.30 -32, 252 0.30 -40, 268 0.30 -58"></a-entity>
+    <a-entity ki-gleis="id: us-bahn; punkte: 256 0.30 -68, 242 0.30 -56, 258 0.30 -44, 288 0.30 -56, 306 0.30 -46, 286 0.30 -30, 268 0.30 -10, 278 0.30 22, 284.2 0.30 48, 284.2 0.30 76, 244 0.30 76, 234 0.30 46, 234 0.30 8, 230 0.30 -32, 252 0.30 -40, 268 0.30 -58"></a-entity>
     <a-entity ki-bahnhof="name: New York Central" position="298 0.25 -42" rotation="0 -135 0"></a-entity>
 
     <!-- ZUG AMERIKA: Schnellzug Express auf der großen US-Strecke -->

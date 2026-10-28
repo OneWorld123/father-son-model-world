@@ -1,0 +1,104 @@
+schema_version: 1
+area: grand-canyon-tunnel
+title: Grand-Canyon-Felsentunnel mit rustikalen Holzportalen, Grubenlaternen und kombinierter Schienen- und Straßenpassage
+
+specs:
+  - id: s-grand-canyon-tunnel-001
+    title: Natürlicher Felsentunnel durch die Tafelberge des Grand Canyon
+    given:
+      - Die Weltansicht ist geöffnet.
+      - Das Fahrzeug oder der Zug befindet sich in Amerika im Bereich des Grand Canyon (X = 243 bis 289, Z = 32 bis 76).
+    when: Der Spieler blickt auf die südöstliche Felsformation des Grand Canyon oder nähert sich ihr.
+    then:
+      - Durch die rote Sandstein-Mesa führt ein mindestens 28 m langer Felsentunnel mit gewölbtem Profil.
+      - An beiden Portalen (Nordost-Portal bei X = 286, Z = 48 und Süd-Portal bei X = 286, Z = 76) steht ein massives Portal aus rotem Sandstein mit wettergegerbten Holzstützbalken und der Beschriftung "GRAND CANYON TUNNEL".
+      - Die Felswände um den Tunnel sind als Hindernisse registriert, sodass Fahrzeuge nur durch die lichte Tunnelöffnung passieren können.
+    why: Der Grand Canyon soll eine erlebnisreiche Durchquerungsmöglichkeit durch das Felsmassiv erhalten.
+
+  - id: s-grand-canyon-tunnel-002
+    title: Zugdurchfahrt des US-Express durch den Grand-Canyon-Tunnel
+    given:
+      - Der US-Express fährt auf der Eisenbahnstrecke us-bahn.
+    when: Der Zug den südöstlichen Streckenabschnitt am Grand Canyon befährt.
+    then:
+      - Die Gleisführung leitet den Zug direkt durch das Nordost-Portal in den Tunnel hinein und am Süd-Portal wieder heraus.
+      - Während der Durchfahrt bewegt sich der gesamte Zugverband kollisionsfrei durch das lichte Tunnelprofil.
+    why: Die Modelleisenbahn soll sichtbar durch die Canyon-Felsformationen hindurchfahren.
+
+  - id: s-grand-canyon-tunnel-003
+    title: Befahrbare Canyon-Straße für Autos und G-Klassen
+    given:
+      - Der Spieler steuert eine G-Klasse in Amerika.
+    when: Das Fahrzeug folgt der Zufahrtsstraße aus Richtung des US-Flughafens in den Grand Canyon.
+    then:
+      - Eine befestigte Gebirgsstraße führt parallel zum Gleis durch den beleuchteten Tunnel.
+      - Ein rustikales Holzgeländer trennt den Fahrbahnbereich ab und sichert die Tunnelpassage.
+    why: Auch Autofahrer und Lara sollen den Tunnel im Grand Canyon erkunden können.
+
+  - id: s-grand-canyon-tunnel-004
+    title: Rustikale Western-Atmosphäre und Grubenlaternen-Beleuchtung
+    given:
+      - Ein Fahrzeug, ein Zug oder die Spielfigur befindet sich im Inneren des Grand-Canyon-Tunnels.
+    when: Der Blick fällt in das Tunnelinnere.
+    then:
+      - Das Innere ist durch sichtbare hölzerne Stützjoche (Zimmerung im Western- und Nationalpark-Stil) im Abstand von ca. 6 m gegliedert.
+      - An den Stützbalken leuchten warm-goldene Grubenlaternen, die das rot-braune Gestein atmosphärisch erhellen.
+      - Im Tunnel ist ein dezenter Hohlraumklang hörbar.
+    why: Der Tunnel soll historisch und landschaftlich zum Grand Canyon und Western-Thema passen.
+
+  - id: s-grand-canyon-tunnel-005
+    title: Direkte Schnellwahl zum Grand-Canyon-Tunnel
+    given:
+      - Das Steuerungs-HUD der G-Klasse oder das Weltreise-Menü ist geöffnet.
+    when: Der Spieler wählt die Schnellwahlschaltfläche "🏜️ Grand Canyon Tunnel".
+    then:
+      - Das aktive Fahrzeug oder die Kamera wird unmittelbar vor das Nordost-Portal des Grand-Canyon-Tunnels (X = 286, Y = 0.35, Z = 40) mit Blickrichtung auf das Holzportal versetzt.
+    why: Vater und Sohn sollen den neuen Tunnel ohne langes Suchen direkt ansteuern können.
+
+decisions:
+  - id: d-grand-canyon-tunnel-001
+    title: Trassierung durch die Ost-Mesa des Grand Canyon und Parallellauf
+    status: accepted
+    specs: [s-grand-canyon-tunnel-001, s-grand-canyon-tunnel-002, s-grand-canyon-tunnel-003]
+    decision: Der Tunnel verläuft von (X = 286, Z = 48) bis (X = 286, Z = 76) auf einer Länge von 28 m durch die östliche Felsformation des Grand Canyon; die US-Eisenbahn us-bahn wird so angepasst, dass sie über diese Stützpunkte führt, und eine Canyon-Straße bindet bei Z = 48 an das US-Wegenetz an.
+    why: Die Ost-Mesa des Grand Canyon bietet mit ihrer Höhe von ca. 18 m die ideale Felsmasse für eine dramatische Durchquerung, ohne den zentralen Flusslauf zu schneiden.
+    how:
+      - "Nordost-Portal: X = 286, Y = 0.30, Z = 48."
+      - "Süd-Portal: X = 286, Y = 0.30, Z = 76."
+      - "Lichte Tunnelbreite: 7.5 m, lichte Höhe: 5.5 m für parallele Gleis- und Fahrbahnspur."
+
+  - id: d-grand-canyon-tunnel-002
+    title: Trennung in reines Logikmodul und 3D-Darstellung
+    status: accepted
+    specs: [s-grand-canyon-tunnel-001, s-grand-canyon-tunnel-004, s-grand-canyon-tunnel-005]
+    decision: js/welt/grand-canyon-tunnel.js kapselt Koordinaten, Zonen und Kollisionsboxen ohne DOM- oder Three.js-Abhängigkeit; js/core/grand-canyon-tunnel-ui.js baut die 3D-Geometrie, Holzjoche, Laternen, HUD-Anbindung und Sound auf.
+    why: Einhaltung der Projektarchitektur (Modularität, Testbarkeit ohne Browser-Rendering, Dateien unter 800 Zeilen).
+
+tests:
+  - id: t-grand-canyon-tunnel-001
+    title: Felsentunnel-Portale, Durchfahrtskorridor und Beleuchtung im Grand Canyon prüfen
+    specs: [s-grand-canyon-tunnel-001, s-grand-canyon-tunnel-002, s-grand-canyon-tunnel-003, s-grand-canyon-tunnel-004, s-grand-canyon-tunnel-005]
+    suites: [smoke, regression]
+    areas: [grand-canyon-tunnel]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Anwendung ist über den lokalen HTTP-Server unter welt.html geladen.
+      - Das Grand-Canyon-Tunnel-Modul ist initialisiert.
+    steps:
+      - action: Die Tunnel-Begrenzungsboxen und den Durchfahrtskorridor bei X = 286 zwischen Z = 48 und Z = 76 prüfen.
+        expected:
+          - Der Korridor X = 282.5 bis 289.5, Z = 48 bis 76 ist frei von blockierenden Geländehindernissen.
+          - Die Felsflanken links und rechts des Tunnels sind als Kollisionshindernisse registriert.
+      - action: Die 3D-Ausstattung des Tunnels zwischen Z = 48 und Z = 76 abfragen.
+        expected:
+          - An beiden Portalen sind Felsbögen mit Holzbalken und Schildern vorhanden.
+          - Im Tunnelinneren stehen mindestens vier Holzjoche mit warm leuchtenden Grubenlaternen.
+      - action: Die Gleisführung der us-bahn im Bereich Z = 40 bis 80 prüfen.
+        expected:
+          - Die Strecke führt geradlinig durch den Tunnel von Z = 48 bis Z = 76.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: canyontest=1
