@@ -1,0 +1,204 @@
+schema_version: 1
+area: mexico-world
+title: Mexiko – Neues Land mit Maya-Pyramiden, Bergmassiv, Vulkan Popocatépetl, El-Chepe-Eisenbahn und Wegenetz
+
+specs:
+  - id: s-mexico-world-001
+    title: Geografische Lage und Topographie des mexikanischen Kontinents
+    given:
+      - Die Weltansicht ist geöffnet.
+      - Die Kamera oder das Fahrzeug befindet sich im südlichen Bereich der 3D-Welt zwischen X = 200 bis 380 und Z = 80 bis 260.
+    when: Der Spieler den südlichen Kontinent unterhalb der USA ansteuert oder überfliegt.
+    then:
+      - Südlich der USA erstreckt sich die Landmasse von Mexiko, gegliedert in eine weitläufige westliche Region und ein östliches Talgebiet mit Meeresbucht.
+      - Entlang der Südküste und Ostküste säumen gelbe Sandstrände das warme Meer.
+      - Im Land sind drei markante gelbe Agrarfelder angelegt (Nordwest-Maisfeld, zentrales Agavenfeld und Ost-Tal-Feld).
+      - Die Bodenflächen sind für Fahrzeuge befahrbar und tragen die passenden Bodenbeläge für Wiese, Sand, Erde und Fels.
+    why: Mexiko soll als vollwertiger neuer Kontinent mit charakteristischer Landschaft nach der Kinderzeichnung erfahrbar sein.
+
+  - id: s-mexico-world-002
+    title: Maya- und Azteken-Pyramidenstadt mit begehbaren Stufentempeln
+    given:
+      - Der Spieler nähert sich im westlichen Mexiko dem Bereich X = 250 bis 280, Z = 140 bis 175.
+    when: Die Spielfigur oder das Fahrzeug die Ruinenstadt erreicht.
+    then:
+      - Ein Komplex aus gestuften roten Sandstein-Pyramiden und Tempelplattformen erhebt sich auf einer offenen Plaza.
+      - Breite Steintreppen führen zu den oberen Terrassen und Gipfelplattformen der Tempel hinauf.
+      - Die Stufen und Plattformen besitzen begehbare Kollisionsflächen, sodass die Spielfigur die Tempel erklimmen und die Aussicht genießen kann.
+      - Massive Pfeiler und Opferaltäre säumen den Tempelbezirk.
+    why: Die rot-pinken Strukturen der Kinderzeichnung stellen ein prachtvolles altmexikanisches Kulturdenkmal dar.
+
+  - id: s-mexico-world-003
+    title: Zentrales Bergmassiv mit Serpentinen-Bergpfad für Geländewagen
+    given:
+      - Der Spieler steuert eine G-Klasse oder ein Geländefahrzeug in Zentralmexiko (X = 280 bis 320, Z = 145 bis 195).
+    when: Das Fahrzeug den Anstieg des zentralen Bergmassivs befährt.
+    then:
+      - Ein massiver brauner Felsenberg ragt bis auf eine Höhe von ca. 32 m über dem Meeresspiegel empor.
+      - Ein kurvenreicher Serpentinen-Bergpfad führt über die Felsflanken bis zum Bergrücken.
+      - Die steilen Felswände außerhalb der Trasse sind als unpassierbare Barrieren geschützt, während der Weg gleichmäßige Fahrphysik bietet.
+    why: Der Sohn hat das zentrale Element ausdrücklich als Berg mit Wegen und Höhenschichten definiert.
+
+  - id: s-mexico-world-004
+    title: Dichter Bergwald im Nordwesten mit schattigen Offroad-Pisten
+    given:
+      - Das Fahrzeug befindet sich im Nordwesten von Mexiko oberhalb der Pyramidenstadt (X = 220 bis 280, Z = 95 bis 140).
+    when: Der Spieler in das Waldgebiet einfährt.
+    then:
+      - Ein dichter Bestand an Bäumen (Nadelbäume, Palmen und mexikanische Laubbäume) spendet Schatten auf sanft ansteigendem Hügelland.
+      - Ein natürlicher Wald- und Wanderweg verbindet den nördlichen Grenzbereich mit der Pyramidenstadt.
+      - Baumstämme sind als feste Hindernisse registriert, zwischen denen das Fahrzeug hindurch manövrieren kann.
+    why: Das grüne Areal im Nordwesten der Kinderzeichnung soll als erlebnisreicher Urwald mit Fahrspaß umgesetzt werden.
+
+  - id: s-mexico-world-005
+    title: Vulkan Popocatépetl mit Kratergipfel und Panoramablick im Osten
+    given:
+      - Die Kamera blickt in den Nordosten von Mexiko (X = 330 bis 380, Z = 95 bis 155).
+    when: Der Spieler auf den östlichen Horizont blickt oder den Vulkan besteigt.
+    then:
+      - Ein mächtiger Vulkankegel bildet mit einer Höhe von 45 m den höchsten Gipfel Mexikos.
+      - An der Spitze öffnet sich eine ausgeprägte Kraterzone mit charakteristischen rötlich-pinken Gesteinsformationen wie in der Zeichnung.
+      - Über dem Vulkankrater schwebt ein dezenter, atmosphärischer Rauchpartikeleffekt.
+      - Vom Gipfel aus überblickt der Spieler das gesamte Staatsgebiet bis zum Meer.
+    why: Der Vulkan ist die dominierende Landmarke der Ostregion auf der Vorlage des Sohnes.
+
+  - id: s-mexico-world-006
+    title: Eisenbahn-Rundkurs El Chepe mit vier Bahnhöfen
+    given:
+      - Der mexikanische Personenzug El Chepe ist in Betrieb.
+    when: Der Zugverband auf der Ringstrecke durch Mexiko fährt.
+    then:
+      - Die Eisenbahnstrecke verbindet vier Bahnhöfe auf einem rund 480 m langen Rundkurs: Estación Ruinas, Estación El Monte, Estación Popocatépetl und Estación Puerto Pacífico.
+      - Die Trasse führt am Fuße der Pyramiden vorbei, windet sich auf einer Panoramarampe am Felsmassiv entlang und umrundet den Vulkanfuß.
+      - Jeder Bahnhof besitzt einen beidseitigen Bahnsteig, Bahnhofsschilder und eine Unterstandshalle im mexikanischen Stil.
+      - Der Zug hält an den Stationen fahrplanmäßig an und setzt seine Fahrt fort.
+    why: Die eingezeichnete Eisenbahnlinie mit den vier blauen Stationspunkten bildet das verkehrliche Rückgrat Mexikos.
+
+  - id: s-mexico-world-007
+    title: Straßennetz, mexikanische Pueblos und Hafen Puerto Pacífico
+    given:
+      - Der Spieler befährt das mexikanische Verkehrsnetz.
+    when: Das Fahrzeug den grauen Hauptstraßen oder befestigten Wegen folgt.
+    then:
+      - Eine durchgehende asphaltierte Straße führt von der US-Grenze im Norden durch die zentralen Siedlungen bis zum Hafen an der Ostküste.
+      - Die Pueblos bestehen aus farbenfrohen Gebäuden (pink, weiß, ocker) mit roten Ziegeldächern, Arkaden und Begrünung.
+      - An der Ostküste ragt eine Hafenmole (Puerto Pacífico) mit Anlegestelle für Schiffe in die Meeresbucht hinein.
+    why: Dörfer, Straßen und der Hafen bilden den bewohnten, lebendigen Charakter des Landes ab.
+
+  - id: s-mexico-world-008
+    title: Schnellwahl und Reiseanbindung nach Mexiko
+    given:
+      - Das Steuerungs-HUD des Fahrzeugs oder das Schnellreise-Menü ist sichtbar.
+    when: Der Spieler die Schaltfläche "🇲🇽 Mexiko" auswählt.
+    then:
+      - Das aktive Fahrzeug oder die Spielerkamera wird auf den zentralen Platz zwischen Pyramiden und Bergmassiv (X = 270, Y = 0.35, Z = 160) teleportiert.
+      - Die Orientierung der Kamera ist auf die Ruinenstadt und das Bergmassiv ausgerichtet.
+    why: Schneller und bequemer Zugang zum neuen Kontinent ohne lange Anfahrt über den Ozean.
+
+decisions:
+  - id: d-mexico-world-001
+    title: Geografische Platzierung und Koordinatenraum südlich der USA
+    status: accepted
+    specs: [s-mexico-world-001, s-mexico-world-007]
+    decision: Mexiko wird im Koordinatenbereich X = 200 bis 380, Z = 80 bis 260 platziert. Dies liegt direkt südlich des US-Kontinents (Grand Canyon bei Z = 76), wodurch die bestehende US-Straße und der Ozean natürlich anschließen.
+    why: Die geografische Lage wahrt die reale Weltordnung (USA nördlich von Mexiko, Ozean im Osten und Westen) und ermöglicht zukünftige nahtlose Übergänge für Autos und Schiffe.
+    how:
+      - "West-Mexiko: X = 210 bis 320, Z = 90 bis 240."
+      - "Ost-Mexiko: X = 320 bis 380, Z = 90 bis 250."
+      - "Meeresbucht / Golfo: X = 300 bis 340, Z = 220 bis 260."
+
+  - id: d-mexico-world-002
+    title: Strikte Trennung von mathematischer Domänenlogik und 3D-Darstellung
+    status: accepted
+    specs: [s-mexico-world-001, s-mexico-world-002, s-mexico-world-003, s-mexico-world-004, s-mexico-world-005, s-mexico-world-006, s-mexico-world-007, s-mexico-world-008]
+    decision: js/welt/mexiko.js enthält ausschließlich reine Daten, Koordinatenarrays, topografische Höhenfunktionen, Zonenberechnungen und Kollisionskörper ohne jegliche Abhängigkeit von THREE, AFRAME oder document. Die grafische Repräsentation, Beleuchtung, HUD-Integration und Animationen liegen in js/core/mexiko-ui.js.
+    why: Einhaltung der strengen Architekturregeln aus docs/specs-decisions-tests.md und .agents/rules/eep.md für Headless-Testbarkeit und Dateigrößen unter 800 Zeilen.
+
+  - id: d-mexico-world-003
+    title: Mehrstufiges topografisches Höhenprofil und Treppen-Kollision
+    status: accepted
+    specs: [s-mexico-world-002, s-mexico-world-003, s-mexico-world-005]
+    decision: Die Höhenabfrage getTerrainHeight(x, z) liefert stetig differenzierte Höhen für die Ebenen (Y = 0.30 m), das Bergmassiv (bis Y = 32 m) und den Vulkankegel (bis Y = 45 m). Die Stufenpyramiden besitzen gestufte Trittflächen, die bei Spielfigur-Kollision ein stufenweises Emporsteigen ermöglichen.
+    why: Spielfigur und Geländewagen benötigen verlässliche Bodenhöhen für dynamische Fahrphysik und Fußgänger-Erkundung.
+    how:
+      - "Flache Zonen (Wiese/Strand/Plaza): Y = 0.30 m."
+      - "Pyramidenterrassen: Stufen à 1.5 m Höhe bis Y = 12 m und Y = 16 m."
+      - "Bergmassiv-Serpentinen: Steigung von maximal 14% für G-Klassen-Befahrbarkeit."
+      - "Vulkankegel: Parabolischer Anstieg von Z = 150 bis Kraterrand bei Z = 120."
+
+  - id: d-mexico-world-004
+    title: Eigenständige Zuggarnitur und Streckenführung für El Chepe
+    status: accepted
+    specs: [s-mexico-world-006]
+    decision: Die Eisenbahnlinie 'el-chepe' wird als geschlossener Rundkurs mit einer Spurweite von 1.435 m (Modellmaßstab) und einer Zuggarnitur in den mexikanischen Landesfarben (Grün, Weiß, Rot) ausgeführt. Die Trasse besitzt vier Bahnhöfe mit definierten Haltepunkten.
+    why: Die Bahnlinie ist das zentrale dynamische Element auf der Kinderzeichnung und verbindet alle Landmarken miteinander.
+    how:
+      - "Haltestelle 1 (Ruinas): X = 250, Z = 145."
+      - "Haltestelle 2 (El Monte): X = 295, Z = 165."
+      - "Haltestelle 3 (Popocatépetl): X = 345, Z = 135."
+      - "Haltestelle 4 (Puerto Pacífico): X = 360, Z = 220."
+
+tests:
+  - id: t-mexico-world-001
+    title: Topographie, Höhenprofil und Zonen des mexikanischen Kontinents prüfen
+    specs: [s-mexico-world-001, s-mexico-world-003, s-mexico-world-004, s-mexico-world-005]
+    suites: [smoke, regression]
+    areas: [mexico-world]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Anwendung welt.html ist im Testbrowser geladen.
+      - Das Domänenmodul Mexiko ist im globalen Scope initialisiert.
+    steps:
+      - action: Die Geländehöhe in den mexikanischen Kernzonen abfragen (Plaza bei X = 270, Z = 160; Bergmassiv bei X = 300, Z = 170; Vulkan bei X = 350, Z = 125).
+        expected:
+          - Die Plaza weist die Standard-Bodenhöhe Y = 0.30 m auf.
+          - Das Bergmassiv weist eine erhöhte Gipfelhöhe von mindestens 25 m auf.
+          - Der Vulkangipfel weist eine Höhe von mindestens 40 m auf.
+      - action: Die Zonenabfrage für Strand, Wiese, Fels und Wald ausführen.
+        expected:
+          - Der Bereich an der Südküste (X = 260, Z = 240) wird als Strandzone klassifiziert.
+          - Der Bereich im Nordwesten (X = 250, Z = 115) wird als Waldzone klassifiziert.
+          - Der Bereich am Berg (X = 300, Z = 170) wird als Fels-/Bergzone klassifiziert.
+    cleanup: []
+
+  - id: t-mexico-world-002
+    title: Maya-Pyramiden, Straßennetz und Teleportationspunkt prüfen
+    specs: [s-mexico-world-002, s-mexico-world-007, s-mexico-world-008]
+    suites: [smoke, regression]
+    areas: [mexico-world]
+    risk: medium
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Anwendung welt.html ist geladen.
+      - Das Mexiko-UI-Modul ist aktiv und in die 3D-Szene eingehängt.
+    steps:
+      - action: Die 3D-Objekte der Pyramidenstadt im Bereich X = 255 bis 275, Z = 140 bis 170 inspizieren.
+        expected:
+          - Mindestens zwei Stufenpyramiden mit Terrassenstufen sind in der Szene vorhanden.
+          - Für die Pyramiden sind physische Treppenkollisionen registriert.
+      - action: Den HUD-Teleport nach Mexiko auslösen.
+        expected:
+          - Die Position des Fahrzeugs oder der Kamera wechselt zu X = 270, Y = 0.35, Z = 160.
+          - Das Blickfeld erfasst die Pyramiden und das Bergmassiv.
+    cleanup: []
+
+  - id: t-mexico-world-003
+    title: Rundkurs der El-Chepe-Eisenbahn und Bahnhöfe prüfen
+    specs: [s-mexico-world-006]
+    suites: [smoke, regression]
+    areas: [mexico-world]
+    risk: high
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Weltansicht mit initialisiertem Bahnnetz ist aktiv.
+    steps:
+      - action: Die Streckendefinition des Rundkurses el-chepe abfragen.
+        expected:
+          - Die Strecke bildet eine geschlossene Schleife mit einer Gesamtlänge von mindestens 400 m.
+          - Entlang der Strecke sind genau vier Stationen (Ruinas, El Monte, Popocatépetl, Puerto Pacífico) als Haltepunkte definiert.
+      - action: Die Position des Zugs el-chepe über eine Umlaufdauer beobachten.
+        expected:
+          - Der Zugverband bewegt sich kontinuierlich entlang des Schienenwegs.
+          - An den Stationen führt der Zug kurze Haltezyklen aus.
+    cleanup: []

@@ -27,6 +27,7 @@
   <script src="js/welt/alpenvorland.js"></script>
   <script src="js/welt/schneewelt.js"></script>
   <script src="js/welt/grand-canyon-tunnel.js"></script>
+  <script src="js/welt/mexiko.js"></script>
   <script src="js/physik/kollision.js"></script>
   <script src="js/physik/fahrzeug-physik.js"></script>
   <script src="js/physik/flug-physik.js"></script>
@@ -37,6 +38,7 @@
   <script src="js/core/alpenvorland-ui.js"></script>
   <script src="js/core/schneewelt-ui.js"></script>
   <script src="js/core/grand-canyon-tunnel-ui.js"></script>
+  <script src="js/core/mexiko-ui.js"></script>
 </head>
 <body style="margin: 0; overflow: hidden; background: #000;">
 
@@ -254,6 +256,14 @@
 
     <!-- 6. US-FLUGHAFEN (Rechts bei X: +306 mit Startbahn, großem Terminal, Rollfeld & Tower im Süden) -->
     <a-entity ki-flughafen="name: NEW YORK AIRPORT; laenge: 58; terminalSeite: rechts" position="306 0.25 14"></a-entity>
+
+    <!-- ====================================================================== -->
+    <!-- KONTINENT 4 (SÜDEN / SÜDWESTEN): MEXIKO                                -->
+    <!-- (X: +200 bis +385, Z: +80 bis +260 – 1:1 nach der Zeichnung des Sohnes) -->
+    <!-- ====================================================================== -->
+    <a-entity id="mexiko-welt"></a-entity>
+    <a-text value="MEXIKO" color="#fef08a" width="90" align="center" position="270 25 155"></a-text>
+    <a-text value="MEXIKO" color="#fef08a" width="90" align="center" position="270 25 155" rotation="0 180 0"></a-text>
 
 
     <!-- ====================================================================== -->
