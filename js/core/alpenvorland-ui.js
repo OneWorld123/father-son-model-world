@@ -247,7 +247,7 @@
     addMesh(kGroup, new THREE.TorusGeometry(0.16, 0.016, 10, 20), korbDunkelMat, 0, 0.06, 0, Math.PI / 2);
     addMesh(kGroup, new THREE.TorusGeometry(0.19, 0.016, 10, 20), korbHellMat, 0, 0.12, 0, Math.PI / 2);
     addMesh(kGroup, new THREE.TorusGeometry(0.22, 0.024, 12, 24), korbDunkelMat, 0, 0.18, 0, Math.PI / 2);
-    addMesh(kGroup, new THREE.CylinderGeometry(0.19, 0.14, 0.05, 16), moosMat, 0, 0.07, 0);
+    addMesh(kGroup, new THREE.CylinderGeometry(0.19, 0.14, 0.07, 16), moosMat, 0, 0.10, 0);
     addMesh(kGroup, new THREE.TorusGeometry(0.21, 0.020, 10, 24, Math.PI), korbDunkelMat, 0, 0.18, 0);
     var inhalt = new THREE.Group(); inhalt.name = 'korb-inhalt'; kGroup.add(inhalt);
     return { group: kGroup, inhalt: inhalt };
@@ -257,8 +257,8 @@
     var gBl = new THREE.Group(), c = new THREE.Color(farbeHex || '#ec4899');
     var stielMat = new THREE.MeshLambertMaterial({ color: 0x16a34a });
     var blMat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.35, roughness: 0.25, metalness: 0.2 });
-    addMesh(gBl, new THREE.CylinderGeometry(0.012, 0.012, 0.12, 6), stielMat, 0, 0.05, 0);
-    var kr = addMesh(gBl, new THREE.OctahedronGeometry(0.068 * (scale || 1.0), 0), blMat, 0, 0.13, 0);
+    addMesh(gBl, new THREE.CylinderGeometry(0.014, 0.014, 0.15, 6), stielMat, 0, 0.075, 0);
+    var kr = addMesh(gBl, new THREE.OctahedronGeometry(0.078 * (scale || 1.0), 0), blMat, 0, 0.17, 0);
     kr.scale.set(1.0, 1.35, 1.0);
     return gBl;
   }
@@ -296,9 +296,9 @@
   function stelleLaraKorbUndHandSicher() {
     var lc = EEP.laraComp;
     if (!lc || !lc.armL || !lc.armL.wrist || !lc.armR || !lc.armR.wrist || state.laraKorbPivot || typeof THREE === 'undefined') return;
-    var pivot = new THREE.Group(); pivot.position.set(-0.04, -0.05, -0.02);
+    var pivot = new THREE.Group(); pivot.position.set(-0.06, -0.05, 0);
     var laraKorb = erzeuge3DKorb();
-    laraKorb.group.scale.set(0.82, 0.82, 0.82); laraKorb.group.position.set(0, -0.31, 0);
+    laraKorb.group.scale.set(0.82, 0.82, 0.82); laraKorb.group.position.set(0, -0.32, 0);
     pivot.add(laraKorb.group); pivot.visible = false; lc.armL.wrist.add(pivot);
     state.laraKorbPivot = pivot; state.laraKorbGroup = laraKorb.group; state.laraKorbInhalt = laraKorb.inhalt;
 
@@ -644,7 +644,8 @@
     alpen.legeKorbAb();
     var abgelegtMitInhaltOk = Boolean(!alpen.korbZustand.aufgenommen && alpen.korbZustand.gesammelt.length === 2);
     alpen.nehmeKorbAuf();
-    var korbUndPflueckenOk = Boolean(ohneKorbAbgelehnt && nachErsterBlumeOk && zweiImKorbOk && abgelegtMitInhaltOk);
+    wendeLaraKorbPoseAn(0.016); var korbQ = new THREE.Quaternion(), korbUp = new THREE.Vector3(0, 1, 0); if (state.laraKorbPivot) { state.laraKorbPivot.getWorldQuaternion(korbQ); korbUp.applyQuaternion(korbQ); }
+    var korbUndPflueckenOk = Boolean(ohneKorbAbgelehnt && nachErsterBlumeOk && zweiImKorbOk && abgelegtMitInhaltOk && korbUp.y > 0.99);
 
     var res = {
       hoeheOk: hoeheOk, strasseOk: strasseOk, baeumeFreiOk: baeumeFreiOk,
@@ -700,6 +701,12 @@
       }
     } else if (lc.armR && lc.armR.wrist) {
       lc.armR.wrist.rotation.x = 0;
+    }
+    if (state.laraKorbPivot && kz.aufgenommen && lc.el && lc.el.object3D && lc.armL && lc.armL.wrist) {
+      lc.el.object3D.updateMatrixWorld(true);
+      var qL = new THREE.Quaternion(), qW = new THREE.Quaternion();
+      lc.el.object3D.getWorldQuaternion(qL); lc.armL.wrist.getWorldQuaternion(qW);
+      state.laraKorbPivot.quaternion.copy(qW).invert().multiply(qL);
     }
   }
 
