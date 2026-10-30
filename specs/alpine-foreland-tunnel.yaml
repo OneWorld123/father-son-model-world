@@ -75,6 +75,54 @@ specs:
       - Der Übergang in Richtung des nördlichen Nachbarabschnitts wird genau einmal für diese Durchfahrt signalisiert.
     why: Nach längerer Fahrt im Tunnel soll der Übergang in die dahinterliegende Schneewelt ausgelöst werden.
 
+  - id: s-alpine-foreland-tunnel-007
+    title: Bereitstellung und Aufnahme des Sammel-Körbchens am Eingang des Alpenvorlands
+    given:
+      - Die Weltansicht ist geöffnet und Lara befindet sich zu Fuß in der Außenansicht (Kamera 1 oder Kamera 7).
+      - Am Eingang zur Blumen- und Kristallwiese des Alpenvorlands bei (X = -233,5, Z = -92,0) steht das geflochtene Körbchen auf dem Holzstand neben dem Schild "BLUMENKÖRBCHEN".
+      - Lara trägt derzeit noch kein Körbchen.
+    when: Der Spieler löst am Eingangsstand oder über die Körbchen-Anforderung (Taste [B] oder Schaltfläche "🧺 Körbchen holen [B]") die Aufnahme des Körbchens aus.
+    then:
+      - Das Körbchen verschwindet vom Holzstand am Eingang des Alpenvorlands.
+      - Lara hält das geflochtene Körbchen am Henkel waagerecht in ihrer linken Hand.
+      - In der Kopfleiste wird der Status "🧺 Körbchen: 0 gesammelt" samt Schaltfläche zum Pflücken angezeigt.
+    why: Lara soll das Körbchen bei Bedarf am Eingang des Alpenvorlands abholen und sichtbar bei sich tragen können.
+
+  - id: s-alpine-foreland-tunnel-008
+    title: Natürliches Pflücken einer Wiesenblume oder eines Kristalls in das Körbchen
+    given:
+      - Lara befindet sich zu Fuß im Alpenvorland und trägt das Körbchen in ihrer linken Hand.
+      - Im Umkreis von höchstens 4,5 m um Lara steht mindestens eine noch nicht gepflückte bunte Blume oder ein Kristall auf der Wiese.
+    when: Der Spieler löst das Pflücken aus (Taste [E], Schaltfläche "🌸 Pflücken [E]" oder Klick auf die Blume bzw. den Kristall).
+    then:
+      - Lara wendet sich der nächstgelegenen Blume bzw. dem Kristall zu, geht in die Hocke, beugt den Oberkörper vor und führt die rechte Hand zum Boden, während die linke Hand das Körbchen waagerecht hält.
+      - Beim Zugreifen verschwindet die gepflückte Blume bzw. der Kristall von der Wiese, wird in Laras rechter Hand sichtbar nach oben zum Körbchen geführt und dort hineingelegt.
+      - Nach dem Ablegen richtet sich Lara wieder vollständig in den Stand auf.
+      - Das eingesammelte Objekt ist dauerhaft mit seiner ursprünglichen Farbe (Rot, Goldgelb, Blau, Rosa, Violett oder Weiß) im Inneren des Körbchens sichtbar und der Sammelzähler erhöht sich um 1.
+    why: Das Einsammeln auf der Blumen- und Kristallwiese soll mit einer natürlichen Körperbewegung ablaufen und den gesammelten Schatz sichtbar im Körbchen zeigen.
+
+  - id: s-alpine-foreland-tunnel-009
+    title: Hinweis bei Pflückversuch ohne Körbchen oder außerhalb der Blumenreichweite
+    given:
+      - Lara befindet sich zu Fuß im Alpenvorland.
+      - Entweder trägt Lara noch kein Körbchen oder im Umkreis von 4,5 m befindet sich keine ungepflückte Blume bzw. kein Kristall.
+    when: Der Spieler löst das Pflücken aus (Taste [E] oder Schaltfläche "🌸 Pflücken [E]").
+    then:
+      - Lara führt keine Pflückbewegung ins Leere aus und der Sammelzähler bleibt unverändert.
+      - Trägt Lara noch kein Körbchen, erscheint in der Kopfleiste der Hinweis "Bitte zuerst das Körbchen am Eingang aufnehmen [B]!".
+      - Ist keine Blume in Reichweite, erscheint in der Kopfleiste der Hinweis "Keine Blume in Reichweite – geh näher zu einer bunten Blume!".
+    why: Der Spieler soll sofort verstehen, warum gerade nichts gepflückt werden kann.
+
+  - id: s-alpine-foreland-tunnel-010
+    title: Ablegen des Körbchens am Eingangsstand unter Erhalt des gesammelten Inhalts
+    given:
+      - Lara trägt das Körbchen mit bereits eingesammelten Blumen und Kristallen in der Hand.
+    when: Der Spieler legt das Körbchen über die Aktion "🧺 Körbchen ablegen [B]" wieder ab.
+    then:
+      - Lara trägt das Körbchen nicht mehr in der linken Hand und ihr linker Arm kehrt in die normale Haltung zurück.
+      - Das Körbchen steht wieder sichtbar auf dem Holzstand am Eingang des Alpenvorlands bei (X = -233,5, Z = -92,0), wobei alle bisher gesammelten Blumen und Kristalle weiterhin im Körbchen sichtbar bleiben.
+    why: Das Körbchen soll jederzeit wieder am Eingang abgestellt und später mitsamt seinem bunten Inhalt erneut aufgenommen werden können.
+
 decisions:
   - id: d-alpine-foreland-tunnel-001
     title: Gemeinsame deterministische Höhenfunktion für Vorland-Terrain, Straße und Physik
@@ -111,6 +159,17 @@ decisions:
     specs: [s-alpine-foreland-tunnel-004, s-alpine-foreland-tunnel-005, s-alpine-foreland-tunnel-006]
     decision: Das Erreichen von Z <= -700 im Tunnel wird über das Event EEP.bus.emit('tunnel-uebergang', { autoId, richtung: 'nord' }) gemeldet; wiederkehrende Objekte in Vorland und Tunnel werden per InstancedMesh und emissiven Materialien dargestellt.
     why: Durch das Bus-Event bleibt das Alpenvorland-Paket unabhängig vom Schneewelt-Paket testbar; InstancedMesh für Bäume, Blumen, Leitpfosten und Tunnelleuchten sowie maximal zwei mitwandernde PointLights halten die Draw-Calls und Lichtberechnungen niedrig.
+
+  - id: d-alpine-foreland-tunnel-005
+    title: Vierphasige Gelenk-Pflückanimation und Körbchen-Zustandsautomat in der Vorland-Domäne
+    status: accepted
+    specs: [s-alpine-foreland-tunnel-007, s-alpine-foreland-tunnel-008, s-alpine-foreland-tunnel-009, s-alpine-foreland-tunnel-010]
+    decision: Die Körbchen- und Pflücklogik wird als reiner Zustandsautomat in EEP.alpenvorland geführt und in der Darstellungsschicht über vier zeitgesteuerte Gelenkphasen (Knien, Zugreifen, Hochführen, Einlegen) sowie sichtbare 3D-Blumen-/Kristall-Objekte im Korb umgesetzt.
+    why: Durch die Trennung zwischen reiner Domänenlogik und 3D-Gelenksteuerung ist der Sammel- und Pflückablauf deterministisch prüfbar, während Laras 15-Mesh-Skelett eine flüssige, natürliche Pflückbewegung mit waagerecht gehaltenem Körbchen ausführt.
+    how:
+      - "Körbchen-Standort am Vorland-Eingang bei (X = -233.5, Z = -92.0) mit 24 gezielt im Umkreis (-238..-224, -112..-93) platzierten Blumen/Kristallen für sofortiges Pflücken nach der Aufnahme."
+      - "Vierphasige Pflückanimation über 1.35 s: Phase 1 (0.00..0.35) Absenken des Beckens um 0.38 m, Beugen beider Knie und Vorneigen des Oberkörpers mit Ausstrecken des rechten Arms zum Boden; Phase 2 (0.35..0.55) Abzupfen bei Fortschritt 0.42 (Skalieren der Wiesen-Instanz auf 0 und Einblenden in Laras rechter Hand); Phase 3 (0.55..0.84) Aufrichten und Führen der rechten Hand über den Korb in der linken Hand; Phase 4 (0.84..1.00) Ablegen als sichtbares 3D-Objekt mit Originalfarbe im Korb-Innenraum."
+      - "Gegenrotation des Körbchens am linken Handgelenk relativ zur Oberkörperneigung, damit der Korb auch während der Hocke waagerecht bleibt."
 
 tests:
   - id: t-alpine-foreland-tunnel-001
@@ -160,6 +219,35 @@ tests:
       - action: Eine Spieler-G-Klasse in Kamera 8 im Tunnel auf (X = -240, Y = 16,0, Z = -705) bewegen.
         expected:
           - Das Übergangs-Signal Richtung Norden wird genau einmal ausgelöst.
+    cleanup:
+      - Temporäres Browser-Profilverzeichnis entfernen.
+    automation:
+      path: test_auto.ps1
+      selector: vorlandtest=1
+
+  - id: t-alpine-foreland-tunnel-003
+    title: Körbchen am Vorland-Eingang aufnehmen, Blumen/Kristalle mit natürlicher Pflückbewegung sammeln und Darstellung im Korb prüfen
+    specs: [s-alpine-foreland-tunnel-007, s-alpine-foreland-tunnel-008, s-alpine-foreland-tunnel-009, s-alpine-foreland-tunnel-010]
+    suites: [smoke, regression]
+    areas: [alpine-foreland-tunnel]
+    risk: medium
+    requires: [local-http-server, headless-edge-webgl]
+    preconditions:
+      - Die Anwendung ist geladen und das Alpenvorland mit dem Körbchen-Stand bei (X = -233,5, Z = -92,0) ist aufgebaut.
+      - Lara steht vor dem Körbchen-Stand ohne aufgenommenes Körbchen.
+    steps:
+      - action: Einen Pflückversuch auslösen, bevor Lara das Körbchen aufgenommen hat.
+        expected:
+          - Der Versuch wird abgelehnt, es startet keine Pflückbewegung und der Hinweis zur vorherigen Körbchen-Aufnahme wird bereitgestellt.
+      - action: Das Körbchen am Eingangsstand aufnehmen und eine Blume bzw. einen Kristall in Reichweite pflücken, während die Pflückbewegung über die Phasen Knien, Zugreifen, Hochführen und Einlegen durchlaufen wird.
+        expected:
+          - Lara trägt das Körbchen in der linken Hand und der Holzstand am Eingang ist leer.
+          - Während der Bewegung durchläuft Lara die Phasen Absenken/Hocke, Zugreifen am Boden (Blume verschwindet von der Wiese und erscheint in der rechten Hand) sowie Hochführen und Ablegen in das Körbchen.
+          - Nach Abschluss der Bewegung ist die gepflückte Blume bzw. der Kristall mit seiner Originalfarbe als sichtbares Objekt im Körbchen enthalten und der Sammelzähler steht auf 1.
+      - action: Eine zweite Blume pflücken und anschließend das Körbchen wieder ablegen.
+        expected:
+          - Der Sammelzähler steigt auf 2 und zwei sichtbare Objekte befinden sich im Körbchen.
+          - Nach dem Ablegen steht das Körbchen samt den 2 gesammelten Objekten wieder auf dem Stand am Eingang.
     cleanup:
       - Temporäres Browser-Profilverzeichnis entfernen.
     automation:

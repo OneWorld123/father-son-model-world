@@ -1,12 +1,12 @@
 /* ============================================================================
- * js/welt/alpenvorland.js – Paket K: Alpenvorland & Tauern-Tunnel (Reine Logik)
+ * js/welt/alpenvorland.js – Paket K: Alpenvorland, Tauern-Tunnel & Blumenkörbchen
  * WICHTIG: Frei von Rendering-Engines und DOM-Zugriffen (reines JavaScript).
  * ============================================================================ */
 (function () {
   var g = typeof globalThis !== 'undefined' ? globalThis : this;
   var EEP = g.EEP = g.EEP || {};
   EEP.version = EEP.version || {};
-  EEP.version.alpenvorland = '1.0.0';
+  EEP.version.alpenvorland = '1.1.0';
 
   var KONTROLL_PUNKTE = [
     [-242, -53],
@@ -232,8 +232,29 @@
 
   var blumen = [];
   var farbListe = ['#ef4444', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#ffffff'];
+  var eingangsBlumen = [
+    [-232.0, -92.8], [-231.0, -91.6], [-229.6, -93.5], [-232.2, -95.2],
+    [-229.8, -96.8], [-227.4, -94.8], [-231.4, -98.8], [-228.4, -99.8],
+    [-225.6, -97.8], [-230.6, -102.5], [-227.4, -103.2], [-224.2, -101.2],
+    [-229.2, -106.0], [-226.0, -105.6], [-222.8, -104.0], [-228.4, -109.2],
+    [-224.8, -108.8], [-221.2, -107.2], [-226.6, -112.2], [-223.2, -111.8],
+    [-219.8, -110.0], [-225.2, -114.8], [-221.4, -114.2], [-218.2, -112.8]
+  ];
+  for (var eb = 0; eb < eingangsBlumen.length; eb++) {
+    var ex = eingangsBlumen[eb][0], ez = eingangsBlumen[eb][1];
+    blumen.push({
+      id: 'blume-' + blumen.length,
+      index: blumen.length,
+      x: ex,
+      z: ez,
+      y: hoehe(ex, ez),
+      farbe: farbListe[eb % farbListe.length],
+      scale: 0.95 + (eb % 4) * 0.12,
+      gepflueckt: false
+    });
+  }
   var versucheBlume = 0;
-  while (blumen.length < 680 && versucheBlume < 4000) {
+  while (blumen.length < 704 && versucheBlume < 4000) {
     versucheBlume++;
     var fx = -390 + prng() * (390 - 130);
     var fz = -455 + prng() * (455 - 90);
@@ -246,12 +267,239 @@
     }
     if (seeTreffer) continue;
     blumen.push({
+      id: 'blume-' + blumen.length,
+      index: blumen.length,
       x: fx,
       z: fz,
       y: hoehe(fx, fz),
       farbe: farbListe[Math.floor(prng() * farbListe.length)],
-      scale: 0.7 + prng() * 0.6
+      scale: 0.7 + prng() * 0.6,
+      gepflueckt: false
     });
+  }
+
+  var korbStandort = {
+    x: -233.5,
+    y: hoehe(-233.5, -92.0),
+    z: -92.0
+  };
+
+  var korbZustand = {
+    aufgenommen: false,
+    gesammelt: [],
+    pfluecktGerade: false,
+    pflueckFortschritt: 0,
+    pflueckDauer: 1.35,
+    pflueckPhase: 'bereit',
+    aktuelleBlume: null,
+    inRechterHand: false,
+    zielYaw: 0,
+    hinweisText: '🧺 Blumenkörbchen steht am Vorland-Eingang bereit [B].',
+    naheAmStand: false,
+    naechsteBlumeDist: Infinity,
+    naechsteBlumeIndex: -1
+  };
+
+  function glattSchritt(a, b, x) {
+    var t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+
+  function nehmeKorbAuf() {
+    korbZustand.aufgenommen = true;
+    korbZustand.hinweisText = '🧺 Körbchen aufgenommen! Geh zu einer bunten Blume/Kristall und drücke [E].';
+    if (EEP.bus && typeof EEP.bus.emit === 'function') {
+      EEP.bus.emit('vorland-korb', { aktion: 'aufgenommen', anzahl: korbZustand.gesammelt.length });
+    }
+    return { erfolg: true, aufgenommen: true, anzahl: korbZustand.gesammelt.length };
+  }
+
+  function legeKorbAb() {
+    if (korbZustand.pfluecktGerade) {
+      korbZustand.pfluecktGerade = false;
+      korbZustand.pflueckFortschritt = 0;
+      korbZustand.pflueckPhase = 'bereit';
+      korbZustand.inRechterHand = false;
+      korbZustand.aktuelleBlume = null;
+    }
+    korbZustand.aufgenommen = false;
+    korbZustand.hinweisText = '🧺 Körbchen am Vorland-Eingang abgestellt (' + korbZustand.gesammelt.length + ' im Korb).';
+    if (EEP.bus && typeof EEP.bus.emit === 'function') {
+      EEP.bus.emit('vorland-korb', { aktion: 'abgelegt', anzahl: korbZustand.gesammelt.length });
+    }
+    return { erfolg: true, aufgenommen: false, anzahl: korbZustand.gesammelt.length };
+  }
+
+  function schalteKorb() {
+    return korbZustand.aufgenommen ? legeKorbAb() : nehmeKorbAuf();
+  }
+
+  function findeNaechsteBlume(x, z, maxRadius) {
+    var limit = typeof maxRadius === 'number' ? maxRadius : 4.5;
+    var bestDist = Infinity, bestIdx = -1;
+    for (var i = 0; i < blumen.length; i++) {
+      var b = blumen[i];
+      if (b.gepflueckt) continue;
+      var dx = b.x - x, dz = b.z - z;
+      var d = Math.sqrt(dx * dx + dz * dz);
+      if (d <= limit && d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx === -1) return null;
+    return { blume: blumen[bestIdx], index: bestIdx, dist: bestDist };
+  }
+
+  function startePfluecken(laraPos, blumenIndexOptional) {
+    if (!korbZustand.aufgenommen) {
+      korbZustand.hinweisText = 'Bitte zuerst das Körbchen am Eingang aufnehmen [B]!';
+      return { erfolg: false, grund: 'kein-korb', hinweis: korbZustand.hinweisText };
+    }
+    if (korbZustand.pfluecktGerade) {
+      return { erfolg: false, grund: 'bereits-aktiv', hinweis: korbZustand.hinweisText };
+    }
+    var lx = laraPos && typeof laraPos.x === 'number' ? laraPos.x : korbStandort.x;
+    var lz = laraPos && typeof laraPos.z === 'number' ? laraPos.z : korbStandort.z;
+    var zielBlume = null;
+    if (typeof blumenIndexOptional === 'number' && blumen[blumenIndexOptional] && !blumen[blumenIndexOptional].gepflueckt) {
+      var bOpt = blumen[blumenIndexOptional];
+      var dOpt = Math.sqrt((bOpt.x - lx) * (bOpt.x - lx) + (bOpt.z - lz) * (bOpt.z - lz));
+      if (dOpt <= 6.5) zielBlume = bOpt;
+    }
+    if (!zielBlume) {
+      var treffer = findeNaechsteBlume(lx, lz, 4.5);
+      if (treffer) zielBlume = treffer.blume;
+    }
+    if (!zielBlume) {
+      korbZustand.hinweisText = 'Keine Blume in Reichweite – geh näher zu einer bunten Blume!';
+      return { erfolg: false, grund: 'keine-blume', hinweis: korbZustand.hinweisText };
+    }
+    var dx = zielBlume.x - lx, dz = zielBlume.z - lz;
+    korbZustand.pfluecktGerade = true;
+    korbZustand.pflueckFortschritt = 0;
+    korbZustand.pflueckPhase = 'knien';
+    korbZustand.aktuelleBlume = zielBlume;
+    korbZustand.inRechterHand = false;
+    korbZustand.zielYaw = (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) ? Math.atan2(-dx, -dz) : 0;
+    korbZustand.hinweisText = '🌸 Lara pflückt eine bunte Blume / einen Kristall...';
+    if (EEP.bus && typeof EEP.bus.emit === 'function') {
+      EEP.bus.emit('vorland-pfluecken-start', { index: zielBlume.index, farbe: zielBlume.farbe });
+    }
+    return { erfolg: true, blume: zielBlume };
+  }
+
+  function berechnePflueckPose() {
+    var p = korbZustand.pfluecktGerade ? korbZustand.pflueckFortschritt : 0;
+    var hocke = 0;
+    if (korbZustand.pfluecktGerade) {
+      if (p < 0.35) hocke = glattSchritt(0.0, 0.35, p);
+      else if (p < 0.52) hocke = 1.0;
+      else if (p < 0.84) hocke = 1.0 - glattSchritt(0.52, 0.84, p);
+      else hocke = 0;
+    }
+    var greifW = korbZustand.pfluecktGerade ? (p < 0.42 ? glattSchritt(0.0, 0.38, p) : (p < 0.55 ? 1.0 : 1.0 - glattSchritt(0.55, 0.82, p))) : 0;
+    var korbLegW = korbZustand.pfluecktGerade ? (p >= 0.50 && p < 0.86 ? Math.sin(glattSchritt(0.50, 0.86, p) * Math.PI) : 0) : 0;
+    var zupfPuls = (korbZustand.pfluecktGerade && p >= 0.34 && p <= 0.54) ? Math.sin(((p - 0.34) / 0.20) * Math.PI * 2) : 0;
+    var rumpfNeigungX = -0.52 * hocke;
+    return {
+      aktiv: korbZustand.pfluecktGerade,
+      hatKorb: korbZustand.aufgenommen,
+      phase: korbZustand.pflueckPhase,
+      fortschritt: p,
+      hocke: hocke,
+      beckenY: 0.94 - 0.38 * hocke,
+      rumpfNeigungX: rumpfNeigungX,
+      rumpfDrehungY: -0.18 * greifW + 0.22 * korbLegW,
+      kopfNeigungX: -0.28 * hocke - 0.22 * korbLegW,
+      kopfDrehungY: -0.12 * greifW + 0.26 * korbLegW,
+      huefteX_L: 0.95 * hocke,
+      knieX_L: -1.42 * hocke,
+      knochelX_L: 0.45 * hocke,
+      huefteX_R: 0.38 * hocke,
+      knieX_R: -1.55 * hocke,
+      knochelX_R: 0.58 * hocke,
+      armLinksSchulterX: korbZustand.aufgenommen ? (0.36 + 0.42 * hocke) : 0,
+      armLinksSchulterZ: korbZustand.aufgenommen ? -0.20 : 0,
+      armLinksEllbogenX: korbZustand.aufgenommen ? (0.82 - 0.15 * hocke) : 0,
+      korbAusgleichX: -rumpfNeigungX * 0.85,
+      armRechtsSchulterX: 1.08 * greifW + 0.62 * korbLegW,
+      armRechtsSchulterZ: -0.14 * greifW - 0.52 * korbLegW,
+      armRechtsEllbogenX: 0.32 * greifW + 0.96 * korbLegW + 0.18 * zupfPuls,
+      armRechtsHandX: 0.30 * zupfPuls - 0.35 * korbLegW
+    };
+  }
+
+  function aktualisierePfluecken(dt, laraPos) {
+    if (laraPos && typeof laraPos.x === 'number' && typeof laraPos.z === 'number') {
+      var dStand = Math.sqrt((laraPos.x - korbStandort.x) * (laraPos.x - korbStandort.x) + (laraPos.z - korbStandort.z) * (laraPos.z - korbStandort.z));
+      korbZustand.naheAmStand = (dStand <= 4.2);
+      var nb = findeNaechsteBlume(laraPos.x, laraPos.z, 4.5);
+      korbZustand.naechsteBlumeDist = nb ? nb.dist : Infinity;
+      korbZustand.naechsteBlumeIndex = nb ? nb.index : -1;
+    }
+    if (korbZustand.pfluecktGerade) {
+      var step = (typeof dt === 'number' && dt > 0) ? dt : 0.016;
+      korbZustand.pflueckFortschritt = Math.min(1.0, korbZustand.pflueckFortschritt + step / korbZustand.pflueckDauer);
+      var p = korbZustand.pflueckFortschritt;
+      var bl = korbZustand.aktuelleBlume;
+
+      if (p < 0.35) korbZustand.pflueckPhase = 'knien';
+      else if (p < 0.55) korbZustand.pflueckPhase = 'greifen';
+      else if (p < 0.84) korbZustand.pflueckPhase = 'heben';
+      else korbZustand.pflueckPhase = 'einlegen';
+
+      if (p >= 0.42 && bl && !bl.gepflueckt) {
+        bl.gepflueckt = true;
+        korbZustand.inRechterHand = true;
+        if (EEP.bus && typeof EEP.bus.emit === 'function') {
+          EEP.bus.emit('vorland-blume-gepflueckt', { index: bl.index, farbe: bl.farbe, scale: bl.scale });
+        }
+      }
+      if (p >= 0.84 && korbZustand.inRechterHand && bl) {
+        korbZustand.inRechterHand = false;
+        korbZustand.gesammelt.push({
+          index: bl.index,
+          id: bl.id,
+          farbe: bl.farbe,
+          scale: bl.scale,
+          x: bl.x,
+          y: bl.y,
+          z: bl.z
+        });
+        korbZustand.hinweisText = '🌸 ' + korbZustand.gesammelt.length + ' Blume(n) / Kristall(e) im Körbchen!';
+        if (EEP.bus && typeof EEP.bus.emit === 'function') {
+          EEP.bus.emit('vorland-blume-im-korb', {
+            index: bl.index,
+            farbe: bl.farbe,
+            scale: bl.scale,
+            gesamt: korbZustand.gesammelt.length
+          });
+        }
+      }
+      if (p >= 1.0) {
+        korbZustand.pfluecktGerade = false;
+        korbZustand.pflueckFortschritt = 0;
+        korbZustand.pflueckPhase = 'bereit';
+        korbZustand.aktuelleBlume = null;
+        korbZustand.inRechterHand = false;
+      }
+    }
+    return berechnePflueckPose();
+  }
+
+  function resetKorb() {
+    for (var i = 0; i < blumen.length; i++) {
+      blumen[i].gepflueckt = false;
+    }
+    korbZustand.aufgenommen = false;
+    korbZustand.gesammelt = [];
+    korbZustand.pfluecktGerade = false;
+    korbZustand.pflueckFortschritt = 0;
+    korbZustand.pflueckPhase = 'bereit';
+    korbZustand.aktuelleBlume = null;
+    korbZustand.inRechterHand = false;
+    korbZustand.hinweisText = '🧺 Blumenkörbchen steht am Vorland-Eingang bereit [B].';
   }
 
   var hochalpenGipfel = [
@@ -484,6 +732,16 @@
     huetten: huetten,
     baeume: baeume,
     blumen: blumen,
+    korbStandort: korbStandort,
+    korbZustand: korbZustand,
+    nehmeKorbAuf: nehmeKorbAuf,
+    legeKorbAb: legeKorbAb,
+    schalteKorb: schalteKorb,
+    findeNaechsteBlume: findeNaechsteBlume,
+    startePfluecken: startePfluecken,
+    aktualisierePfluecken: aktualisierePfluecken,
+    berechnePflueckPose: berechnePflueckPose,
+    resetKorb: resetKorb,
     hochalpenGipfel: hochalpenGipfel,
     tunnel: tunnel,
     zustand: zustand,
